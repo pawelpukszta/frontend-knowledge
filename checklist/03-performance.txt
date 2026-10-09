@@ -1,0 +1,1066 @@
+@cl-category performance
+name: Wydajność
+desc: Core Web Vitals, rozmiar i liczba zasobów, cache, ładowanie na żądanie, sieć i serwer, skrypty zewnętrzne.
+sources: web.dev: Learn Performance | https://web.dev/learn/performance ; web.dev: Web Vitals | https://web.dev/articles/vitals ; Chrome: Lighthouse | https://developer.chrome.com/docs/lighthouse/overview
+
+@cl-group Core Web Vitals i metryki
+sources: web.dev: Web Vitals | https://web.dev/articles/vitals
+
+[largest-contentful-paint] critical
+T: LCP poniżej 2,5 s
+D: Największy element treści widoczny w viewporcie (zwykle zdjęcie hero lub nagłówek) renderuje się w ciągu 2,5 s na 75. percentylu wizyt. Najczęstsze przyczyny słabego LCP: wolny TTFB, późno odkryty lub lazy-loadowany obraz, blokujący CSS/JS.
+W: LCP to moment, w którym użytkownik widzi, że strona ma to, czego szukał (np. zdjęcie hotelu i cenę); im później, tym większa szansa, że wróci do wyników wyszukiwania.
+W: LCP jest jednym z trzech Core Web Vitals, które Google uwzględnia w sygnałach page experience; ocena liczy się na danych z prawdziwych wizyt (CrUX), nie z Lighthouse.
+W: Wg raportu Deloitte "Milliseconds Make Millions" przyspieszenie strony mobilnej o 0,1 s zwiększyło konwersję w branży turystycznej o ok. 10%.
+V: PageSpeed Insights (dane field z CrUX) oraz panel Performance w DevTools, który rozbija LCP na fazy: TTFB, opóźnienie i czas ładowania zasobu, opóźnienie renderowania. W produkcji zbieraj LCP z atrybucją przez bibliotekę `web-vitals`.
+```js RUM: LCP z atrybucją (web-vitals v5)
+import { onLCP } from 'web-vitals/attribution';
+
+onLCP(({ name, value, rating, attribution }) => {
+  const payload = {
+    name,                       // "LCP"
+    value: Math.round(value),   // ms
+    rating,                     // "good" | "needs-improvement" | "poor"
+    element: attribution.target,           // CSS selector of the LCP element
+    ttfb: attribution.timeToFirstByte,
+    loadDelay: attribution.resourceLoadDelay,  // high value = image discovered late
+    loadDuration: attribution.resourceLoadDuration,
+    renderDelay: attribution.elementRenderDelay,
+    page: location.pathname,
+  };
+  navigator.sendBeacon('/api/vitals', JSON.stringify(payload));
+});
+```
+X: Optymalizowanie wyniku Lighthouse z szybkiego laptopa zamiast danych field z telefonów użytkowników.
+X: Obraz LCP ustawiony jako `background-image` w CSS albo wstawiany przez JS: przeglądarka odkrywa go dopiero po pobraniu stylów lub skryptu.
+S: web.dev: Optimize LCP | https://web.dev/articles/optimize-lcp
+
+[cumulative-layout-shift] high
+T: CLS poniżej 0,1
+D: Strona nie "skacze" podczas ładowania ani używania: obrazy i wideo mają wymiary, reklamy, banery i embedy mają zarezerwowane miejsce, a fonty nie zmieniają układu. Próg: 0,1 na 75. percentylu.
+W: Przesunięcie układu w chwili kliknięcia powoduje przypadkowe akcje, np. tapnięcie w baner zamiast w "Zarezerwuj", co frustruje i podważa zaufanie do serwisu.
+W: Czytający traci miejsce w tekście, gdy treść nagle zjeżdża w dół; najbardziej odczuwają to użytkownicy telefonów i czytników ekranu z powiększeniem.
+W: Yahoo! JAPAN News po obniżeniu CLS o 0,2 odnotowało ok. 15% więcej odsłon na sesję (case study na web.dev).
+V: PageSpeed Insights (field), ścieżka Layout shifts w DevTools Performance oraz insight o przyczynach przesunięć (layout shift culprits) w Lighthouse; w RUM `onCLS` z `web-vitals/attribution` podaje `largestShiftTarget`.
+```html Źle
+<img src="/img/hotel-santorini.avif" alt="Hotel na Santorini">
+<div id="promo-banner"></div> <!-- banner injected later pushes content down -->
+```
+```css Dobrze
+/* HTML: <img src="..." alt="..." width="1200" height="800"> */
+img, video { max-width: 100%; height: auto; } /* keeps the aspect ratio from width/height */
+.promo-banner { min-height: 96px; }         /* reserve space before the banner loads */
+.ad-slot--mpu { width: 300px; aspect-ratio: 300 / 250; }
+.map-embed { aspect-ratio: 16 / 9; }
+```
+X: Wstawianie banerów cookies, promocji lub "pobierz aplikację" nad treścią zamiast jako nakładki lub w zarezerwowanym miejscu.
+X: Animowanie `top`, `height` lub `margin` zamiast `transform`.
+S: web.dev: Optimize CLS | https://web.dev/articles/optimize-cls
+
+[first-contentful-paint] high
+T: FCP poniżej 1,8 s
+D: Pierwszy tekst lub obraz pojawia się w ciągu 1,8 s, co daje użytkownikowi sygnał, że strona działa. FCP zależy głównie od TTFB i zasobów blokujących renderowanie (CSS, synchroniczne skrypty, fonty).
+W: Biały ekran jest dla użytkownika nieodróżnialny od awarii; po kilku sekundach bez reakcji wielu wciska Wstecz, zanim cokolwiek zobaczy.
+W: FCP to dolna granica LCP: dopóki nic się nie wyrenderowało, największy element też nie może się pojawić.
+W: Na wolnej sieci komórkowej każdy blokujący plik w `<head>` to dodatkowy round-trip, często kilkaset milisekund.
+V: Lighthouse, PageSpeed Insights (field i lab), filmstrip w WebPageTest lub panelu Performance: pierwsza klatka z treścią.
+```html Kolejność w head przyspieszająca FCP
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Last minute Grecja | Example</title>
+  <!-- Small critical CSS inline: header, hero, search form -->
+  <style>header{height:64px}.hero{aspect-ratio:16/9;background:#e8eef5}</style>
+  <link rel="preload" href="/fonts/inter-latin-ext.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/main.4f9a1c.css">
+  <!-- Scripts never block parsing -->
+  <script src="/js/app.8d21e0.js" type="module"></script>
+</head>
+```
+X: Strona renderowana wyłącznie po stronie klienta: do czasu pobrania i wykonania bundla użytkownik widzi pusty `<div id="root">`.
+S: web.dev: First Contentful Paint | https://web.dev/articles/fcp
+
+[interaction-to-next-paint] high
+T: INP poniżej 200 ms
+D: Strona reaguje na kliknięcia, dotyk i klawiaturę bez opóźnień: od interakcji do następnej klatki mija maksymalnie 200 ms na 75. percentylu. Wysoki INP to niemal zawsze długie zadania JS na wątku głównym lub zbyt drogie renderowanie po interakcji.
+W: INP zastąpił FID jako Core Web Vital w marcu 2024 i mierzy wszystkie interakcje w trakcie wizyty, a nie tylko pierwszą, więc ujawnia problemy w filtrach, formularzach i koszykach.
+W: Brak natychmiastowej reakcji powoduje wielokrotne klikanie, np. podwójne dodanie do koszyka lub podwójne wysłanie rezerwacji.
+W: Telefony ze średniej i niskiej półki mają kilkukrotnie słabsze CPU niż laptop dewelopera; zadanie trwające 50 ms lokalnie może u nich trwać 300 ms.
+V: Dane field (CrUX w PageSpeed Insights, RUM z `onINP` z `web-vitals/attribution`: `interactionTarget`, `inputDelay`, `processingDuration`, `presentationDelay`); lokalnie nagranie interakcji w DevTools Performance z throttlingiem CPU 4x lub 6x.
+```js Oddanie wątku głównego w długim handlerze
+// Yield to the main thread so the browser can paint feedback first
+function yieldToMain() {
+  if (globalThis.scheduler?.yield) return scheduler.yield();
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+filterForm.addEventListener('change', async (event) => {
+  showSpinner();                 // cheap visual feedback, painted right away
+  await yieldToMain();
+  const offers = applyFilters(allOffers, new FormData(filterForm)); // heavy work
+  await yieldToMain();
+  renderOfferList(offers);
+  sendAnalytics('filter_change'); // non-critical, could also go to requestIdleCallback
+});
+```
+X: Synchroniczne wysyłanie analityki, walidacja całego formularza i ponowne renderowanie całej listy w jednym handlerze.
+X: Testowanie INP tylko w Lighthouse: lab nie wykonuje interakcji, pokazuje co najwyżej TBT jako przybliżenie.
+S: web.dev: Optimize INP | https://web.dev/articles/optimize-inp
+
+[page-load-time] high
+T: Czas ładowania poniżej 3 s
+D: Strona jest używalna (główna treść widoczna, kluczowe elementy działają) w mniej niż 3 s na typowym telefonie i sieci komórkowej. Mierz na reprezentatywnym urządzeniu i sieci, a nie na laptopie dewelopera z szybkim Wi-Fi.
+W: Wg danych Google z 2016 r. ponad połowa (53%) wizyt mobilnych jest porzucana, gdy strona ładuje się dłużej niż 3 s; szczegóły się zmieniają, ale zależność "wolniej, więcej porzuceń" jest stała.
+W: Użytkownik szukający oferty porównuje kilka serwisów równolegle; wolniejsza karta przegrywa, zanim pokaże cenę.
+W: "Czas ładowania" jest pojęciem mglistym; rozbij go na mierzalne metryki (TTFB, FCP, LCP) i ustal dla nich budżety.
+V: WebPageTest z kilku lokalizacji na profilu mobilnym, Lighthouse z throttlingiem, RUM (Navigation Timing i Core Web Vitals) z podziałem na urządzenia i typ połączenia.
+```js RUM: kluczowe momenty ładowania z Navigation Timing
+addEventListener('load', () => {
+  // Wait one task so loadEventEnd is filled in
+  setTimeout(() => {
+    const [nav] = performance.getEntriesByType('navigation');
+    navigator.sendBeacon('/api/rum', JSON.stringify({
+      page: location.pathname,
+      ttfb: Math.round(nav.responseStart),
+      domContentLoaded: Math.round(nav.domContentLoadedEventEnd),
+      load: Math.round(nav.loadEventEnd),
+      connection: navigator.connection?.effectiveType ?? 'unknown', // Chromium only
+    }));
+  }, 0);
+});
+```
+X: Raportowanie średniej zamiast percentyli (p75, p95): średnia ukrywa najwolniejszych użytkowników.
+
+[ttfb] medium
+T: Krótki czas do pierwszego bajtu (TTFB)
+D: Dobry TTFB to do 0,8 s na 75. percentylu. Pomagają CDN, cache na serwerze i brzegu sieci, SSG/ISR, szybsze zapytania do bazy, streaming i unikanie przekierowań.
+W: TTFB poprzedza wszystko inne: żaden zasób ani piksel nie pojawi się wcześniej, więc wolny backend zjada budżet LCP, zanim frontend ma szansę zadziałać.
+W: Każde przekierowanie (np. `http` na `https`, potem na `www`, potem na wersję językową) to osobny round-trip, na sieci mobilnej często 100-300 ms.
+W: Strony generowane dla każdego zapytania od zera (bez cache) przy kampanii lub wyprzedaży last minute obciążają bazę i TTFB rośnie właśnie wtedy, gdy ruch jest najcenniejszy.
+V: Zakładka Timing żądania dokumentu w Network ("Waiting for server response"), PageSpeed Insights (field), nagłówek `Server-Timing` widoczny w DevTools.
+```http Odpowiedź z cache na CDN i pomiarem czasu serwera
+HTTP/2 200
+content-type: text/html; charset=utf-8
+cache-control: public, max-age=0, s-maxage=300, stale-while-revalidate=3600
+server-timing: db;dur=38;desc="offers query", render;dur=22, cdn-cache;desc=HIT
+age: 41
+```
+X: Mierzenie TTFB tylko z serwera w tym samym regionie co aplikacja; użytkownik z Polski łączący się z backendem w USA ma zupełnie inny wynik.
+S: web.dev: Optimize TTFB | https://web.dev/articles/optimize-ttfb
+
+[browser-required] medium
+T: Audyty w prawdziwej przeglądarce
+D: Metryki takie jak LCP, CLS i INP wymagają wykonania JS i renderowania, więc narzędzia analizujące sam HTML ich nie zmierzą. Testuj w prawdziwej przeglądarce z throttlingiem CPU i sieci, zaczynając od widoku mobilnego.
+W: Aplikacje React, Next.js czy Vue dociągają treść i układ w JS; statyczna analiza HTML nie zobaczy obrazu LCP, przesunięć układu ani długich zadań.
+W: Większość ruchu w e-commerce i turystyce pochodzi z telefonów, a Google ocenia strony głównie na podstawie wersji mobilnej (mobile-first indexing).
+W: Laptop dewelopera bez throttlingu ukrywa problemy, które użytkownik z tańszym telefonem odczuwa jako kilkusekundowe opóźnienia.
+V: Lighthouse (domyślnie emuluje telefon z throttlingiem), PageSpeed Insights, panel Performance w DevTools z ustawieniem CPU 4x/6x i sieci "Slow 4G".
+```bash Lighthouse z CLI: mobilny profil, kilka przebiegów
+# Default config emulates a mid-tier phone with simulated throttling
+npx lighthouse https://example.pl/wakacje/grecja \
+  --only-categories=performance \
+  --output=html --output-path=./reports/grecja-mobile.html
+
+# Desktop run for comparison
+npx lighthouse https://example.pl/wakacje/grecja \
+  --preset=desktop --only-categories=performance \
+  --output=json --output-path=./reports/grecja-desktop.json
+```
+X: Jeden przebieg Lighthouse traktowany jako wyrocznia; wyniki lab wahają się, uruchamiaj kilka razy i patrz na medianę.
+
+[webpagetest] high
+T: Analiza w WebPageTest
+D: Waterfall, filmstrip i testy z realnych lokalizacji, przeglądarek i profili sieci pokazują wąskie gardła ładowania niewidoczne lokalnie. Porównuj wersje przed i po zmianie.
+W: Waterfall pokazuje dokładnie, który zasób czeka na który; widać łańcuchy, późno odkryte obrazy i blokujące skrypty firm trzecich.
+W: Filmstrip i wideo z ładowania przemawiają do biznesu lepiej niż liczby: widać, ile sekund klient patrzy na pusty ekran.
+W: Test z lokalizacji bliskiej użytkownikom (np. Frankfurt dla Polski) uwzględnia realne opóźnienia sieci i działanie CDN.
+V: Test z lokalizacji bliskiej użytkownikom (np. Europa) na profilu mobilnym (4G), co najmniej 3 przebiegi, z analizą first view i repeat view.
+```bash Test przez API WebPageTest
+# Location ids: see https://www.webpagetest.org/getLocations.php
+curl -s "https://www.webpagetest.org/runtest.php?url=https://example.pl/wakacje/grecja\
+&location=ec2-eu-central-1:Chrome.4G&runs=3&fvonly=0&mobile=1&f=json" \
+  -H "X-WPT-API-KEY: $WPT_API_KEY" | jq -r '.data.userUrl'
+```
+X: Analiza tylko pierwszej wizyty: repeat view pokazuje, czy cache przeglądarki w ogóle działa.
+S: WebPageTest | https://www.webpagetest.org/
+
+@cl-group Waga strony i zasoby
+sources: web.dev: Performance budgets 101 | https://web.dev/articles/performance-budgets-101
+
+[page-weight] high
+T: Waga strony poniżej 1500 KB
+D: Łączny transfer przy pierwszym wejściu (HTML, CSS, JS, obrazy, fonty) maksymalnie 1500 KB, cel poniżej 500 KB dla kluczowych stron. Ustal budżet i pilnuj go automatycznie.
+W: Każdy kilobajt kosztuje czas na wolnych sieciach; na 4G z dużym opóźnieniem lub w zasięgu jednej kreski różnica 1 MB to kilka sekund.
+W: Użytkownik płaci za transfer: na roamingu poza UE (np. Egipt, Turcja, Tunezja) 1 MB potrafi kosztować kilka złotych, a to typowa sytuacja klienta biura podróży sprawdzającego rezerwację na miejscu.
+W: Bez budżetu waga rośnie niezauważalnie z każdą funkcją; mediana wagi strony mobilnej w HTTP Archive przekracza już 2 MB.
+V: Network z wyłączonym cache, posortowany po rozmiarze (kolumna Transferred), Lighthouse (łączny rozmiar sieci), budżet sprawdzany w CI.
+```ts Test budżetu wagi w Playwright
+import { test, expect } from '@playwright/test';
+
+test('offer page stays under the 1500 KB budget', async ({ page }) => {
+  await page.goto('/wakacje/grecja/hotel-santorini-view', { waitUntil: 'networkidle' });
+  const bytes = await page.evaluate(() =>
+    performance.getEntriesByType('resource')
+      .concat(performance.getEntriesByType('navigation'))
+      .reduce((sum, e) => sum + (e as PerformanceResourceTiming).transferSize, 0),
+  );
+  console.log(`Transferred: ${Math.round(bytes / 1024)} KB`);
+  expect(bytes).toBeLessThan(1500 * 1024);
+});
+```
+X: Budżet liczony tylko dla JS, a pominięcie obrazów i fontów, które zwykle stanowią większość wagi.
+X: `transferSize` równe 0 dla zasobów z innych domen bez nagłówka `Timing-Allow-Origin`; budżet trzeba wtedy liczyć np. w Lighthouse lub WebPageTest.
+
+[http-requests] high
+T: Mało zapytań HTTP
+D: Na starcie orientacyjnie poniżej 50 zapytań. Usuń zbędne skrypty i style, łącz drobne ikony w sprite SVG, nie ładuj zasobów dla niewidocznych elementów. HTTP/2 i HTTP/3 łagodzą, ale nie usuwają kosztu wielu zapytań.
+W: Każde zapytanie to nagłówki, priorytetyzacja, praca na wątku głównym i potencjalnie nowe połączenie do innej domeny (DNS, TCP, TLS).
+W: Duża liczba zapytań zwykle oznacza dużo skryptów firm trzecich, a te dokładają kolejne zapytania kaskadowo (tag ładuje tag).
+W: Przeglądarka ma ograniczoną przepustowość na starcie; drobne zapytania konkurują z obrazem LCP i krytycznym CSS.
+V: Licznik zapytań na dole zakładki Network (z wyłączonym cache) oraz grupowanie po domenie w WebPageTest.
+```html Sprite SVG zamiast osobnych plików ikon
+<!-- One inline sprite instead of 20 separate icon requests -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="icon-pool" viewBox="0 0 24 24"><path d="M2 18c2 0 2-1 4-1s2 1 4 1 2-1 4-1 2 1 4 1 2-1 4-1"/></symbol>
+  <symbol id="icon-wifi" viewBox="0 0 24 24"><path d="M2 9a15 15 0 0 1 20 0M5 13a10 10 0 0 1 14 0M9 17a4 4 0 0 1 6 0"/></symbol>
+</svg>
+
+<ul class="amenities">
+  <li><svg class="icon" aria-hidden="true"><use href="#icon-pool"></use></svg> Basen</li>
+  <li><svg class="icon" aria-hidden="true"><use href="#icon-wifi"></use></svg> Wi-Fi</li>
+</ul>
+```
+X: Sklejanie wszystkiego w jeden ogromny bundle "żeby było mniej zapytań": przy HTTP/2 lepiej działa kilka sensownie podzielonych plików, które cache'ują się niezależnie.
+
+[compression] high
+T: Kompresja zasobów tekstowych
+D: HTML, CSS, JS, JSON, SVG i fonty inne niż WOFF2 są wysyłane skompresowane: Brotli (lub zstd) z gzip jako zapasem. Kompresja zmniejsza transfer tekstu zwykle o 70-80%.
+W: Bundle 600 KB po kompresji to ok. 150 KB; różnica ma bezpośredni wpływ na FCP, LCP i koszt transferu u użytkownika.
+W: Brotli daje zwykle kilkanaście procent mniejsze pliki niż gzip; zasoby statyczne warto kompresować z najwyższym poziomem już przy buildzie, a dynamiczny HTML niższym, szybszym poziomem.
+W: Nie kompresuj ponownie formatów już skompresowanych (JPEG, AVIF, WebP, WOFF2, MP4): to strata CPU bez zysku.
+V: Kolumna lub nagłówek `Content-Encoding` w Network (włącz "Big request rows", by widzieć rozmiar przed i po kompresji); `curl` z nagłówkiem `Accept-Encoding`.
+```bash Sprawdzenie kompresji z linii poleceń
+# Expect "content-encoding: br" (or zstd/gzip) and "vary: Accept-Encoding"
+curl -sI -H 'Accept-Encoding: br, gzip' https://example.pl/assets/app.3f2a9c.js \
+  | grep -iE 'content-encoding|content-length|vary'
+
+# Compare raw vs compressed size of a build artifact
+ls -lh dist/assets/app.3f2a9c.js
+brotli -q 11 -c dist/assets/app.3f2a9c.js | wc -c
+```
+X: Kompresja włączona tylko dla HTML, a API zwracające duże JSON-y z listą ofert idą bez kompresji.
+S: web.dev: Reduce the size of text resources | https://web.dev/articles/reduce-network-payloads-using-text-compression
+
+[video-optimization] high
+T: Zoptymalizowane wideo
+D: Wideo jest skompresowane, w nowoczesnych kodekach (AV1, VP9, z H.264 jako zapasem), w rozdzielczości dopasowanej do ekranu, z plakatem i `preload="none"` lub `metadata` dla wideo, które nie startuje od razu.
+W: Kilkunastosekundowy film w tle hero potrafi ważyć więcej niż cała reszta strony; na telefonie z limitem danych to realny koszt dla użytkownika.
+W: AV1 przy tej samej jakości jest zwykle wyraźnie mniejszy niż H.264, a przeglądarki bez wsparcia po prostu wybiorą kolejne `<source>`.
+W: Plakat z wymiarami zapobiega przesunięciom układu i daje treść do wyświetlenia, zanim wideo się załaduje (a plakat może być elementem LCP).
+V: Rozmiar plików wideo w Network (filtr Media), sprawdzenie, czy wideo poniżej zgięcia nie pobiera się przy starcie strony.
+```html
+<video controls preload="none" width="1280" height="720"
+       poster="/video/hotel-tour-poster.avif">
+  <source src="/video/hotel-tour-720p.av1.mp4" type='video/mp4; codecs="av01.0.05M.08"'>
+  <source src="/video/hotel-tour-720p.vp9.webm" type="video/webm; codecs=vp9">
+  <source src="/video/hotel-tour-720p.h264.mp4" type="video/mp4">
+  <track kind="captions" src="/video/hotel-tour.pl.vtt" srclang="pl" label="Polski">
+</video>
+```
+```bash Kodowanie AV1 i H.264 z ffmpeg
+ffmpeg -i tour.mov -vf scale=-2:720 -c:v libsvtav1 -crf 35 -preset 6 -an hotel-tour-720p.av1.mp4
+ffmpeg -i tour.mov -vf scale=-2:720 -c:v libx264 -crf 24 -preset slow -an -movflags +faststart hotel-tour-720p.h264.mp4
+```
+X: Wysyłanie pliku 4K do wszystkich urządzeń, także telefonów o szerokości 390 px.
+X: Dłuższe filmy hostowane jako jeden plik MP4 zamiast streamingu adaptacyjnego (HLS/DASH) lub zewnętrznej platformy wideo.
+
+[css-file-size] medium
+T: Mały rozmiar CSS
+D: CSS blokuje renderowanie, więc każdy kilobajt opóźnia FCP. Cel: do ok. 50 KB po kompresji dla stylów potrzebnych na starcie; minifikacja, usuwanie nieużywanych reguł, podział na trasy i media.
+W: Przeglądarka nie wyrenderuje niczego, dopóki nie pobierze i nie przetworzy całego CSS z `<head>`, nawet reguł dla stron, których użytkownik nie odwiedzi.
+W: Duże arkusze to też dłuższe przeliczanie stylów przy każdej zmianie DOM, co pogarsza INP na słabszych telefonach.
+W: Typowy dług: style starych kampanii, nieużywanych komponentów i całe frameworki CSS dołączone dla kilku klas.
+V: Zakładka Coverage w DevTools (procent nieużywanych bajtów CSS na danej stronie), rozmiar plików CSS po kompresji w Network.
+```html Podział CSS według mediów i tras
+<!-- Critical styles for this route only -->
+<link rel="stylesheet" href="/css/base.2c1f.css">
+<link rel="stylesheet" href="/css/offer-page.9ab4.css">
+
+<!-- Non-matching media: downloaded with low priority, does not block rendering -->
+<link rel="stylesheet" href="/css/print.71d0.css" media="print">
+<link rel="stylesheet" href="/css/desktop-gallery.e3a9.css" media="(min-width: 64em)">
+```
+X: Import całej biblioteki komponentów (np. pełnego Bootstrapa) dla siatki i kilku przycisków.
+
+[js-file-size] medium
+T: Mały rozmiar bundli JS
+D: Pojedynczy bundle orientacyjnie poniżej 200 KB po kompresji, a JS potrzebny na starcie jak najmniejszy. JS trzeba pobrać, sparsować, skompilować i wykonać, co bezpośrednio pogarsza LCP, TBT i INP.
+W: 200 KB JS kosztuje dużo więcej niż 200 KB obrazu: obraz tylko się dekoduje, a skrypt blokuje wątek główny parsowaniem i wykonaniem.
+W: Na tanim telefonie wykonanie tego samego bundla może trwać kilka razy dłużej niż na laptopie, a w tym czasie strona nie reaguje na kliknięcia.
+W: Mniejsze, podzielone bundle lepiej się cache'ują: zmiana w jednym module nie unieważnia całej aplikacji.
+V: Bundle analyzer (np. `vite-bundle-visualizer`, `@next/bundle-analyzer`), Coverage w DevTools, Lighthouse (nieużywany JavaScript), budżet `size-limit` w CI.
+```js Źle
+import _ from 'lodash';            // whole library
+import { format } from 'date-fns';
+import { jsPDF } from 'jspdf';     // ~300 KB, used only on "Download voucher"
+```
+```js Dobrze
+import debounce from 'lodash-es/debounce';
+import { format } from 'date-fns';
+
+voucherButton.addEventListener('click', async () => {
+  const { jsPDF } = await import('jspdf'); // separate chunk, loaded on demand
+  new jsPDF().text('Voucher: Hotel Santorini View', 10, 10).save('voucher.pdf');
+});
+```
+X: Ładowanie bibliotek do wykresów, edytorów czy PDF w głównym bundlu, choć używa ich mały odsetek użytkowników.
+
+[dom-size] medium
+T: Mały i płytki DOM
+D: Duży DOM (Lighthouse ostrzega od ok. 800 elementów, błąd od ok. 1400) i głębokie zagnieżdżenie spowalniają przeliczanie stylów, layout i interakcje. Pomagają wirtualizacja, paginacja, renderowanie na żądanie i `content-visibility`.
+W: Każda zmiana klasy czy treści może wymusić przeliczenie stylów dla tysięcy węzłów; na słabszym telefonie to dziesiątki lub setki milisekund i gorszy INP.
+W: Duży DOM to też więcej pamięci; na urządzeniach z małą ilością RAM przeglądarka częściej odrzuca karty w tle.
+W: Częste źródła: mega menu z setkami linków renderowane na każdej stronie, ukryte zakładki i modale trzymane w DOM, wrappery `div` w komponentach.
+V: Insight o rozmiarze DOM w Lighthouse 13 i panelu Performance, `document.querySelectorAll('*').length` w konsoli, czas "Recalculate style" w profilu.
+```css Pomijanie renderowania sekcji poza ekranem
+/* Browser skips layout and paint until the section approaches the viewport */
+.offer-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px; /* placeholder height, remembered after first render */
+}
+```
+X: Ukrywanie dużych fragmentów przez `display: none` zamiast niewyrenderowania ich wcale do czasu potrzeby.
+X: `content-visibility: auto` bez `contain-intrinsic-size`: pasek przewijania skacze, a CLS rośnie.
+
+[duplicate-js] medium
+T: Bez zduplikowanych bibliotek JS
+D: Dwie wersje tej samej biblioteki (np. lodash 4.17 i lodash-es, dwie wersje React Query lub date-fns) w bundlu to marnowane kilobajty. Deduplikuj zależności i ujednolicaj wersje.
+W: Duplikaty powstają po cichu przez zależności przechodnie; jeden pakiet może dorzucić kilkadziesiąt KB, których nikt świadomie nie dodał.
+W: Dwie kopie bibliotek ze stanem (React, React Query, biblioteki kontekstu) to nie tylko waga, ale też subtelne błędy: dwa konteksty, dwa cache.
+W: Każda zduplikowana kopia jest osobno parsowana i wykonywana, więc koszt pojawia się także w TBT i INP.
+V: Bundle analyzer (te same nazwy pakietów w kilku miejscach), insight o zduplikowanym JavaScript w Lighthouse, `npm ls <pakiet>` lub `pnpm why <pakiet>`.
+```bash Wykrycie i usunięcie duplikatów
+npm ls date-fns          # shows every version in the dependency tree
+npm dedupe               # hoists compatible versions into one copy
+pnpm why @tanstack/react-query
+```
+```json package.json: wymuszenie jednej wersji
+{
+  "overrides": {
+    "date-fns": "^4.1.0"
+  },
+  "pnpm": {
+    "overrides": { "date-fns": "^4.1.0" }
+  }
+}
+```
+X: Używanie jednocześnie `moment`, `dayjs` i `date-fns` w różnych częściach aplikacji.
+
+[legacy-js] medium
+T: Bez starego JS dla nowych przeglądarek
+D: Transpilacja do ES5 i polyfille dla funkcji wspieranych od lat zwiększają bundle i spowalniają wykonanie. Ustaw nowoczesny target (Browserslist, Baseline) i ewentualnie osobny bundle dla starych przeglądarek.
+W: Polyfille i transpilowane klasy, `async`/`await` czy spread potrafią dodać kilkadziesiąt KB, które nowoczesne przeglądarki pobierają, ale nigdy nie używają.
+W: Natywna składnia jest zwykle szybsza w wykonaniu niż jej transpilowany odpowiednik.
+W: Baseline "widely available" to wspólny, rozumiany przez narzędzia cel; Vite 7 używa go domyślnie jako `build.target`.
+V: Insight o starszym JavaScript w Lighthouse, wyszukanie w bundlu typowych polyfilli (np. `regeneratorRuntime`, `core-js`), `npx browserslist` do podglądu docelowych przeglądarek.
+```json package.json
+{
+  "browserslist": [
+    "baseline widely available"
+  ]
+}
+```
+```ts vite.config.ts
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  build: {
+    target: 'baseline-widely-available', // default since Vite 7; avoid 'es2015'
+  },
+});
+```
+X: Pozostawiony z dawnych lat `@babel/preset-env` z `useBuiltIns: 'entry'` i całym `core-js` dołączanym do każdego bundla.
+
+[animated-content] medium
+T: Wideo zamiast animowanych GIF-ów
+D: GIF jest wielokrotnie większy od odpowiadającego mu MP4 lub WebM. Zamiast GIF-a użyj `<video autoplay muted loop playsinline>` albo animowanego AVIF/WebP.
+W: Kilkusekundowy GIF może ważyć kilka MB, a ten sam klip w MP4 lub WebM zwykle kilkanaście razy mniej.
+W: GIF ma tylko 256 kolorów, więc przy większym rozmiarze wygląda gorzej niż wideo.
+W: Element `<video>` daje kontrolę: można zatrzymać animację dla osób z `prefers-reduced-motion` i nie ładować jej poza ekranem.
+V: Insight dotyczący dostarczania obrazów w Lighthouse (animowana treść jako wideo), filtr Img w Network i rozmiar plików `.gif`.
+```html Dobrze
+<video autoplay muted loop playsinline width="480" height="270"
+       poster="/media/booking-demo-poster.webp" aria-label="Jak zarezerwować pokój w 3 krokach">
+  <source src="/media/booking-demo.webm" type="video/webm">
+  <source src="/media/booking-demo.mp4" type="video/mp4">
+</video>
+```
+```bash Konwersja GIF na MP4 i WebM
+ffmpeg -i booking-demo.gif -movflags +faststart -pix_fmt yuv420p \
+  -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" booking-demo.mp4
+ffmpeg -i booking-demo.gif -c:v libvpx-vp9 -b:v 0 -crf 41 booking-demo.webm
+```
+X: Brak `muted` i `playsinline`: przeglądarki mobilne nie uruchomią wtedy autoodtwarzania.
+S: web.dev: Replace animated GIFs with video | https://web.dev/articles/replace-gifs-with-videos
+
+[js-libraries] medium
+T: Bezpieczne, aktualne biblioteki JS
+D: Przestarzałe biblioteki (np. stare jQuery, nieutrzymywane pluginy) mają znane podatności i często zbędną wagę. Aktualizuj je regularnie lub zastępuj natywnymi API przeglądarki.
+W: Znane podatności (np. XSS w starszych wersjach jQuery) są publicznie opisane i łatwe do wykorzystania przez automatyczne skanery.
+W: Wiele dawnych zastosowań jQuery, Moment.js czy bibliotek AJAX pokrywają dziś natywne `querySelectorAll`, `fetch`, `Intl.DateTimeFormat`, co pozwala zejść o dziesiątki KB.
+W: Odkładanie aktualizacji sprawia, że skok o kilka wersji głównych staje się dużym, ryzykownym projektem zamiast rutyny.
+V: `npm audit`, Retire.js, Dependabot lub Renovate w repozytorium; przegląd bundla pod kątem bibliotek, które da się zastąpić natywnym API.
+```bash Audyt zależności
+npm audit --omit=dev      # known vulnerabilities in production dependencies
+npx retire --path dist    # scans built JS for vulnerable library versions
+npm outdated              # versions behind latest
+```
+```js Natywne API zamiast jQuery
+// Before: $('.offer-card').addClass('is-visible'); $.getJSON('/api/offers', render);
+document.querySelectorAll('.offer-card').forEach((el) => el.classList.add('is-visible'));
+const offers = await fetch('/api/offers').then((r) => r.json());
+const price = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(2499);
+```
+X: Ładowanie jQuery z CDN tylko dla jednego pluginu karuzeli.
+
+@cl-group Cache i sieć
+sources: MDN: HTTP caching | https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching
+
+[browser-caching] high
+T: Cache przeglądarki
+D: Statyczne zasoby z hashem w nazwie: `Cache-Control: public, max-age=31536000, immutable`; HTML krótko lub z walidacją (`no-cache` + `ETag`), żeby użytkownik zawsze dostał aktualną wersję strony.
+W: Powracający użytkownik (a w turystyce wraca się wiele razy przed decyzją) pobiera tylko HTML i zmienione pliki, więc strona ładuje się wyraźnie szybciej.
+W: Hash w nazwie pliku (`app.3f2a9c.js`) pozwala bezpiecznie cache'ować na rok: nowa wersja ma nową nazwę, więc nie ma ryzyka starego kodu.
+W: Długi cache HTML bez walidacji to ryzyko, że użytkownik zobaczy nieaktualne ceny lub HTML odwołujący się do usuniętych plików JS.
+V: Nagłówki odpowiedzi w Network, drugie wejście na stronę (kolumna Size: "disk cache" / "memory cache"), insight o czasie życia cache w Lighthouse.
+```http Zasób statyczny z hashem
+HTTP/2 200
+content-type: text/javascript
+cache-control: public, max-age=31536000, immutable
+```
+```http Dokument HTML
+HTTP/2 200
+content-type: text/html; charset=utf-8
+cache-control: no-cache
+etag: "offer-8812-v42"
+```
+X: `max-age=31536000` na plikach bez hasha (np. `/js/app.js`): użytkownicy utkną na starej wersji.
+X: `no-store` na wszystkim "na wszelki wypadek", co wyłącza cache i dodatkowo utrudnia korzystanie z bfcache.
+
+[cdn] high
+T: Zasoby z CDN
+D: Serwery bliżej użytkownika skracają opóźnienia i odciążają serwer aplikacji. Dotyczy statycznych plików i obrazów, a coraz częściej też HTML cache'owanego na brzegu z krótkim czasem życia.
+W: Round-trip z Polski do serwera w USA to ok. 100 ms lub więcej; przy kilku połączeniach i handshake'u TLS daje to setki milisekund straty przed pierwszym bajtem.
+W: CDN przejmuje szczyty ruchu (np. start sprzedaży first minute, mailing), więc serwer aplikacji nie pada przy największym zainteresowaniu.
+W: Nowoczesne CDN dają przy okazji HTTP/3, kompresję Brotli, optymalizację obrazów i ochronę przed DDoS.
+V: Nagłówki CDN (np. `x-cache`, `cf-cache-status`, `age`), test z różnych lokalizacji (WebPageTest), współczynnik trafień cache w panelu CDN.
+```http HTML cache'owany na CDN, krótko w przeglądarce
+HTTP/2 200
+content-type: text/html; charset=utf-8
+cache-control: public, max-age=0, must-revalidate
+cdn-cache-control: max-age=300, stale-while-revalidate=3600
+cf-cache-status: HIT
+age: 87
+```
+X: Cache'owanie na CDN stron spersonalizowanych (koszyk, zalogowany użytkownik) bez odpowiedniego `Vary` lub `private`: jeden klient zobaczy dane drugiego.
+
+[http2] high
+T: HTTP/2 lub HTTP/3
+D: Serwer i CDN obsługują HTTP/2, a najlepiej także HTTP/3. HTTP/2 multipleksuje wiele zapytań w jednym połączeniu i kompresuje nagłówki; HTTP/3 (QUIC) dodatkowo szybciej nawiązuje połączenie i lepiej znosi utratę pakietów na niestabilnych sieciach.
+W: HTTP/1.1 pozwala na ok. 6 równoległych połączeń do domeny, więc przy kilkudziesięciu zasobach tworzy się kolejka.
+W: HTTP/3 pomaga szczególnie w sieciach komórkowych i przy zmianie sieci (Wi-Fi hotelowe na LTE), bo połączenie QUIC może przetrwać zmianę adresu IP.
+W: Stare optymalizacje pod HTTP/1.1 (domain sharding) przy HTTP/2 szkodzą, bo wymuszają dodatkowe połączenia.
+V: Kolumna Protocol w Network (`h2`, `h3`), insight o nowoczesnym HTTP w Lighthouse, nagłówek `alt-svc` z ogłoszeniem `h3`.
+```bash Sprawdzenie protokołu
+curl -sI https://example.pl | grep -i alt-svc   # expect: alt-svc: h3=":443"; ma=86400
+curl -sI --http3-only https://example.pl | head -1  # requires curl built with HTTP/3
+```
+```js W konsoli przeglądarki
+performance.getEntriesByType('resource')
+  .map((r) => `${r.nextHopProtocol}  ${r.name}`)
+  .forEach((line) => console.log(line)); // h2 / h3 per resource
+```
+X: HTTP/2 włączone na głównej domenie, ale zasoby z własnej, starej domeny statycznej serwowane przez HTTP/1.1.
+
+[back-forward-cache] high
+T: Strony gotowe na bfcache
+D: Powrót przyciskiem Wstecz może być natychmiastowy, jeśli strona trafi do back/forward cache. Blokują to m.in. listenery `unload`, `Cache-Control: no-store` na dokumencie, otwarte połączenia (WebSocket, IndexedDB) i `window.opener`.
+W: Wg danych Chrome ok. 1 na 10 nawigacji na desktopie i 1 na 5 na mobile to Wstecz lub Dalej; typowy scenariusz to lista ofert, karta hotelu, powrót do listy.
+W: Przywrócenie z bfcache jest natychmiastowe i zachowuje stan strony (przewinięcie, filtry, wpisany tekst), bez ponownego pobierania i wykonywania JS.
+W: Listener `unload` na desktopowym Chrome całkowicie wyklucza stronę z bfcache, a często dodaje go skrypt firmy trzeciej.
+V: DevTools → Application → Back/forward cache → Test (pokazuje powody blokady); w produkcji `PerformanceNavigationTiming.notRestoredReasons` i odsetek przywróceń zbierany w RUM.
+```js Źle
+window.addEventListener('unload', () => {
+  sendAnalytics({ event: 'page_exit' }); // makes the page ineligible on desktop Chrome
+});
+```
+```js Dobrze
+addEventListener('pagehide', () => {
+  navigator.sendBeacon('/api/analytics', JSON.stringify({ event: 'page_exit' }));
+});
+
+addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    // Restored from bfcache: refresh data that may be stale
+    refreshCartBadge();
+    refreshAvailability();
+  }
+});
+```
+X: Pozostawianie otwartego WebSocketu lub połączenia z IndexedDB przy opuszczaniu strony zamiast zamknięcia go w `pagehide`.
+X: `no-store` na stronach bez danych wrażliwych; dla zwykłych treści wystarczy `no-cache`.
+S: web.dev: Back/forward cache | https://web.dev/articles/bfcache
+
+[service-worker] medium
+T: Service Worker do cache i offline
+D: Service Worker przechwytuje zapytania i serwuje zasoby z cache (cache first dla statycznych plików, stale-while-revalidate dla danych mniej krytycznych), przyspieszając kolejne wizyty i umożliwiając działanie offline.
+W: Powracający użytkownik dostaje powłokę aplikacji i zasoby statyczne z dysku, bez czekania na sieć, nawet przy słabym zasięgu.
+W: Strategie cache per typ zasobu dają kontrolę, której nie zapewnią same nagłówki HTTP, np. limit liczby obrazów w cache czy fallback przy błędzie.
+W: Źle skonfigurowany SW potrafi serwować starą wersję aplikacji tygodniami, więc wersjonowanie i strategia aktualizacji są tak samo ważne jak samo cache'owanie.
+V: DevTools → Application → Service Workers i Cache Storage; tryb Offline w Network; kolumna Size pokazuje "(ServiceWorker)" dla zasobów z cache.
+```js sw.js (Workbox)
+import { precacheAndRoute } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+import { CacheFirst, StaleWhileRevalidate, NetworkFirst } from 'workbox-strategies';
+import { ExpirationPlugin } from 'workbox-expiration';
+
+precacheAndRoute(self.__WB_MANIFEST); // hashed build assets injected at build time
+
+registerRoute(({ request }) => request.destination === 'image',
+  new CacheFirst({ cacheName: 'images',
+    plugins: [new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 30 * 24 * 3600 })] }));
+
+registerRoute(({ url }) => url.pathname.startsWith('/api/destinations'),
+  new StaleWhileRevalidate({ cacheName: 'destinations' }));
+
+registerRoute(({ request }) => request.mode === 'navigate',
+  new NetworkFirst({ cacheName: 'pages', networkTimeoutSeconds: 3 }));
+```
+X: Cache first dla HTML lub cen i dostępności: użytkownik widzi nieaktualną ofertę.
+X: Brak nagłówka `Cache-Control: no-cache` dla samego pliku `sw.js`, co opóźnia wdrażanie poprawek.
+
+[offline-fallback] low
+T: Strona zastępcza offline
+D: Zamiast błędu przeglądarki użytkownik bez sieci widzi własną stronę z informacją, co się stało, przyciskiem ponowienia i np. zapisanymi wcześniej danymi rezerwacji.
+W: Utrata zasięgu w podróży (lotnisko, pociąg, roaming) jest typowa; własna strona utrzymuje użytkownika w serwisie zamiast zostawiać go z komunikatem przeglądarki.
+W: Strona offline może pokazać to, co najważniejsze w danej chwili: numer rezerwacji, adres hotelu, telefon do rezydenta, zapisane wcześniej w cache.
+W: To mały koszt wdrożenia przy już istniejącym Service Workerze: jedna strona w precache i jeden fallback dla nawigacji.
+V: Tryb Offline w Network w DevTools i nawigacja do strony, której nie ma w cache; sprawdzenie w Application → Cache Storage, czy `/offline.html` jest zapisana.
+```js sw.js: fallback dla nawigacji
+const CACHE = 'offline-v3';
+const OFFLINE_URL = '/offline.html';
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.add(OFFLINE_URL)));
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode !== 'navigate') return;
+  event.respondWith(
+    fetch(event.request).catch(async () => {
+      const cache = await caches.open(CACHE);
+      return cache.match(OFFLINE_URL);
+    }),
+  );
+});
+```
+X: Strona offline odwołująca się do CSS, fontów lub obrazów, których nie ma w cache: wyświetli się bez stylów.
+
+[streaming-html] medium
+T: Strumieniowanie HTML
+D: Wysyłanie HTML w kawałkach (chunked transfer, streaming SSR z Suspense w React i Next.js) pozwala przeglądarce zacząć parsowanie, pobieranie CSS i obrazów, zanim serwer skończy pobierać wszystkie dane.
+W: Szybki fragment strony (nagłówek, galeria, cena) nie czeka na wolne API (opinie, rekomendacje), więc FCP i często LCP są wcześniejsze.
+W: Przeglądarka odkrywa CSS, fonty i obraz hero już z pierwszego kawałka HTML, zamiast czekać na całą odpowiedź.
+W: Wolne zapytanie z jednej usługi przestaje blokować całą stronę; użytkownik widzi szkielet sekcji, a treść dopływa w tym samym połączeniu.
+V: Waterfall dokumentu w Network (szybki TTFB, dłuższe "Content Download"), podgląd odpowiedzi w filmstrip WebPageTest, wyłączony JS: treść z Suspense i tak dopływa jako HTML.
+```tsx app/hotele/[slug]/page.tsx (Next.js App Router)
+import { Suspense } from 'react';
+
+export default async function HotelPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const hotel = await getHotel(slug); // fast, critical: rendered in the first chunk
+
+  return (
+    <main>
+      <HotelHero hotel={hotel} />
+      <PriceBox hotelId={hotel.id} />
+      {/* Slow service streams in later without blocking the page */}
+      <Suspense fallback={<ReviewsSkeleton />}>
+        <Reviews hotelId={hotel.id} />
+      </Suspense>
+    </main>
+  );
+}
+```
+X: Pobieranie wszystkich danych w jednym `Promise.all` na górze strony, co znosi korzyść ze streamingu.
+X: Bufor po drodze (proxy, kompresja z dużym buforem, niektóre konfiguracje CDN), który zbiera całą odpowiedź przed wysłaniem.
+
+[js-redirects] medium
+T: Bez przekierowań zasobów JS
+D: Skrypty, które zwracają 3xx, dodają cały round-trip (czasem także nowe połączenie) przed pobraniem i wykonaniem. Linkuj od razu do docelowego adresu.
+W: Każde przekierowanie to dodatkowe 100-300 ms na sieci mobilnej, a dla skryptu w `<head>` opóźnienie przenosi się na FCP i LCP.
+W: Przekierowania często biorą się z adresów bez wersji (`/latest/`) lub z `http://`; adres z wersją jest też bezpieczniejszy i lepiej się cache'uje.
+W: Przekierowanie na inną domenę wymaga nowego DNS, TCP i TLS, co niweczy efekt `preconnect` do pierwotnej domeny.
+V: Filtr JS w Network i kolumna Status (301, 302, 307, 308); w Lighthouse przekierowania dokumentu trafiają do insightu o opóźnieniu dokumentu.
+```html Źle
+<!-- 302 to /widget/v3.4.1/widget.min.js, then the real download -->
+<script src="http://cdn.example-widget.com/widget/latest/widget.js" defer></script>
+```
+```html Dobrze
+<script src="https://cdn.example-widget.com/widget/v3.4.1/widget.min.js" defer
+        integrity="sha384-..." crossorigin="anonymous"></script>
+```
+X: Skrócone linki lub adresy trackingowe w `src` skryptów.
+
+@cl-group Ładowanie i priorytety
+sources: web.dev: Optimize resource loading | https://web.dev/learn/performance/optimize-resource-loading
+
+[critical-request-chains] high
+T: Krótkie łańcuchy krytycznych zapytań
+D: HTML → CSS → `@import` → font to łańcuch, w którym każdy krok czeka na poprzedni. Spłaszcz go: deklaruj zasoby bezpośrednio w HTML, używaj preload dla późno odkrywanych plików, inline krytycznego CSS, bez `@import`.
+W: Każde ogniwo łańcucha to co najmniej jeden round-trip; łańcuch o długości 4 na sieci mobilnej może dodać sekundę do FCP.
+W: Przeglądarka nie wie o zasobie, dopóki nie pobierze pliku, który go wskazuje; preload scanner widzi tylko to, co jest w HTML.
+W: Typowe łańcuchy: CSS z `@import` fontów Google, skrypt ładujący inny skrypt, obraz hero wskazany w CSS lub ustawiany przez JS.
+V: Insight o drzewie zależności sieciowych w Lighthouse i panelu Performance, waterfall w Network (kolumna Initiator).
+```css Źle
+/* main.css: font CSS is discovered only after main.css downloads */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+@import url('./components.css');
+```
+```html Dobrze
+<!-- All critical files declared in HTML, fonts self-hosted and preloaded -->
+<link rel="preload" href="/fonts/inter-latin-ext-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/main.4c2e.css">
+<link rel="stylesheet" href="/css/components.91fa.css">
+```
+X: Dodanie preload dla wszystkiego "na zapas", co zamiast skrócić łańcuch zabiera łącze obrazowi LCP.
+
+[render-blocking] medium
+T: Bez zasobów blokujących renderowanie
+D: Skrypty bez `defer`/`async` i duże arkusze CSS w `<head>` opóźniają FCP. Krytyczne CSS inline lub w małym pliku, reszta asynchronicznie, skrypty z `defer` lub `type="module"`.
+W: Synchroniczny `<script>` w `<head>` zatrzymuje parser HTML do czasu pobrania i wykonania pliku; jeśli serwer skryptu jest wolny, użytkownik patrzy na biały ekran.
+W: Skrypt firmy trzeciej w `<head>` bez `async` uzależnia działanie całej strony od dostępności cudzego serwera (single point of failure).
+W: `defer` zachowuje kolejność wykonania i uruchamia skrypty po sparsowaniu HTML, więc zwykle jest bezpiecznym zamiennikiem.
+V: Insight o zapytaniach blokujących renderowanie w Lighthouse i DevTools Performance, oznaczenie "Render blocking" w szczegółach zapytania w panelu Performance.
+```html Źle
+<head>
+  <script src="/js/vendor.js"></script>
+  <script src="/js/app.js"></script>
+  <link rel="stylesheet" href="/css/all.css"> <!-- 180 KB, incl. admin and print -->
+</head>
+```
+```html Dobrze
+<head>
+  <style>/* critical above-the-fold CSS, a few KB */</style>
+  <link rel="stylesheet" href="/css/main.4c2e.css">
+  <link rel="stylesheet" href="/css/print.71d0.css" media="print">
+  <script src="/js/app.8d21.js" type="module"></script> <!-- deferred by default -->
+  <script src="https://analytics.example.com/a.js" async></script>
+</head>
+```
+X: Wzorzec `media="print" onload="this.media='all'"` dla głównego CSS bez krytycznych stylów inline: strona najpierw renderuje się bez stylów, potem przeskakuje (FOUC i CLS).
+
+[resource-hints] high
+T: Resource hints
+D: `preload` dla zasobów bieżącej strony odkrywanych późno, `preconnect` do kluczowych domen, `dns-prefetch` jako tańszy wariant dla pozostałych, `prefetch` dla zasobów następnej nawigacji. Nadmiar hintów szkodzi, bo konkurują o łącze.
+W: Dobrze dobrany `preload` obrazu LCP lub fontu potrafi skrócić LCP o kilkaset milisekund, bo zasób startuje razem z HTML zamiast po CSS lub JS.
+W: Hinty są tylko wskazówkami: zbędny `preload` zabiera pasmo krytycznym zasobom, a przeglądarka ostrzega w konsoli o zasobach preloadowanych i nieużytych.
+W: Te same hinty można wysłać nagłówkiem `Link` lub w odpowiedzi 103 Early Hints, zanim serwer wygeneruje HTML.
+V: Head strony i kolejność w waterfall; ostrzeżenia w konsoli ("preloaded but not used within a few seconds"); insight o drzewie zależności sieciowych w Lighthouse.
+```html
+<!-- Current page: late-discovered resources -->
+<link rel="preload" href="/img/hero-santorini-1200.avif" as="image" fetchpriority="high"
+      imagesrcset="/img/hero-santorini-800.avif 800w, /img/hero-santorini-1200.avif 1200w"
+      imagesizes="100vw">
+<!-- Connections needed right away -->
+<link rel="preconnect" href="https://img.example-cdn.pl">
+<link rel="dns-prefetch" href="https://maps.example.com">
+<!-- Likely next navigation: low priority, idle time -->
+<link rel="prefetch" href="/js/checkout.5e1a.js" as="script">
+```
+```http Te same wskazówki jako 103 Early Hints
+HTTP/1.1 103 Early Hints
+link: </css/main.4c2e.css>; rel=preload; as=style
+link: <https://img.example-cdn.pl>; rel=preconnect
+```
+X: Preload fontu bez atrybutu `crossorigin`: font zostanie pobrany dwukrotnie.
+S: web.dev: Preload critical assets | https://web.dev/articles/preload-critical-assets
+
+[preconnect] medium
+T: Preconnect do krytycznych domen zewnętrznych
+D: `<link rel="preconnect">` do 1-3 domen, z których zasoby są potrzebne od razu (CDN obrazów, API, fonty), oszczędza DNS, TCP i TLS. Dla domen mniej pilnych wystarczy `dns-prefetch`.
+W: Nawiązanie bezpiecznego połączenia z nową domeną to zwykle 2-3 round-tripy; na sieci mobilnej łatwo przekroczyć 300 ms, zanim pobierze się pierwszy bajt obrazu.
+W: Każde otwarte połączenie kosztuje CPU (szczególnie TLS) i jest zamykane po kilku sekundach bez użycia, więc preconnect do kilkunastu domen więcej szkodzi niż pomaga.
+W: Dla fontów i zasobów pobieranych w trybie CORS potrzebny jest atrybut `crossorigin`, bo przeglądarka używa wtedy osobnego połączenia.
+V: Insight o drzewie zależności sieciowych w Lighthouse i DevTools (sugestie preconnect oraz ostrzeżenia o nieużytych połączeniach), faza "Initial connection" w waterfall.
+```html
+<!-- Images from CDN needed for the hero: regular connection -->
+<link rel="preconnect" href="https://img.example-cdn.pl">
+<!-- Fonts are fetched in CORS mode: crossorigin is required -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Needed later (map on scroll): DNS only -->
+<link rel="dns-prefetch" href="https://tiles.example-maps.com">
+```
+X: Preconnect do domen analityki i reklam, które i tak powinny ładować się później.
+
+[fetchpriority-attribute] medium
+T: fetchpriority dla krytycznych zasobów
+D: `fetchpriority="high"` na obrazie LCP (lub jego preloadzie), `low` na mniej ważnych zasobach, np. kolejnych slajdach karuzeli, obrazach w zwiniętym menu czy skryptach, które mogą poczekać.
+W: Domyślnie obrazy startują z niskim priorytetem, a przeglądarka podnosi go dopiero po wyliczeniu layoutu; `fetchpriority="high"` pozwala pobrać obraz LCP od razu.
+W: W case study Google Flights dodanie `fetchpriority="high"` do obrazu tła skróciło LCP z 2,6 s do 1,9 s.
+W: Obniżenie priorytetu niewidocznych slajdów zwalnia pasmo dla obrazu, który użytkownik faktycznie widzi.
+V: Kolumna Priority w Network (pokazuje priorytet początkowy i końcowy), insight o wykrywalności żądania LCP w Lighthouse.
+```html
+<!-- LCP image: discovered in HTML, fetched with high priority -->
+<img src="/img/hero-santorini-1200.avif" alt="Widok na kalderę z tarasu hotelu"
+     width="1200" height="675" fetchpriority="high">
+
+<!-- Hidden carousel slides: lower priority, still eager so swipe is smooth -->
+<img src="/img/slide-2.avif" alt="Basen hotelowy" width="1200" height="675" fetchpriority="low">
+<img src="/img/slide-3.avif" alt="Pokój z widokiem na morze" width="1200" height="675" fetchpriority="low">
+```
+X: `fetchpriority="high"` na kilku obrazach naraz: wysoki priorytet dla wszystkiego to brak priorytetów.
+S: web.dev: Fetch Priority API | https://web.dev/articles/fetch-priority
+
+[lazy-loading] high
+T: Lazy loading treści poza ekranem
+D: Obrazy i iframe poniżej zgięcia mają `loading="lazy"`, a ciężkie komponenty ładują się, gdy są potrzebne. Obrazy lazy nadal muszą mieć `width` i `height`.
+W: Na długiej liście ofert użytkownik często ogląda tylko kilka pierwszych kart; bez lazy loadingu pobiera kilkadziesiąt zdjęć, których nigdy nie zobaczy.
+W: Mniej pobieranych zasobów na starcie to więcej pasma dla obrazu LCP i krytycznego CSS.
+W: Osadzone mapy i odtwarzacze wideo w iframe ważą często kilkaset KB JS; `loading="lazy"` odkłada je do czasu przewinięcia.
+V: Network przy przewijaniu: zasoby powinny pojawiać się stopniowo. Lighthouse 13 nie ma już osobnego audytu obrazów poza ekranem, więc sprawdzaj to ręcznie lub testem.
+```html
+<!-- Below the fold: browser loads it shortly before it scrolls into view -->
+<img src="/img/offers/kreta-hersonissos-400.avif" alt="Hotel Aqua Blue, Kreta"
+     width="400" height="300" loading="lazy" decoding="async">
+
+<iframe src="https://www.youtube-nocookie.com/embed/VIDEO_ID" title="Wirtualny spacer po hotelu"
+        width="560" height="315" loading="lazy" allowfullscreen></iframe>
+```
+X: Własna implementacja lazy loadingu w JS z `data-src`, gdy natywny atrybut wystarcza i działa także bez JS.
+S: web.dev: Browser-level image lazy loading | https://web.dev/articles/browser-level-image-lazy-loading
+
+[lazy-above-fold] medium
+T: Bez lazy loadingu treści nad zgięciem
+D: Obraz hero i inne obrazy widoczne od razu nie mają `loading="lazy"`; ładuj je normalnie (eager), a obraz LCP z `fetchpriority="high"`.
+W: `loading="lazy"` sprawia, że przeglądarka czeka z pobraniem na wyliczenie layoutu, więc obraz LCP startuje później i LCP rośnie, często o kilkaset milisekund.
+W: Częsty błąd w komponentach obrazów, które domyślnie ustawiają `lazy` dla wszystkiego, łącznie z pierwszą kartą na liście czy logo.
+W: Sekcje "nad zgięciem" różnią się na telefonie i desktopie; sprawdzaj oba układy.
+V: Insight o wykrywalności żądania LCP w Lighthouse i DevTools (flaguje lazy loading obrazu LCP), atrybuty obrazu LCP w panelu Elements.
+```html Źle
+<img src="/img/hero-santorini-1200.avif" alt="Santorini" width="1200" height="675" loading="lazy">
+```
+```tsx Dobrze (next/image)
+import Image from 'next/image';
+
+// First visible image: eager + high priority; the rest of the list stays lazy
+<Image src="/img/hero-santorini.jpg" alt="Widok na kalderę z tarasu hotelu"
+       width={1200} height={675} sizes="100vw" loading="eager" fetchPriority="high" />
+{offers.map((o, i) => (
+  <Image key={o.id} src={o.image} alt={o.name} width={400} height={300} loading={i < 2 ? 'eager' : 'lazy'} />
+))}
+```
+X: Lazy loading pierwszych kart na liście wyników, które na desktopie są widoczne bez przewijania.
+X: Używanie w Next.js 16 przestarzałego propa `priority`; zastępuje go `preload`, a dokumentacja w większości przypadków zaleca `loading="eager"` lub `fetchPriority="high"`.
+
+[import-on-interaction] high
+T: Kod niekrytyczny ładowany po interakcji
+D: Czat, mapa, edytor, odtwarzacz czy kalendarz z cenami ładują się dopiero po kliknięciu lub najechaniu na lekką fasadę (facade pattern), zamiast obciążać start strony.
+W: Widgety czatu i odtwarzacze wideo potrafią ważyć setki KB JS; większość odwiedzających nigdy ich nie otwiera, a wszyscy płacą za ich ładowanie w INP i LCP.
+W: Fasada (przycisk lub miniatura wyglądające jak widget) daje ten sam efekt wizualny przy ułamku kosztu.
+W: Rozpoczęcie pobierania przy `pointerenter` lub `focus` ukrywa większość opóźnienia, zanim użytkownik kliknie.
+V: Network: zasoby widgetu pojawiają się dopiero po akcji; porównanie TBT i wagi JS przed i po zmianie.
+```js Fasada czatu
+const chatButton = document.querySelector('#chat-facade');
+let chatModule;
+const loadChat = () => (chatModule ??= import('./chat-widget.js')); // load once
+
+// Start downloading on intent, open on click
+chatButton.addEventListener('pointerenter', loadChat, { once: true });
+chatButton.addEventListener('focus', loadChat, { once: true });
+chatButton.addEventListener('click', async () => {
+  chatButton.setAttribute('aria-busy', 'true');
+  const { openChat } = await loadChat();
+  openChat({ topic: 'rezerwacja' });
+  chatButton.removeAttribute('aria-busy');
+});
+```
+X: Fasada, która po kliknięciu tylko ładuje widget, ale wymaga drugiego kliknięcia, by go otworzyć.
+S: patterns.dev: Import On Interaction | https://www.patterns.dev/vanilla/import-on-interaction
+
+[import-on-visibility] high
+T: Kod ładowany przy zbliżaniu się do viewportu
+D: Komponenty poniżej zgięcia (mapa, opinie, sekcja podobnych ofert) są pobierane, gdy zbliżają się do ekranu (IntersectionObserver z `rootMargin`, `React.lazy`, `next/dynamic`), zamiast przy starcie.
+W: Kod komponentu, którego użytkownik może nigdy nie zobaczyć, nie konkuruje z krytycznymi zasobami i nie wydłuża hydracji.
+W: Zapas `rootMargin` (np. 300 px) sprawia, że przy normalnym przewijaniu komponent jest gotowy, zanim pojawi się na ekranie.
+W: Placeholder o docelowej wysokości chroni przed CLS, gdy komponent się doładuje.
+V: Network przy przewijaniu: chunk komponentu pojawia się dopiero, gdy sekcja jest blisko viewportu.
+```tsx
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+
+const HotelMap = lazy(() => import('./HotelMap'));
+
+export function LazyHotelMap({ lat, lng }: { lat: number; lng: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setVisible(true); io.disconnect(); }
+    }, { rootMargin: '300px' });
+    if (ref.current) io.observe(ref.current);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} style={{ minHeight: 400 }}>
+      {visible && <Suspense fallback={<MapSkeleton />}><HotelMap lat={lat} lng={lng} /></Suspense>}
+    </div>
+  );
+}
+```
+X: Leniwe ładowanie treści ważnej dla SEO tylko po stronie klienta: roboty mogą jej nie zobaczyć.
+S: patterns.dev: Import On Visibility | https://www.patterns.dev/vanilla/import-on-visibility
+
+[speculation-rules] low
+T: Speculation Rules dla następnych stron
+D: Deklaratywny prefetch lub prerender prawdopodobnych nawigacji (`<script type="speculationrules">`) daje niemal natychmiastowe przejścia. Wyklucz strony z efektami ubocznymi (wylogowanie, koszyk) i uwzględnij koszt serwera.
+W: Prerenderowana strona wyświetla się po kliknięciu praktycznie od razu, a LCP takiej nawigacji jest bliski zeru.
+W: Ustawienie `eagerness: "moderate"` startuje spekulację po krótkim najechaniu kursorem lub przy tapnięciu, więc marnuje mało zasobów.
+W: To progressive enhancement: wspierają to przeglądarki oparte na Chromium, pozostałe po prostu ignorują skrypt.
+V: DevTools → Application → Speculative loads (lista reguł i stan spekulacji); w logach serwera nagłówek `Sec-Purpose: prefetch` lub `prefetch;prerender`.
+```html
+<script type="speculationrules">
+{
+  "prerender": [{
+    "where": {
+      "and": [
+        { "href_matches": "/hotele/*" },
+        { "not": { "selector_matches": ".no-prerender" } }
+      ]
+    },
+    "eagerness": "moderate"
+  }],
+  "prefetch": [{ "where": { "href_matches": "/wakacje/*" }, "eagerness": "conservative" }]
+}
+</script>
+```
+X: Prerender stron, które przy otwarciu zliczają odsłonę, zmieniają stan lub zużywają limity API bez sprawdzenia `document.prerendering`.
+S: Chrome: Prerender pages | https://developer.chrome.com/docs/web-platform/prerender-pages
+
+[font-loading] high
+T: Optymalne ładowanie fontów
+D: Fonty w WOFF2, z subsettingiem (np. tylko latin i latin-ext), z `font-display: swap` lub `optional`, z preloadem najważniejszego kroju i dopasowaniem metryk fontu zastępczego (`size-adjust`, `ascent-override`), żeby uniknąć CLS.
+W: Bez `font-display` przeglądarka może ukrywać tekst do 3 s (FOIT); użytkownik widzi stronę bez nagłówków i cen.
+W: Zamiana fontu zastępczego na docelowy o innych metrykach przesuwa tekst i całe bloki, co liczy się do CLS.
+W: Pełny font ze wszystkimi alfabetami waży kilkaset KB; subset z polskimi znakami to zwykle kilkadziesiąt KB.
+V: Network (filtr Font), ścieżka Layout shifts w Performance, insight o wyświetlaniu fontów w Lighthouse; test z throttlingiem, czy tekst jest widoczny od razu.
+```css
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+  font-weight: 100 900;          /* variable font: one file for all weights */
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0100-017F; /* Latin + Latin Extended-A (Polish letters) */
+}
+
+/* Fallback tuned to Inter metrics to avoid layout shift on swap */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 107%;
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+body { font-family: 'Inter', 'Inter Fallback', system-ui, sans-serif; }
+```
+X: Ładowanie 6 grubości i kursyw "na zapas", gdy w projekcie używane są dwie.
+X: Fonty z Google Fonts przez `@import` w CSS (łańcuch zapytań i dodatkowe domeny) zamiast samodzielnego hostowania lub `next/font`.
+S: web.dev: Optimize web fonts | https://web.dev/learn/performance/optimize-web-fonts
+
+[list-virtualization] high
+T: Wirtualizacja długich list i tabel
+D: Przy setkach lub tysiącach wierszy renderuj tylko widoczne elementy plus mały zapas (TanStack Virtual, react-window). Tysiące elementów w DOM to wolne renderowanie, przewijanie i interakcje.
+W: Lista 2000 ofert po 30 węzłów każda to 60 000 elementów DOM; każde filtrowanie lub sortowanie przelicza style i layout dla całości, co zabija INP.
+W: Wirtualizacja utrzymuje w DOM kilkadziesiąt wierszy niezależnie od długości listy, więc pamięć i czas renderowania są stałe.
+W: Alternatywą bywa paginacja lub "pokaż więcej", często lepsza dla SEO i dostępności; wirtualizacja sprawdza się w tabelach i panelach.
+V: Liczba węzłów DOM na liście wyników (`document.querySelectorAll('*').length`), profil przewijania i filtrowania w Performance z throttlingiem CPU.
+```tsx TanStack Virtual
+import { useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+export function BookingsTable({ rows }: { rows: Booking[] }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 56, // row height in px
+    overscan: 8,
+  });
+
+  return (
+    <div ref={parentRef} style={{ height: 600, overflow: 'auto' }}>
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        {virtualizer.getVirtualItems().map((item) => (
+          <div key={item.key} style={{ position: 'absolute', top: 0, width: '100%', height: item.size,
+                                       transform: `translateY(${item.start}px)` }}>
+            <BookingRow booking={rows[item.index]} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+X: Wirtualizacja bez zadbania o dostępność: brak `aria-rowcount`/`aria-rowindex` w tabelach i niedziałające wyszukiwanie Ctrl+F po treści.
+
+[loading-indicators] high
+T: Wskaźniki ładowania
+D: Skeletony, spinnery i paski postępu przy operacjach asynchronicznych zmniejszają odczuwalny czas oczekiwania i zapobiegają wielokrotnemu klikaniu. Skeleton o docelowym rozmiarze chroni też przed CLS.
+W: Bez sygnału zwrotnego użytkownik nie wie, czy kliknięcie zadziałało, i klika ponownie, co przy płatnościach i rezerwacjach grozi zduplikowanymi zamówieniami.
+W: Skeleton odwzorowujący układ docelowej treści sprawia, że czekanie wydaje się krótsze niż przy pustym ekranie lub samym spinnerze.
+W: Stan ładowania trzeba też ogłosić technologiom asystującym (`aria-busy`, region `aria-live`), inaczej użytkownik czytnika ekranu nie wie, że coś się dzieje.
+V: Przejdź kluczowe ścieżki (wyszukiwanie, filtrowanie, płatność) z throttlingiem sieci (Slow 4G) i sprawdź, czy każda akcja daje natychmiastową reakcję wizualną.
+```tsx Przycisk z blokadą podczas wysyłania (React 19)
+'use client';
+import { useFormStatus } from 'react-dom';
+
+export function BookButton() {
+  const { pending } = useFormStatus(); // status of the parent <form action={...}>
+  return (
+    <button type="submit" disabled={pending} aria-busy={pending}>
+      {pending ? 'Rezerwujemy...' : 'Zarezerwuj za 4 999 zł'}
+    </button>
+  );
+}
+```
+```css Skeleton o docelowym rozmiarze
+.offer-card--skeleton { height: 320px; border-radius: 12px; background: #e9edf2; }
+@media (prefers-reduced-motion: no-preference) {
+  .offer-card--skeleton { animation: pulse 1.5s ease-in-out infinite; }
+}
+@keyframes pulse { 50% { opacity: 0.6; } }
+```
+X: Spinner pokazywany natychmiast przy operacjach trwających 100 ms: miga i daje wrażenie wolniejszego działania; lepiej pokazać go z opóźnieniem ok. 300 ms.
+
+@cl-group Skrypty zewnętrzne i zgody
+sources: web.dev: Efficiently load third-party JavaScript | https://web.dev/articles/efficiently-load-third-party-javascript
+
+[third-party-scripts] high
+T: Zoptymalizowane skrypty zewnętrzne
+D: Analityka, czaty, reklamy i A/B testy są ładowane asynchronicznie, po interakcji lub w czasie bezczynności; regularnie audytuj, czy wszystkie są potrzebne. Rozważ przeniesienie do Web Workera (Partytown) lub na serwer (server-side tagging).
+W: Skrypty firm trzecich to często największa część JS na stronach e-commerce; ich długie zadania na wątku głównym bezpośrednio pogarszają INP.
+W: Nie kontrolujesz ich rozmiaru ani wydajności: aktualizacja po stronie dostawcy może z dnia na dzień spowolnić twoją stronę lub ją zepsuć.
+W: Każdy dodatkowy skrypt to też ryzyko bezpieczeństwa i prywatności (dostęp do DOM, formularzy, cookies) oraz obowiązki wynikające z RODO.
+V: Insight o firmach trzecich w Lighthouse, grupowanie po domenach w panelu Performance (kolumna "1st / 3rd party"), Network z filtrem `-domain:example.pl`; blokowanie domen w DevTools, by zmierzyć zysk.
+```html
+<!-- Analytics: async, does not block parsing -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"></script>
+
+<!-- A/B testing tool loaded later, not in <head> blocking render -->
+<script defer src="https://ab.example-vendor.com/sdk.js"></script>
+
+<!-- Partytown: run a heavy marketing tag in a Web Worker -->
+<script>partytown = { forward: ['dataLayer.push'] };</script>
+<script src="/~partytown/partytown.js"></script>
+<script type="text/partytown" src="https://pixel.example-ads.com/tag.js"></script>
+```
+X: A/B testy ukrywające całą stronę (anti-flicker snippet) do czasu załadowania skryptu, co bezpośrednio opóźnia FCP i LCP.
+X: Partytown dla skryptów intensywnie korzystających z DOM w czasie rzeczywistym (czaty, odtwarzacze): komunikacja z wątkiem głównym bywa wtedy wolniejsza i zawodna; testuj każdy skrypt osobno.
+
+[gtm-present] medium
+T: Wydajna konfiguracja Google Tag Managera
+D: Ogranicz liczbę tagów i triggerów, usuwaj nieużywane, odkładaj niekrytyczne tagi (trigger "Window Loaded" lub własne zdarzenie), przekazuj dane przez `dataLayer` zamiast skrobania DOM i rozważ server-side tagging.
+W: Sam GTM to umiarkowany koszt, ale kontener z kilkudziesięcioma tagami marketingowymi potrafi dodać setki KB JS i długie zadania przy każdym kliknięciu.
+W: Tagi dodawane przez marketing bez przeglądu technicznego omijają code review, więc łatwo o duplikaty, wycieki danych i spowolnienia.
+W: Server-side tagging przenosi część pracy z przeglądarki na serwer i zmniejsza liczbę skryptów firm trzecich na stronie.
+V: Insight o firmach trzecich w Lighthouse, waterfall i długie zadania z `gtm.js` w DevTools Performance, tryb Preview w GTM: które tagi i na jakich triggerach się uruchamiają.
+```tsx app/layout.tsx (Next.js, @next/third-parties)
+import { GoogleTagManager } from '@next/third-parties/google';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="pl">
+      <body>{children}</body>
+      <GoogleTagManager gtmId="GTM-XXXXXXX" /> {/* loaded after hydration */}
+    </html>
+  );
+}
+```
+```tsx Zdarzenie przez dataLayer zamiast skrobania DOM
+import { sendGTMEvent } from '@next/third-parties/google';
+
+<button onClick={() => sendGTMEvent({ event: 'add_to_cart', item_id: 'HTL-8812', value: 4999, currency: 'PLN' })}>
+  Dodaj do koszyka
+</button>
+```
+X: Kilka kontenerów GTM na jednej stronie albo GTM i ręcznie wklejony `gtag.js` wysyłające te same zdarzenia.
+X: Tagi z niestandardowym HTML wstawiające kolejne synchroniczne skrypty.
+
+[consent-mode] high
+T: Google Consent Mode v2
+D: Tagi Google dostosowują zachowanie do zgód użytkownika (`ad_storage`, `analytics_storage`, `ad_user_data`, `ad_personalization`). Domyślny stan zgód ustawiasz przed załadowaniem tagów, a po decyzji w banerze aktualizujesz go. Google wymaga tych sygnałów dla ruchu z EOG, aby korzystać z pomiaru konwersji, personalizacji reklam i remarketingu.
+W: Od marca 2024 Google wymaga sygnałów `ad_user_data` i `ad_personalization` dla użytkowników z EOG; bez nich kampanie tracą remarketing i część danych o konwersjach.
+W: Ustawienie stanu domyślnego na `denied` przed ładowaniem tagów to warunek zgodności z RODO i dyrektywą ePrivacy: żadne cookies reklamowe nie mogą powstać przed zgodą.
+W: Tryb zaawansowany (tagi ładują się, ale wysyłają pingi bez cookies) pozwala modelować konwersje dla osób bez zgody; tryb podstawowy w ogóle nie ładuje tagów do czasu zgody.
+V: Tag Assistant: stan zgód przed i po akceptacji banera; w Network parametr `gcs`/`gcd` w zapytaniach do Google; Application → Cookies: brak `_ga` i cookies reklamowych przed zgodą.
+```html Stan domyślny przed tagami, aktualizacja po decyzji
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { dataLayer.push(arguments); }
+
+  // Must run before GTM / gtag.js loads
+  gtag('consent', 'default', {
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    analytics_storage: 'denied',
+    wait_for_update: 500, // ms to wait for the consent banner (CMP)
+  });
+  dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' }); // part of the standard GTM snippet
+</script>
+<script async src="https://www.googletagmanager.com/gtm.js?id=GTM-XXXXXXX"></script>
+<script>
+  // Called by the consent banner after the user's choice
+  function onConsentSaved({ analytics, marketing }) {
+    gtag('consent', 'update', {
+      analytics_storage: analytics ? 'granted' : 'denied',
+      ad_storage: marketing ? 'granted' : 'denied',
+      ad_user_data: marketing ? 'granted' : 'denied',
+      ad_personalization: marketing ? 'granted' : 'denied',
+    });
+  }
+</script>
+```
+X: Wywołanie `gtag('consent', 'default', ...)` dopiero po załadowaniu GTM: pierwsze tagi zdążą zapisać cookies.
+X: Baner zgód ładowany jako ciężki, blokujący skrypt, który sam staje się elementem LCP lub przyczyną CLS.
+S: Google: Consent mode overview | https://developers.google.com/tag-platform/security/concepts/consent-mode
+
+[source-maps] medium
+T: Source mapy do debugowania produkcji
+D: Mapy źródeł pozwalają czytać stack trace z produkcji w odniesieniu do oryginalnego kodu. Najlepiej generować je jako "hidden" i wgrywać do narzędzia monitoringu (np. Sentry) zamiast publikować, jeśli kod ma pozostać mniej czytelny.
+W: Bez map błąd z produkcji wskazuje na `app.3f2a9c.js:1:48213`, co przy zminifikowanym kodzie praktycznie uniemożliwia szybką diagnozę.
+W: Mapy nie spowalniają użytkowników: przeglądarka pobiera je tylko przy otwartych DevTools, a w trybie "hidden" plik JS w ogóle nie zawiera odnośnika do mapy.
+W: Publiczne mapy ujawniają pełny kod źródłowy z komentarzami, a czasem ścieżki i nazwy wewnętrznych usług; to decyzja, którą warto podjąć świadomie.
+V: Stack trace błędu w narzędziu monitoringu wskazuje oryginalny plik i linię; sprawdź, czy na produkcji pliki `.map` nie są publicznie dostępne (o ile tak ustalono).
+```ts vite.config.ts
+import { defineConfig } from 'vite';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
+
+export default defineConfig({
+  build: {
+    sourcemap: 'hidden', // generate maps without the sourceMappingURL comment
+  },
+  plugins: [
+    sentryVitePlugin({
+      org: 'example-travel',
+      project: 'web',
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] }, // do not deploy maps
+    }),
+  ],
+});
+```
+X: Wgrywanie map bez powiązania z wersją wydania (release), przez co stack trace wskazuje niewłaściwe linie po kolejnym deployu.

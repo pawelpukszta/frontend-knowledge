@@ -1,0 +1,249 @@
+@category modules
+name: Moduły JS
+short: Moduły
+hue: loading
+desc: Named i default exports, re-eksporty, barrel files, ESM vs CommonJS, dynamic import i tree shaking.
+
+@topic mod-named-default
+title: Named exports vs default export
+level: mid
+tags: import, export, named, default
+summary: Moduł może mieć wiele eksportów nazwanych i najwyżej jeden domyślny. Named exports wymuszają spójne nazwy i lepiej współpracują z narzędziami.
+
+::: body
+- **Named export**: `export const formatPrice = ...`. Import w klamrach, z dokładną nazwą: `import { formatPrice } from './price'`. Można zmienić nazwę: `import { formatPrice as fp }`.
+- **Default export**: `export default function Button() {}`. Import bez klamer i z **dowolną** nazwą: `import Btn from './Button'`.
+- **Namespace import**: `import * as price from './price'` daje obiekt ze wszystkimi eksportami nazwanymi.
+- **Import tylko dla efektów ubocznych**: `import './polyfills'`.
+
+Wiele zespołów preferuje **named exports**, bo: nazwa jest taka sama w całym projekcie (łatwiejszy refactor i wyszukiwanie), IDE lepiej podpowiada auto-import, literówka daje błąd zamiast cichego `undefined`. Default export bywa wymagany przez frameworki, np. `page.tsx` w Next.js App Router czy `React.lazy`.
+
+::: code js
+// price.js
+export const VAT = 0.23;
+export function formatPrice(value) { return `${value.toFixed(2)} zł`; }
+export default function calculateGross(net) { return net * (1 + VAT); }
+
+// usage
+import calculateGross, { formatPrice, VAT as TAX } from './price.js';
+import * as price from './price.js';
+price.formatPrice(10);
+
+::: qa
+Q: Named vs default export: co wybierasz i dlaczego?
+A: Domyślnie named: spójne nazwy w projekcie, lepszy auto-import i refactor, błędy przy literówkach, łatwe eksportowanie wielu rzeczy. Default tylko tam, gdzie wymaga go framework (np. strony w Next.js, `React.lazy`). Konsekwencja długofalowa: mniej chaosu w nazewnictwie i łatwiejsze automatyczne refaktoryzacje.
+Q: Czy można mieć default i named export w jednym pliku?
+A: Tak. `import Default, { named } from './mod'`. Default to po prostu eksport o nazwie `default`.
+
+::: sources
+- MDN: JavaScript modules | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules
+- MDN: export | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/export
+- javascript.info: Export and Import | https://javascript.info/import-export
+
+@topic mod-reexports-barrels
+title: Re-eksporty i barrel files
+level: mid
+tags: re-export, barrel, index.ts, architektura
+summary: Re-eksport przekazuje eksport dalej z innego modułu. Barrel file (index.ts) zbiera eksporty folderu w jednym miejscu: wygodne, ale potrafi spowolnić build i testy.
+
+::: body
+**Składnia re-eksportów:**
+
+- `export { Button } from './Button';`
+- `export { default as Button } from './Button';` (default jako named)
+- `export * from './utils';` (wszystkie named, bez default)
+- `export * as utils from './utils';` (jako namespace)
+
+**Barrel file** to plik (zwykle `index.ts`), który tylko re-eksportuje zawartość folderu, żeby importować z jednego miejsca: `import { Button, Modal } from '@/components'`.
+
+Plusy:
+
+- Krótkie, czyste importy i jedno "publiczne API" modułu (reszta plików jest szczegółem implementacji).
+
+Minusy:
+
+- Import jednej rzeczy może zmusić bundler, Jest/Vitest lub serwer dev do **przetworzenia całego drzewa** re-eksportowanych plików. Wolniejszy dev server, testy i HMR.
+- Łatwo o **cykliczne zależności**.
+- Tree shaking może zawieść, jeśli któryś moduł ma efekty uboczne.
+
+Rozsądny kompromis: barrel jako publiczne API **granicy modułu/pakietu** (np. `features/booking/index.ts`), ale bez barrelów w każdym folderze i bez `export *` z dużych drzew. Next.js ma opcję `optimizePackageImports` dla bibliotek z barrelami.
+
+::: code ts
+// features/booking/index.ts - public API of the feature
+export { BookingForm } from './components/BookingForm';
+export { useBooking } from './hooks/useBooking';
+export type { Booking } from './types';
+// internal helpers are NOT exported, so other features cannot depend on them
+
+::: pitfalls
+- `export *` w barrelu importowanym w wielu miejscach dużej aplikacji: wolne testy i HMR.
+- Importowanie z barrelu wewnątrz tego samego modułu (plik w `booking/` importuje z `booking/index`): prosta droga do cyklu.
+
+::: qa
+Q: Czym jest barrel file i jakie ma wady?
+A: Plik `index` re-eksportujący zawartość folderu. Upraszcza importy i definiuje publiczne API, ale może spowolnić build, testy i HMR (narzędzia ładują cały graf), sprzyja cyklom i utrudnia tree shaking. Stosuj go na granicach modułów, nie wszędzie.
+Q: Czy export * re-eksportuje default?
+A: Nie. `export * from` przenosi tylko eksporty nazwane. Default trzeba re-eksportować jawnie: `export { default } from './x'` lub `export { default as X } from './x'`.
+
+::: sources
+- MDN: export (re-exporting) | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/export
+- Marvin Hagemeister: The barrel file debacle | https://marvinh.dev/blog/speeding-up-javascript-ecosystem-part-7/
+- Next.js: optimizePackageImports | https://nextjs.org/docs/app/api-reference/config/next-config-js/optimizePackageImports
+
+@topic mod-esm-cjs
+title: ES Modules vs CommonJS
+level: mid
+tags: ESM, CommonJS, require, Node.js
+summary: ESM (import/export) to standard języka, analizowany statycznie. CommonJS (require/module.exports) to starszy, dynamiczny system z Node.js.
+
+::: body
+| | ES Modules | CommonJS |
+|---|---|---|
+| Składnia | `import` / `export` | `require()` / `module.exports` |
+| Ładowanie | statyczne, analizowane przed wykonaniem, asynchroniczne | dynamiczne, synchroniczne w trakcie wykonania |
+| Tree shaking | tak | praktycznie nie |
+| Top-level await | tak | nie |
+| Wiązania | "live bindings" (widzisz aktualną wartość) | kopia wartości w chwili require |
+| Środowisko | przeglądarki, Node, bundlery | głównie Node.js |
+
+W Node.js o formacie decyduje rozszerzenie (`.mjs` / `.cjs`) lub pole `"type": "module"` w `package.json`. Nowsze wersje Node pozwalają też `require()` modułu ESM (bez top-level await). Nowe projekty i biblioteki piszemy w ESM.
+
+::: code js
+// CommonJS
+const { readFile } = require('node:fs/promises');
+module.exports = { parse };
+
+// ESM
+import { readFile } from 'node:fs/promises';
+export function parse() {}
+
+::: qa
+Q: Dlaczego ESM umożliwia tree shaking, a CommonJS nie?
+A: Importy ESM są statyczne: bundler zna graf zależności i użyte eksporty bez wykonywania kodu. `require()` może być wywołany warunkowo, z dynamiczną ścieżką, a `module.exports` może być modyfikowany w runtime, więc narzędzie nie może bezpiecznie usunąć kodu.
+Q: Jak Node.js decyduje, czy plik to ESM?
+A: `.mjs` to zawsze ESM, `.cjs` to zawsze CommonJS, a `.js` zależy od pola `"type"` w najbliższym `package.json` (`"module"` lub domyślnie `"commonjs"`).
+
+::: sources
+- Node.js: ECMAScript modules | https://nodejs.org/api/esm.html
+- Node.js: Modules: Packages (type field) | https://nodejs.org/api/packages.html
+- MDN: JavaScript modules | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules
+
+@topic mod-dynamic-import
+title: Dynamic import() i code splitting
+level: mid
+tags: dynamic import, lazy, code splitting, React.lazy
+summary: import() ładuje moduł w runtime i zwraca Promise. Bundler tworzy z niego osobny chunk, który pobierany jest dopiero, gdy jest potrzebny.
+
+::: body
+- `import('./heavy.js')` zwraca Promise z obiektem modułu. Można go użyć w dowolnym miejscu, także warunkowo.
+- Bundlery (Vite, webpack, Turbopack) traktują `import()` jako **punkt podziału** i tworzą osobny plik JS (chunk).
+- **React**: `React.lazy(() => import('./Map'))` + `<Suspense fallback>`. **Next.js**: `next/dynamic`.
+- Dobre kandydatury: ciężkie biblioteki (mapy, edytory, wykresy), modale, trasy/strony, funkcje dostępne po interakcji.
+
+::: code tsx
+import { lazy, Suspense, useState } from 'react';
+
+const OfferMap = lazy(() => import('./OfferMap')); // separate chunk
+
+export function OfferDetails() {
+  const [showMap, setShowMap] = useState(false);
+  return (
+    <>
+      <button onClick={() => setShowMap(true)}>Pokaż mapę</button>
+      {showMap && (
+        <Suspense fallback={<p>Ładowanie mapy...</p>}>
+          <OfferMap />
+        </Suspense>
+      )}
+    </>
+  );
+}
+
+// Load a heavy lib only on demand
+async function exportPdf() {
+  const { jsPDF } = await import('jspdf');
+  new jsPDF().save('oferta.pdf');
+}
+
+::: pitfalls
+- Dzielenie na zbyt małe chunki: wiele requestów i waterfall. Dziel przy granicach tras i dużych funkcji.
+- Lazy loading komponentu widocznego od razu (above the fold): pogarsza LCP.
+
+::: qa
+Q: Czym jest code splitting i jak go zrobić w React?
+A: Podział bundla na mniejsze pliki ładowane na żądanie, aby zmniejszyć ilość JS na starcie. W React: `React.lazy` + `Suspense` (lub `next/dynamic`), a na poziomie tras robią to frameworki automatycznie.
+Q: Co zwraca import()?
+A: Promise, który spełnia się obiektem modułu (namespace), np. `{ default, namedExport }`.
+
+::: sources
+- MDN: import() | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
+- React: lazy | https://react.dev/reference/react/lazy
+- web.dev: Code splitting with dynamic imports | https://web.dev/articles/reduce-javascript-payloads-with-code-splitting
+
+@topic mod-tree-shaking
+title: Tree shaking i efekty uboczne
+level: senior
+tags: tree shaking, bundler, sideEffects, dead code
+summary: Tree shaking usuwa z bundla nieużywane eksporty. Działa na ESM i wymaga, by moduły nie miały ukrytych efektów ubocznych.
+
+::: body
+Bundler buduje graf importów ESM i oznacza, które eksporty są faktycznie używane. Resztę usuwa minifier (dead code elimination).
+
+Co go psuje:
+
+- **CommonJS** w zależnościach.
+- **Efekty uboczne** na poziomie modułu (np. modyfikacja `window`, rejestracja globalnych rzeczy): bundler nie może usunąć takiego modułu, bo nie wie, czy jest bezpieczny.
+- Import całej biblioteki: `import _ from 'lodash'` zamiast `import debounce from 'lodash-es/debounce'`.
+
+Pole `"sideEffects": false` (lub lista plików, np. CSS) w `package.json` informuje bundler, że moduły są "czyste" i nieużywane można pominąć w całości.
+
+::: code json
+{
+  "name": "@acme/ui",
+  "type": "module",
+  "sideEffects": ["*.css"],
+  "exports": { ".": "./dist/index.js" }
+}
+
+::: qa
+Q: Czym jest tree shaking i co jest do niego potrzebne?
+A: Eliminacja nieużywanego kodu na podstawie statycznego grafu importów. Potrzebne są moduły ESM, brak efektów ubocznych na poziomie modułów (lub poprawne pole `sideEffects`) i importy tylko tego, czego używasz.
+Q: Co oznacza "sideEffects": false w package.json?
+A: Deklarację, że import modułu nie robi nic poza udostępnieniem eksportów. Bundler może wtedy całkowicie pominąć moduł, którego eksporty nie są używane.
+
+::: sources
+- MDN Glossary: Tree shaking | https://developer.mozilla.org/en-US/docs/Glossary/Tree_shaking
+- webpack: Tree Shaking | https://webpack.js.org/guides/tree-shaking/
+
+@quiz
+Q: Jak zaimportować default export z pliku `Button.js`?
++ import Button from './Button'
+- import { Button } from './Button'
+- import { default } from './Button'
+- import * from './Button'
+E: Default importujesz bez klamer i pod dowolną nazwą.
+T: mod-named-default
+
+Q: Czy `export * from './mod'` re-eksportuje default export?
+- Tak
++ Nie, tylko eksporty nazwane
+- Tylko w TypeScript
+- Tylko w Node.js
+E: Default trzeba re-eksportować jawnie, np. `export { default as X } from './mod'`.
+T: mod-reexports-barrels
+
+Q: Dlaczego tree shaking działa z ESM, a słabo z CommonJS?
+- ESM jest szybszy w runtime
++ Importy ESM są statyczne i analizowalne bez wykonania kodu
+- CommonJS nie obsługuje funkcji
+- ESM nie ma efektów ubocznych
+E: Statyczna struktura `import/export` pozwala zbudować graf zależności w czasie budowania.
+T: mod-esm-cjs
+
+Q: Co zwraca wyrażenie `import('./chart.js')`?
+- Moduł synchronicznie
++ Promise z obiektem modułu
+- Funkcję ładującą
+- Ścieżkę do chunka
+E: Dynamic import jest asynchroniczny i zwraca Promise spełniony obiektem modułu.
+T: mod-dynamic-import

@@ -1,0 +1,496 @@
+@category perf
+name: Performance & Web Vitals
+short: Perf
+hue: loading
+desc: Core Web Vitals (LCP, INP, CLS), pozostałe metryki, dane lab vs field, codzienna praca z DevTools (Performance, Network, Lighthouse) i techniki optymalizacji.
+
+@topic perf-cwv
+title: Core Web Vitals: przegląd
+level: mid
+tags: Core Web Vitals, LCP, INP, CLS, SEO, CrUX
+summary: Trzy metryki Google mierzące realne doświadczenie użytkownika: szybkość ładowania (LCP), responsywność (INP) i stabilność wizualną (CLS). Wpływają na UX, konwersję i SEO.
+
+::: body
+| Metryka | Mierzy | Dobra | Wymaga poprawy | Słaba |
+|---|---|---|---|---|
+| **LCP** (Largest Contentful Paint) | kiedy widać główną treść | ≤ 2,5 s | ≤ 4 s | > 4 s |
+| **INP** (Interaction to Next Paint) | jak szybko strona reaguje na interakcje | ≤ 200 ms | ≤ 500 ms | > 500 ms |
+| **CLS** (Cumulative Layout Shift) | jak bardzo "skacze" układ | ≤ 0,1 | ≤ 0,25 | > 0,25 |
+
+- Ocena opiera się na **75. percentylu** wizyt, osobno dla mobile i desktop. Czyli 75% użytkowników musi mieć dobry wynik.
+- Dane "field" pochodzą z **CrUX** (Chrome User Experience Report), widoczne w PageSpeed Insights i Search Console.
+- **INP zastąpił FID** w marcu 2024. FID mierzył tylko opóźnienie pierwszej interakcji; INP obejmuje wszystkie interakcje i cały czas do wyrenderowania odpowiedzi.
+- Biblioteka **`web-vitals`** mierzy metryki u prawdziwych użytkowników (RUM) i pozwala wysłać je do analityki.
+
+Wpływ biznesowy: szybsze strony to niższy bounce rate i wyższa konwersja. W e-commerce i turystyce każda sekunda LCP ma mierzalny wpływ na sprzedaż; CWV są też jednym z sygnałów rankingowych Google (page experience).
+
+::: code js
+import { onLCP, onINP, onCLS } from 'web-vitals';
+
+function sendToAnalytics(metric) {
+  navigator.sendBeacon('/analytics', JSON.stringify({
+    name: metric.name, value: metric.value, rating: metric.rating, id: metric.id,
+  }));
+}
+onLCP(sendToAnalytics);
+onINP(sendToAnalytics);
+onCLS(sendToAnalytics);
+
+::: qa
+Q: Czym są Core Web Vitals i jakie mają progi?
+A: Trzy metryki doświadczenia użytkownika: LCP (ładowanie, dobrze ≤ 2,5 s), INP (responsywność, ≤ 200 ms), CLS (stabilność, ≤ 0,1). Ocenia się je na 75. percentylu prawdziwych wizyt.
+Q: Dlaczego INP zastąpił FID?
+A: FID mierzył tylko opóźnienie przed obsługą pierwszej interakcji, pomijając czas przetwarzania i renderowania oraz wszystkie kolejne interakcje. INP mierzy pełne opóźnienie (od interakcji do następnej klatki) dla interakcji w trakcie całej wizyty i raportuje jedną z najgorszych.
+Q: Dlaczego 75. percentyl?
+A: Średnia ukrywa problemy wolnych urządzeń i sieci. 75. percentyl oznacza, że większość użytkowników ma co najmniej taki wynik, a jednocześnie nie jest zdominowany przez skrajne przypadki.
+
+::: sources
+- web.dev: Web Vitals | https://web.dev/articles/vitals
+- web.dev: INP replaces FID | https://web.dev/blog/inp-cwv-march-12
+- GitHub: web-vitals library | https://github.com/GoogleChrome/web-vitals
+
+@topic perf-lcp
+title: LCP: Largest Contentful Paint
+level: mid
+tags: LCP, obrazy, TTFB, preload, fetchpriority
+summary: Czas do wyrenderowania największego elementu treści w viewporcie (zwykle hero image lub nagłówek). Poprawiasz go szybszym serwerem, wcześniejszym wykryciem i szybszym pobraniem głównego zasobu.
+
+::: body
+Kandydaci na element LCP: `<img>`, `<image>` w SVG, poster `<video>`, element z `background-image`, bloki tekstu.
+
+**LCP dzieli się na 4 części** (to klucz do diagnozy):
+
+1. **TTFB**: czas do pierwszego bajtu HTML.
+2. **Resource load delay**: od TTFB do rozpoczęcia pobierania zasobu LCP (czy przeglądarka szybko go "zauważyła"?).
+3. **Resource load duration**: czas pobierania zasobu.
+4. **Element render delay**: od pobrania do wyrenderowania (blokujący CSS/JS, hydration).
+
+Optymalizacje:
+
+- Obraz LCP w HTML jako `<img>` (nie wstrzykiwany przez JS, nie jako `background-image` w CSS).
+- `fetchpriority="high"` na obrazie LCP; `<link rel="preload">` gdy obraz jest wykrywany późno.
+- **Nigdy `loading="lazy"` na obrazie LCP.**
+- Nowoczesne formaty (AVIF, WebP), `srcset`/`sizes`, CDN z optymalizacją obrazów, `next/image` z `priority`/`preload`.
+- Szybki TTFB: cache CDN, SSG/ISR, streaming.
+- Mniej blokującego CSS i JS; SSR zamiast CSR dla treści above the fold.
+
+::: code html
+<!-- Hero image: discoverable in HTML, high priority, responsive -->
+<img
+  src="/hero-1200.avif"
+  srcset="/hero-800.avif 800w, /hero-1200.avif 1200w, /hero-2000.avif 2000w"
+  sizes="100vw"
+  width="1200" height="600"
+  fetchpriority="high"
+  alt="Plaża na Krecie o zachodzie słońca"
+/>
+
+::: pitfalls
+- Lazy loading obrazu w hero.
+- Slider/karuzela renderowana przez JS po hydration: obraz LCP pojawia się dopiero po wykonaniu bundla.
+- Obraz z innego originu bez `preconnect`.
+
+::: qa
+Q: Co to jest LCP i jak go poprawić?
+A: Czas wyrenderowania największego elementu treści w viewporcie. Rozkładam go na TTFB, opóźnienie wykrycia zasobu, czas pobrania i opóźnienie renderu, i optymalizuję najdłuższą część: cache/CDN dla TTFB, obraz w HTML z `fetchpriority="high"` lub preload, lżejsze formaty i rozmiary, mniej blokującego CSS/JS.
+Q: Dlaczego nie stosować loading="lazy" na obrazie hero?
+A: Lazy loading opóźnia pobranie do momentu obliczenia layoutu i stwierdzenia, że obraz jest w viewporcie. Dla obrazu LCP oznacza to późniejsze rozpoczęcie pobierania i gorszy wynik.
+
+::: sources
+- web.dev: Largest Contentful Paint (LCP) | https://web.dev/articles/lcp
+- web.dev: Optimize LCP | https://web.dev/articles/optimize-lcp
+- web.dev: Fetch Priority API | https://web.dev/articles/fetch-priority
+
+@topic perf-inp
+title: INP: Interaction to Next Paint
+level: mid
+tags: INP, long tasks, main thread, responsywność
+summary: Mierzy czas od interakcji (klik, tap, klawisz) do wyrenderowania następnej klatki. Wysoki INP to niemal zawsze za dużo pracy JavaScriptu na wątku głównym.
+
+::: body
+Każda interakcja składa się z trzech faz:
+
+1. **Input delay**: czekanie, aż wątek główny będzie wolny (bo trwa inne zadanie).
+2. **Processing duration**: wykonanie event handlerów.
+3. **Presentation delay**: przeliczenie stylów, layout, paint następnej klatki.
+
+INP to (w przybliżeniu) **najgorsza** interakcja w trakcie wizyty (dla stron z wieloma interakcjami pomijane są pojedyncze skrajne wartości). Scroll i hover się nie liczą.
+
+Optymalizacje:
+
+- **Dziel długie zadania**: oddaj kontrolę przeglądarce (`await scheduler.yield()`, `setTimeout`), zanim wykonasz niepilną pracę.
+- Najpierw aktualizacja widoczna dla użytkownika, potem reszta (analityka, zapis).
+- **React**: `useTransition` dla kosztownych aktualizacji, mniej re-renderów (memo, colocation), wirtualizacja list, mniejsze drzewa komponentów.
+- Mniej JS: code splitting, usunięcie zbędnych skryptów third-party, Server Components.
+- Mniejszy i płytszy DOM (tańszy layout); `content-visibility`.
+- Ciężkie obliczenia w Web Workerze.
+
+::: code js
+async function onFilterClick(filter) {
+  setActiveFilter(filter);          // 1. cheap, visible update first
+  await scheduler.yield();          // 2. let the browser paint
+  const results = heavyFilter(filter); // 3. expensive work afterwards
+  renderResults(results);
+  queueMicrotask(() => track('filter', filter)); // non-critical
+}
+
+::: qa
+Q: Co mierzy INP i z czego się składa?
+A: Opóźnienie od interakcji użytkownika do wyrenderowania następnej klatki. Składa się z input delay (zajęty wątek główny), processing duration (czas handlerów) i presentation delay (render klatki). Raportowana jest jedna z najgorszych interakcji wizyty.
+Q: Jak poprawić INP w aplikacji React?
+A: Znaleźć wolne interakcje (DevTools Performance, RUM z atrybucją), ograniczyć re-rendery (colocation stanu, memo), oznaczyć kosztowne aktualizacje przez `useTransition`, wirtualizować listy, zmniejszyć ilość JS i hydration, dzielić długie zadania.
+Q: Czym jest TBT i jak ma się do INP?
+A: Total Blocking Time to metryka laboratoryjna: suma czasu powyżej 50 ms wszystkich long tasks między FCP a TTI. Nie wymaga interakcji, więc służy jako przybliżenie INP w Lighthouse.
+
+::: sources
+- web.dev: Interaction to Next Paint (INP) | https://web.dev/articles/inp
+- web.dev: Optimize INP | https://web.dev/articles/optimize-inp
+- web.dev: Optimize long tasks | https://web.dev/articles/optimize-long-tasks
+
+@topic perf-cls
+title: CLS: Cumulative Layout Shift
+level: mid
+tags: CLS, layout shift, wymiary obrazów, fonty
+summary: Mierzy nieoczekiwane przesunięcia treści podczas życia strony. Najczęstsze przyczyny: obrazy bez wymiarów, wstrzykiwane banery i reklamy, podmiana fontów.
+
+::: body
+Wynik przesunięcia = **impact fraction** (jaka część viewportu się przesunęła) × **distance fraction** (o ile). Przesunięcia grupowane są w "okna sesji" (maks. 5 s, przerwy < 1 s), a CLS to największe okno.
+
+Przesunięcia w ciągu 500 ms od interakcji użytkownika (np. rozwinięcie akordeonu po kliknięciu) **nie są liczone**.
+
+Przyczyny i rozwiązania:
+
+- **Obrazy, video, iframe bez wymiarów**: zawsze `width` i `height` lub `aspect-ratio`.
+- **Dynamicznie wstrzykiwana treść** (banery cookies, reklamy, "polecane"): zarezerwuj miejsce (`min-height`), pokazuj jako overlay albo poniżej viewportu.
+- **Fonty**: podmiana fontu zmienia wymiary tekstu. `font-display: optional` lub `swap` + dopasowanie metryk fontu zastępczego (`size-adjust`), preload fontu.
+- **Animacje**: `transform` zamiast `top`/`height`.
+- **Skeletony** o rozmiarze docelowej treści.
+- Wsparcie **bfcache** (powrót Wstecz bez ponownego ładowania).
+
+::: code css
+img, video { max-width: 100%; height: auto; } /* keep ratio from width/height attrs */
+.ad-slot { min-height: 250px; }               /* reserve space before the ad loads */
+.video-embed { aspect-ratio: 16 / 9; }
+
+@font-face {
+  font-family: 'Brand';
+  src: url('/brand.woff2') format('woff2');
+  font-display: swap;
+}
+
+::: qa
+Q: Co powoduje CLS i jak go naprawić?
+A: Elementy bez zarezerwowanego miejsca (obrazy bez wymiarów, reklamy, banery, treść doładowywana nad istniejącą), podmiana fontów i animacje właściwości layoutu. Rozwiązanie: wymiary lub `aspect-ratio`, rezerwacja miejsca, overlay zamiast wypychania treści, strategia ładowania fontów, animacje przez `transform`.
+Q: Czy każde przesunięcie layoutu pogarsza CLS?
+A: Nie. Przesunięcia w ciągu 500 ms od interakcji użytkownika są uznawane za oczekiwane i pomijane. Liczą się nieoczekiwane zmiany.
+
+::: sources
+- web.dev: Cumulative Layout Shift (CLS) | https://web.dev/articles/cls
+- web.dev: Optimize CLS | https://web.dev/articles/optimize-cls
+
+@topic perf-other-metrics
+title: FCP, TTFB, TBT, Speed Index, TTI
+level: mid
+tags: FCP, TTFB, TBT, Speed Index, TTI, Lighthouse
+summary: Metryki pomocnicze, które pomagają zdiagnozować, dlaczego Core Web Vitals są słabe. TTFB i FCP opisują start ładowania, TBT blokowanie wątku, Speed Index tempo pojawiania się treści.
+
+::: body
+| Metryka | Co mierzy | Dobry wynik |
+|---|---|---|
+| **TTFB** (Time to First Byte) | od żądania do pierwszego bajtu odpowiedzi (DNS, TCP, TLS, serwer) | ≤ 0,8 s |
+| **FCP** (First Contentful Paint) | pierwszy wyrenderowany tekst lub obraz | ≤ 1,8 s |
+| **TBT** (Total Blocking Time) | suma "nadwyżek" long tasks ponad 50 ms (lab) | ≤ 200 ms |
+| **Speed Index** | jak szybko wizualnie wypełnia się viewport (lab) | ≤ 3,4 s (mobile) |
+| **TTI** (Time to Interactive) | kiedy strona jest stabilnie interaktywna | usunięta z wyniku Lighthouse 10 |
+
+- TTFB i FCP są "diagnostyczne": słaby TTFB automatycznie pogarsza FCP i LCP.
+- W wyniku Lighthouse największe wagi mają TBT, LCP i CLS; FCP i Speed Index mniejsze.
+- TTI zastąpiono TBT i INP, bo słabo korelował z odczuciami użytkowników.
+
+::: qa
+Q: Czym jest TTFB i co na niego wpływa?
+A: Czas od wysłania żądania do otrzymania pierwszego bajtu odpowiedzi. Składają się na niego przekierowania, DNS, nawiązanie połączenia (TCP, TLS), czas przetwarzania na serwerze i odległość od serwera. Poprawiasz go przez CDN, cache, SSG/ISR, szybsze zapytania do bazy, streaming.
+Q: FCP vs LCP?
+A: FCP to pierwszy moment, gdy cokolwiek z treści (tekst, obraz) pojawia się na ekranie. LCP to moment wyrenderowania największego elementu, czyli zwykle głównej treści. FCP mówi "coś się dzieje", LCP "widać to, po co przyszedłem".
+
+::: sources
+- web.dev: Time to First Byte (TTFB) | https://web.dev/articles/ttfb
+- web.dev: First Contentful Paint (FCP) | https://web.dev/articles/fcp
+- web.dev: Total Blocking Time (TBT) | https://web.dev/articles/tbt
+- Chrome: Lighthouse performance scoring | https://developer.chrome.com/docs/lighthouse/performance/performance-scoring
+
+@topic perf-lab-field
+title: Dane lab vs field (RUM)
+level: senior
+tags: lab data, field data, RUM, CrUX, PageSpeed Insights
+summary: Lab (Lighthouse, DevTools) to test w kontrolowanych warunkach, dobry do debugowania. Field (CrUX, RUM) to dane od prawdziwych użytkowników, które decydują o ocenie CWV.
+
+::: body
+| | Lab | Field |
+|---|---|---|
+| Źródło | Lighthouse, DevTools, WebPageTest | CrUX, własny RUM (`web-vitals`, Sentry, Datadog) |
+| Warunki | jedno urządzenie, symulowana sieć i CPU | prawdziwe urządzenia, sieci, zachowania |
+| Zalety | powtarzalne, szybka pętla feedbacku, CI | prawda o UX, podstawa oceny Google |
+| Wady | nie mierzy INP (brak interakcji), nie widzi cache i personalizacji | opóźnione (CrUX: 28 dni), trudniejsze debugowanie |
+
+Dlaczego wyniki się różnią: inne urządzenia, stan cache, zalogowani użytkownicy, bannery zgód, reklamy, interakcje, bfcache.
+
+Praca w praktyce: **field** mówi, *czy* masz problem i gdzie (które strony, urządzenia). **Lab** pomaga znaleźć *przyczynę* i zweryfikować poprawkę. W CI warto mieć Lighthouse CI z budżetami wydajności.
+
+::: qa
+Q: Czym różnią się dane lab i field?
+A: Lab to syntetyczny test w kontrolowanych warunkach (Lighthouse), powtarzalny i dobry do debugowania. Field to dane od prawdziwych użytkowników (CrUX, RUM), które pokazują realne doświadczenie i są podstawą oceny Core Web Vitals.
+Q: Lighthouse daje 95, a Search Console pokazuje słaby LCP. Dlaczego?
+A: Lighthouse testuje jedno uruchomienie na symulowanym urządzeniu, zwykle bez bannerów zgód, personalizacji i z inną siecią. Użytkownicy mogą mieć słabsze telefony, wolne sieci, inne wejścia na stronę. Decydują dane field, więc trzeba wdrożyć RUM z atrybucją i szukać przyczyny w rzeczywistych warunkach.
+
+::: sources
+- web.dev: Why lab and field data can be different | https://web.dev/articles/lab-and-field-data-differences
+- Chrome: CrUX (Chrome UX Report) | https://developer.chrome.com/docs/crux
+- PageSpeed Insights | https://pagespeed.web.dev/
+
+@topic perf-devtools-performance
+title: DevTools: zakładka Performance
+level: mid
+tags: DevTools, Performance panel, profiling, flame chart, long tasks
+summary: Nagrywa, co przeglądarka robi w czasie: wykonanie JS, style, layout, paint. Pokazuje live Core Web Vitals, long tasks i przyczyny wolnych interakcji.
+
+::: body
+Codzienny workflow:
+
+1. Otwórz DevTools → **Performance**. Widok startowy pokazuje **live metrics**: LCP, CLS i INP mierzone lokalnie w trakcie korzystania ze strony (z elementem LCP i listą interakcji).
+2. Włącz **CPU throttling** (np. 4x lub 6x) i throttling sieci, żeby symulować przeciętny telefon.
+3. Nagraj: **Record and reload** (ładowanie strony) lub **Record** + wykonaj interakcję (INP).
+4. Analizuj:
+   - **Main track (flame chart)**: szare bloki z czerwonym trójkątem to **long tasks** (> 50 ms). Szerokość = czas; niżej są wywołane funkcje.
+   - Kolory: **żółty** = scripting, **fioletowy** = rendering (style, layout), **zielony** = painting, **niebieski** = loading.
+   - Ścieżki **Interactions** (fazy INP), **Timings** (LCP, FCP), **Layout shifts** (CLS), **Network**.
+   - Panel **Insights**: gotowe podpowiedzi (np. rozbicie LCP, render-blocking requests, forced reflow).
+   - Zakładki dolne: **Summary**, **Bottom-up** (co zajęło najwięcej czasu łącznie), **Call tree**.
+5. Popraw i nagraj ponownie, porównując wyniki.
+
+Uzupełnienie dla React: **React DevTools Profiler** (które komponenty i dlaczego się renderowały, opcja "Highlight updates").
+
+::: qa
+Q: Jak zdiagnozujesz wolne kliknięcie na stronie?
+A: DevTools Performance z throttlingiem CPU, nagranie interakcji, znalezienie jej na ścieżce Interactions i podział na input delay, processing i presentation delay. W flame chart szukam long tasks i funkcji, które je tworzą (Bottom-up). W React dodatkowo Profiler, żeby sprawdzić zbędne re-rendery.
+Q: Co oznaczają kolory w panelu Performance?
+A: Żółty to wykonanie JavaScriptu, fioletowy to rendering (przeliczanie stylów i layout), zielony to painting i compositing, niebieski to ładowanie i parsowanie HTML.
+
+::: sources
+- Chrome DevTools: Analyze runtime performance | https://developer.chrome.com/docs/devtools/performance
+- Chrome DevTools: Performance panel overview | https://developer.chrome.com/docs/devtools/performance/overview
+- Chrome DevTools: Performance features reference | https://developer.chrome.com/docs/devtools/performance/reference
+
+@topic perf-devtools-network
+title: DevTools: zakładka Network
+level: mid
+tags: DevTools, Network panel, waterfall, throttling, cache
+summary: Pokazuje każde zapytanie sieciowe: kolejność, czas, rozmiar, priorytet i nagłówki. Podstawowe narzędzie do debugowania API, cache i wolnego ładowania.
+
+::: body
+Najważniejsze funkcje:
+
+- **Waterfall**: oś czasu zapytań. Szukaj **łańcuchów zależności** (zasób odkrywany dopiero po pobraniu innego) i długich bloków oczekiwania.
+- **Timing** (po kliknięciu zapytania): Queueing, Stalled, DNS Lookup, Initial connection, SSL, Request sent, **Waiting for server response (TTFB)**, Content Download.
+- **Throttling** (Fast 4G, Slow 4G, 3G, offline) i **Disable cache**.
+- Kolumny do włączenia: **Priority**, **Protocol** (h2/h3), **Initiator** (kto wywołał request), Size (transferred vs resource: kompresja, cache).
+- **Filtry**: Fetch/XHR, JS, CSS, Img, Doc; wyszukiwanie po treści.
+- Nagłówki i **Response/Preview**, zakładka **Cookies**.
+- **Preserve log** (logi po przeładowaniu i przekierowaniach).
+- **Request blocking** i **Local overrides** (podmiana odpowiedzi API lub plików bez zmiany serwera).
+- **Copy as fetch / cURL** i eksport **HAR** do zgłoszeń błędów.
+
+Status "(memory cache)" / "(disk cache)" w kolumnie Size oznacza odpowiedź z cache.
+
+::: qa
+Q: Jak sprawdzisz, czy zasób jest serwowany z cache?
+A: W Network w kolumnie Size pojawi się "(memory cache)" lub "(disk cache)", albo status `304` przy walidacji. W nagłówkach odpowiedzi sprawdzam `Cache-Control`, `ETag`, `Age` i nagłówki CDN (np. `x-cache: HIT`).
+Q: Jak znaleźć przyczynę długiego ładowania zasobu?
+A: Kliknąć zapytanie i zakładkę Timing. Długie "Waiting for server response" oznacza wolny serwer (TTFB), długie "Content Download" duży plik lub wolną sieć, "Queueing/Stalled" limity połączeń lub priorytety. W waterfall sprawdzam też, czy zasób nie jest odkrywany za późno (Initiator).
+
+::: sources
+- Chrome DevTools: Network features reference | https://developer.chrome.com/docs/devtools/network/reference
+- Chrome DevTools: Inspect network activity | https://developer.chrome.com/docs/devtools/network
+
+@topic perf-lighthouse
+title: Lighthouse
+level: mid
+tags: Lighthouse, audyt, PageSpeed, Lighthouse CI
+summary: Automatyczny audyt strony w warunkach laboratoryjnych: Performance, Accessibility, Best Practices, SEO. Daje wynik 0-100 i listę konkretnych rekomendacji.
+
+::: body
+- Dostępny w DevTools (zakładka **Lighthouse**), w **PageSpeed Insights** (lab + field), jako CLI i **Lighthouse CI**.
+- Tryby: **Navigation** (ładowanie strony), **Timespan** (okres z interakcjami), **Snapshot** (stan strony w danej chwili).
+- Wynik Performance to ważona suma metryk lab: TBT, LCP, CLS, FCP, Speed Index.
+- Sekcje **Diagnostics** i **Opportunities/Insights** wskazują konkretne problemy (render-blocking, nieużywany JS, obrazy, cache).
+
+Dobre praktyki:
+
+- Testuj w oknie incognito (rozszerzenia wpływają na wynik), kilka razy (wyniki się wahają).
+- Traktuj wynik jako **narzędzie diagnostyczne**, nie cel sam w sobie. O sukcesie decydują dane field.
+- W CI ustaw **budżety** (np. rozmiar JS, LCP), żeby regresje nie trafiały na produkcję.
+
+::: qa
+Q: Do czego używasz Lighthouse, a do czego nie?
+A: Do szybkiej diagnozy i wykrywania regresji (lokalnie i w CI z budżetami), audytu dostępności i SEO. Nie traktuję go jako miary realnego UX: nie mierzy INP ani warunków prawdziwych użytkowników. Do tego służą dane field (CrUX, RUM).
+Q: Dlaczego wynik Lighthouse się zmienia między uruchomieniami?
+A: Zmienność sieci, obciążenie CPU komputera, rozszerzenia przeglądarki, A/B testy, reklamy, cache serwera. Dlatego uruchamia się kilka pomiarów i porównuje medianę.
+
+::: sources
+- Chrome: Lighthouse overview | https://developer.chrome.com/docs/lighthouse/overview
+- GitHub: Lighthouse CI | https://github.com/GoogleChrome/lighthouse-ci
+
+@topic perf-loading-optimizations
+title: Optymalizacja ładowania: lazy loading, preload, prefetch, obrazy
+level: mid
+tags: lazy loading, preload, prefetch, preconnect, obrazy, fonty
+summary: Ładuj najpierw to, co krytyczne, a resztę później. Resource hints mówią przeglądarce, co pobrać wcześniej, a lazy loading odkłada to, czego nie widać.
+
+::: body
+**Resource hints:**
+
+- `<link rel="preconnect" href="https://cdn...">`: nawiąż połączenie (DNS, TCP, TLS) z ważnym originem zawczasu.
+- `<link rel="dns-prefetch">`: tylko DNS, tańsze.
+- `<link rel="preload" as="image|font|script">`: pobierz **teraz** zasób potrzebny na **tej** stronie, który zostałby odkryty późno (font z CSS, obraz LCP z JS). Fonty wymagają `crossorigin`.
+- `<link rel="prefetch">`: pobierz z niskim priorytetem zasób dla **kolejnej** nawigacji.
+- **Speculation Rules API**: prerender lub prefetch całych stron, na które użytkownik prawdopodobnie przejdzie.
+- `fetchpriority="high|low"`: korekta priorytetu.
+
+**Lazy loading:**
+
+- Obrazy i iframe poniżej zgięcia: `loading="lazy"`.
+- Komponenty i trasy: dynamic import, `React.lazy`, `next/dynamic`.
+- Skrypty third-party (czaty, mapy): ładuj po interakcji lub w idle ("facade pattern").
+
+**Obrazy:** AVIF/WebP, `srcset` i `sizes`, wymiary, kompresja, CDN obrazów, `decoding="async"`.
+
+**Kompresja i transfer:** Brotli/gzip, HTTP/2 lub HTTP/3, cache z hashami plików.
+
+::: code html
+<link rel="preconnect" href="https://images.example-cdn.com" crossorigin />
+<link rel="preload" href="/fonts/brand.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="prefetch" href="/checkout.js" />
+
+<img src="/gallery-3.webp" loading="lazy" width="600" height="400" alt="Basen hotelowy" />
+
+<script type="speculationrules">
+{ "prerender": [{ "where": { "href_matches": "/oferta/*" }, "eagerness": "moderate" }] }
+</script>
+
+::: pitfalls
+- Preload zbyt wielu zasobów: konkurują o łącze i spowalniają to, co naprawdę ważne.
+- Preload bez późniejszego użycia (ostrzeżenie w konsoli).
+- Lazy loading wszystkiego, łącznie z hero.
+
+::: qa
+Q: Różnica między preload a prefetch?
+A: `preload` pobiera z wysokim priorytetem zasób potrzebny na bieżącej stronie, który przeglądarka odkryłaby późno. `prefetch` pobiera z niskim priorytetem zasób, który prawdopodobnie przyda się przy kolejnej nawigacji.
+Q: Co to jest preconnect i kiedy go użyć?
+A: Wskazówka, by z wyprzedzeniem nawiązać połączenie (DNS, TCP, TLS) z innym originem. Warto dla 1-3 krytycznych domen (CDN obrazów, API, fonty), z których zasoby są potrzebne od razu.
+Q: Jak zoptymalizować obrazy na stronie z ofertami?
+A: Nowoczesne formaty (AVIF/WebP) przez CDN obrazów, responsywne `srcset`/`sizes`, wymiary lub `aspect-ratio` (CLS), `fetchpriority="high"` dla obrazu LCP, `loading="lazy"` dla galerii poniżej zgięcia, kompresja jakości dopasowana do treści.
+
+::: sources
+- web.dev: Preload critical assets | https://web.dev/articles/preload-critical-assets
+- web.dev: Browser-level image lazy loading | https://web.dev/articles/browser-level-image-lazy-loading
+- MDN: rel=preload | https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/preload
+- Chrome: Speculation Rules API (prerender pages) | https://developer.chrome.com/docs/web-platform/prerender-pages
+
+@topic perf-bundle
+title: Rozmiar bundla i koszt JavaScriptu
+level: senior
+tags: bundle size, code splitting, bundle analyzer, third-party
+summary: JavaScript to najdroższy zasób: trzeba go pobrać, sparsować, skompilować i wykonać. Mniejszy bundle poprawia LCP, INP i TBT, zwłaszcza na słabszych telefonach.
+
+::: body
+Jak diagnozować:
+
+- **Bundle analyzer** (`rollup-plugin-visualizer` dla Vite, `@next/bundle-analyzer`, `webpack-bundle-analyzer`): co zajmuje miejsce.
+- **DevTools Coverage** (Ctrl+Shift+P → "Coverage"): ile pobranego JS i CSS nie zostało użyte.
+- **bundlephobia / pkg-size**: koszt biblioteki przed instalacją.
+
+Jak zmniejszać:
+
+- Code splitting na trasach i ciężkich komponentach.
+- Tree shaking: importy nazwane, biblioteki ESM, `sideEffects`.
+- Zamiana ciężkich bibliotek (moment.js → date-fns / `Intl`, lodash → natywne metody).
+- Server Components i przeniesienie logiki na serwer.
+- Kontrola skryptów **third-party** (tag managery, czaty, A/B testy): często ważą więcej niż cała aplikacja. `async`, ładowanie po interakcji, Partytown.
+- Nowoczesny target (bez niepotrzebnych polyfilli dla starych przeglądarek).
+- **Performance budget** w CI (np. limit KB JS na trasę).
+
+::: qa
+Q: Jak zmniejszyłbyś bundle aplikacji React?
+A: Najpierw pomiar (bundle analyzer, Coverage). Potem code splitting tras i ciężkich komponentów, wymiana lub importy selektywne dużych bibliotek, sprawdzenie tree shakingu, przeniesienie części UI do Server Components, audyt skryptów third-party i budżet w CI, żeby problem nie wrócił.
+Q: Dlaczego 200 KB JS jest "droższe" niż 200 KB obrazu?
+A: Obraz trzeba pobrać i zdekodować. JavaScript trzeba pobrać, sparsować, skompilować i wykonać na wątku głównym, co blokuje interakcje. Na słabszych telefonach różnica jest wielokrotna.
+
+::: sources
+- V8: The cost of JavaScript in 2019 | https://v8.dev/blog/cost-of-javascript-2019
+- web.dev: Performance budgets 101 | https://web.dev/articles/performance-budgets-101
+- Chrome DevTools: Coverage | https://developer.chrome.com/docs/devtools/coverage
+
+@quiz
+Q: Jaki jest próg "dobrego" INP?
+- ≤ 100 ms
++ ≤ 200 ms
+- ≤ 500 ms
+- ≤ 1 s
+E: INP dobry ≤ 200 ms, słaby > 500 ms.
+T: perf-cwv
+
+Q: Która metryka zastąpiła FID w Core Web Vitals?
+- TBT
+- TTI
++ INP
+- FCP
+E: INP został Core Web Vital w marcu 2024.
+T: perf-cwv
+
+Q: Obraz hero ma `loading="lazy"`. Jaki jest efekt?
++ Gorszy LCP, bo pobieranie zaczyna się później
+- Lepszy LCP
+- Gorszy CLS
+- Brak efektu
+E: Obraz LCP powinien być ładowany jak najwcześniej, najlepiej z `fetchpriority="high"`.
+T: perf-lcp
+
+Q: Najczęstsza przyczyna wysokiego INP:
+- Duże obrazy
++ Długie zadania JavaScript na wątku głównym
+- Brak HTTP/2
+- Słaby TTFB
+E: Zajęty wątek główny opóźnia obsługę i render odpowiedzi na interakcję.
+T: perf-inp
+
+Q: Jak zapobiec CLS przy obrazach?
+- Użyć loading="lazy"
++ Podać width i height lub aspect-ratio
+- Użyć formatu WebP
+- Dodać fetchpriority="high"
+E: Przeglądarka rezerwuje miejsce na podstawie proporcji jeszcze przed pobraniem obrazu.
+T: perf-cls
+
+Q: Żółte bloki w zakładce Performance oznaczają:
++ Wykonywanie JavaScriptu (scripting)
+- Painting
+- Ładowanie sieci
+- Layout
+E: Żółty = scripting, fioletowy = rendering, zielony = painting.
+T: perf-devtools-performance
+
+Q: Który hint pobiera zasób dla KOLEJNEJ nawigacji z niskim priorytetem?
+- preload
++ prefetch
+- preconnect
+- fetchpriority="high"
+E: `prefetch` jest dla przyszłych stron, `preload` dla bieżącej.
+T: perf-loading-optimizations
+
+Q: Które dane decydują o ocenie Core Web Vitals w Google?
+- Wynik Lighthouse
++ Dane field z CrUX (75. percentyl)
+- Wynik z DevTools na moim komputerze
+- Średnia z WebPageTest
+E: Ocena opiera się na danych od prawdziwych użytkowników Chrome.
+T: perf-lab-field

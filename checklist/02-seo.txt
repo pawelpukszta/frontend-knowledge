@@ -1,0 +1,2298 @@
+@cl-category seo
+name: SEO
+desc: Treść i wiarygodność (E-E-A-T), lokalne SEO, meta tagi, social media i techniczne SEO: indeksowanie, sitemap, przekierowania, dane strukturalne, linkowanie.
+sources: Google Search Central: SEO Starter Guide | https://developers.google.com/search/docs/fundamentals/seo-starter-guide ; Google Search Central: Search Essentials | https://developers.google.com/search/docs/essentials ; Google Search Central: Structured data | https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data
+
+@cl-group Treść i wiarygodność
+sources: Google: Creating helpful, reliable, people-first content | https://developers.google.com/search/docs/fundamentals/creating-helpful-content ; Google: Search Quality Rater Guidelines (PDF) | https://static.googleusercontent.com/media/guidelines.raterhub.com/en//searchqualityevaluatorguidelines.pdf
+
+[quality] high
+T: Publikuj wartościowe treści
+D: Treść ma odpowiadać na realną potrzebę czytelnika: być oryginalna, kompletna i oparta na doświadczeniu oraz wiedzy autora (E-E-A-T), a nie pisana pod słowa kluczowe. Żadna optymalizacja techniczna tego nie zastąpi.
+W: W marcu 2024 r. Google włączył ocenę przydatności treści do głównych systemów rankingowych; słabe treści mogą obniżać widoczność całego serwisu, nie tylko pojedynczej strony.
+W: Informacje z pierwszej ręki (własne zdjęcia, sprawdzone ceny, relacja z pobytu w hotelu) to coś, czego nie skopiuje konkurencja ani nie wygeneruje model AI z ogólnodostępnych danych.
+W: Czytelnik, który znalazł odpowiedź, zostaje dłużej, wraca i częściej rezerwuje; tekst "dla robota" kończy się powrotem do wyników wyszukiwania.
+V: Oceń tekst pytaniami z poradnika Google o przydatnych treściach (np. "czy po lekturze czytelnik wie wystarczająco dużo, by osiągnąć cel?") i porównaj z pierwszą stroną wyników: co wnosisz ponad nie.
+```html Treść z doświadczeniem z pierwszej ręki
+<article>
+  <h1>Hotel Kalimera Beach na Krecie: recenzja po tygodniu z dziećmi</h1>
+  <p>Byliśmy tu w czerwcu 2026 z dwójką dzieci (4 i 7 lat); pobyt opłaciliśmy sami.</p>
+  <figure>
+    <!-- Own photo, not a stock or hotel marketing image -->
+    <img src="/img/kalimera-pokoj-rodzinny.webp" width="1200" height="800"
+         alt="Pokój rodzinny z widokiem na basen, łóżeczko dziecięce przy oknie">
+    <figcaption>Pokój rodzinny nr 214; łóżeczko dostawiono bez dopłaty.</figcaption>
+  </figure>
+  <h2>Co nas zaskoczyło</h2>
+  <ul>
+    <li>Zejście do morza jest kamieniste: zabierz buty do wody.</li>
+    <li>Transfer z lotniska w Heraklionie trwał 35 minut, a nie 20 jak w katalogu.</li>
+  </ul>
+</article>
+```
+X: Parafrazowanie artykułów z czołówki wyników bez dodania żadnej nowej informacji.
+X: Mierzenie jakości liczbą słów lub gęstością fraz zamiast tego, czy tekst odpowiada na pytanie użytkownika.
+
+[ymyl-detection] high
+T: Rozpoznaj treści YMYL
+D: "Your Money or Your Life" to tematy, które mogą wpłynąć na zdrowie, finanse, bezpieczeństwo lub prawa człowieka (np. ubezpieczenia podróżne, szczepienia przed wyjazdem, płatności, prawa pasażera). Wymagają wyższych standardów: autora z kwalifikacjami, recenzji eksperta, źródeł i daty weryfikacji.
+W: Wytyczne dla oceniających jakość (Search Quality Rater Guidelines) wymagają przy YMYL najwyższego poziomu zaufania; ta sama treść bez autora i źródeł zostanie oceniona niżej niż przy zwykłym temacie.
+W: Błąd ma realne skutki: nieaktualna informacja o wizie lub zakresie polisy może kosztować klienta odmowę wjazdu albo tysiące złotych za leczenie za granicą.
+W: Oznaczenie kategorii YMYL w CMS pozwala wymusić proces (recenzja, źródła, data weryfikacji) zamiast liczyć na pamięć redaktora.
+V: Przejrzyj kategorie treści i oznacz YMYL; na tych stronach sprawdź podpis autora, recenzenta, datę weryfikacji i przypisy do źródeł pierwotnych.
+```ts Walidacja w CMS przed publikacją
+// cms/validators/ymyl.ts
+const YMYL_CATEGORIES = new Set(['ubezpieczenia', 'zdrowie-w-podrozy', 'wizy', 'platnosci', 'prawa-pasazera']);
+
+export function validateYmyl(post: Post): string[] {
+  if (!YMYL_CATEGORIES.has(post.category)) return [];
+  const errors: string[] = [];
+  if (!post.author?.bio) errors.push('YMYL: author with bio is required');
+  if (!post.reviewedBy) errors.push('YMYL: expert reviewer is required');
+  if (!post.reviewedAt) errors.push('YMYL: review date is required');
+  if (post.sources.length < 2) errors.push('YMYL: cite at least two primary sources');
+  return errors;
+}
+```
+X: Traktowanie poradnika "jak odzyskać pieniądze za odwołany lot" jak zwykłego wpisu blogowego, bez weryfikacji przez prawnika.
+X: Jednorazowa weryfikacja bez terminu kolejnego przeglądu; przepisy i warunki polis zmieniają się co sezon.
+
+[about-page] medium
+T: Strona "O nas"
+D: Strona z konkretami: kim jesteście, od kiedy działacie, kto stoi za firmą, dane rejestrowe i osiągnięcia. Podlinkowana z każdej strony, zwykle w stopce.
+W: Wytyczne dla oceniających jakość każą sprawdzać, kto odpowiada za witrynę; brak takiej informacji to sygnał niskiego zaufania, szczególnie przy sprzedaży wycieczek.
+W: Klient przed pierwszą rezerwacją u mniej znanego biura szuka dowodów, że firma istnieje naprawdę: zdjęć zespołu, roku założenia, numeru w rejestrze.
+W: Google zaleca umieszczenie danych strukturalnych Organization na stronie głównej albo właśnie na stronie "O nas".
+V: Sprawdź, czy strona istnieje, jest podlinkowana w stopce, zawiera konkretne dane (nie same hasła marketingowe) i ma JSON-LD zgodny z treścią (Rich Results Test).
+```html JSON-LD na stronie /o-nas
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "url": "https://example.pl/o-nas",
+  "mainEntity": {
+    "@type": "TravelAgency",
+    "@id": "https://example.pl/#organization",
+    "name": "Example Travel",
+    "legalName": "Example Travel sp. z o.o.",
+    "foundingDate": "2009",
+    "numberOfEmployees": { "@type": "QuantitativeValue", "value": 85 },
+    "vatID": "PL1234567890",
+    "url": "https://example.pl"
+  }
+}
+</script>
+```
+X: Ogólniki ("jesteśmy pasjonatami podróży") bez nazwisk, dat i danych firmy.
+S: Google: Organization structured data | https://developers.google.com/search/docs/appearance/structured-data/organization
+
+[affiliate-disclosure] medium
+T: Oznaczaj linki afiliacyjne i treści sponsorowane
+D: Użytkownik musi wiedzieć o powiązaniach finansowych: widoczna informacja przy treści, a linki płatne i afiliacyjne oznaczone `rel="sponsored"`. To wymóg zaufania, zasad Google i prawa.
+W: Google wymaga oznaczania linków płatnych; kupione lub sprzedane linki bez `sponsored` (albo `nofollow`) mogą zostać uznane za spam linkowy.
+W: Ukryta reklama jest w Polsce nieuczciwą praktyką rynkową (ustawa o przeciwdziałaniu nieuczciwym praktykom rynkowym); UOKiK wydał też rekomendacje oznaczania treści reklamowych.
+W: Jawność buduje zaufanie: czytelnik, który sam odkryje ukrytą prowizję, przestaje wierzyć całemu serwisowi.
+V: Przejrzyj artykuły z linkami partnerskimi: czy informacja jest widoczna przed pierwszym linkiem i czy każdy taki link ma `rel="sponsored"` (DevTools lub crawler z ekstrakcją atrybutu `rel`).
+```html
+<p class="disclosure" role="note">
+  Artykuł zawiera linki partnerskie. Jeśli zarezerwujesz przez nie hotel,
+  otrzymamy prowizję; cena dla Ciebie się nie zmienia.
+  <a href="/jak-zarabiamy">Jak zarabiamy</a>
+</p>
+
+<!-- Paid or affiliate link: "sponsored" is preferred, "nofollow" is still accepted -->
+<a href="https://partner.example.com/hotel/123?aff=exm" rel="sponsored noopener" target="_blank">
+  Sprawdź ceny w Hotel Kalimera Beach
+</a>
+```
+X: Informacja o współpracy tylko w stopce lub regulaminie, daleko od linków.
+X: Dodawanie `rel="sponsored"` do zwykłych linków wewnętrznych serwisu.
+S: Google: Qualify your outbound links | https://developers.google.com/search/docs/crawling-indexing/qualify-outbound-links
+
+[ai-content] medium
+T: Weryfikuj treści generowane przez AI
+D: AI może pomagać w researchu i pisaniu, ale masowe generowanie stron bez wartości dodanej Google traktuje jako spam ("scaled content abuse"). Każdy tekst przechodzi redakcję człowieka: fakty, źródła, własna perspektywa.
+W: Modele językowe przewidują prawdopodobne słowa, a nie sprawdzają faktów; zmyślona godzina odprawy czy wymóg wizowy trafia prosto do klienta.
+W: Polityka "scaled content abuse" (od marca 2024 r.) dotyczy masowej produkcji stron niezależnie od tego, czy pisze je człowiek, czy AI; karane jest zachowanie, nie narzędzie.
+W: Google zaleca sprawdzać także generowane automatycznie tytuły, meta description, dane strukturalne i teksty alternatywne obrazów.
+V: Redakcyjny przegląd przed publikacją: weryfikacja faktów, źródła, unikalne informacje, ton marki; w CMS zapisz, kto i kiedy zatwierdził tekst.
+```ts Bramka publikacji w CMS
+// AI-assisted drafts cannot be published without a human fact-check
+type Draft = {
+  aiAssisted: boolean;
+  factCheckedBy?: string; // editor id
+  factCheckedAt?: string; // ISO 8601
+  sources: string[];
+};
+
+export function canPublish(d: Draft): { ok: boolean; reason?: string } {
+  if (!d.aiAssisted) return { ok: true };
+  if (!d.factCheckedBy || !d.factCheckedAt) return { ok: false, reason: 'Missing human fact-check' };
+  if (d.sources.length === 0) return { ok: false, reason: 'AI-assisted text needs sources' };
+  return { ok: true };
+}
+```
+X: Generowanie setek stron "Wakacje w {miasto}" z jednego promptu.
+X: Obrazy produktów z AI bez metadanych IPTC `DigitalSourceType`, których Google Merchant Center wymaga dla treści generowanych.
+S: Google: Guidance about AI-generated content | https://developers.google.com/search/blog/2023/02/google-search-and-ai-content ; Google: Using generative AI content on your website | https://developers.google.com/search/docs/fundamentals/using-gen-ai-content
+
+[anchor-text] medium
+T: Opisowy tekst kotwic linków
+D: Tekst linku mówi, czego dotyczy strona docelowa ("oferty last minute do Grecji"), a nie "kliknij tutaj". Pomaga to wyszukiwarkom i użytkownikom, także czytników ekranu.
+W: Google wykorzystuje tekst kotwic do zrozumienia strony docelowej; to nawet jedno ze źródeł, z których powstaje tytuł w wynikach.
+W: Użytkownicy czytników ekranu często przeglądają samą listę linków; dziesięć razy "więcej" nic im nie mówi (WCAG 2.4.4 Link Purpose).
+W: Opisowe kotwice ułatwiają skanowanie tekstu wzrokiem: czytelnik wie, dokąd prowadzi link, zanim kliknie.
+V: Crawler (np. Screaming Frog) z raportem tekstów kotwic: szukaj "kliknij tutaj", "więcej", "link" oraz pustych kotwic (np. same ikony).
+```html Źle
+<p>Szukasz tanich wakacji? <a href="/grecja/last-minute">Kliknij tutaj</a>.</p>
+<!-- Icon-only link: empty accessible name and no anchor text -->
+<a href="/kreta"><svg aria-hidden="true"><use href="#icon-arrow"/></svg></a>
+```
+```html Dobrze
+<p>Zobacz <a href="/grecja/last-minute">oferty last minute do Grecji</a> z wylotem w tym tygodniu.</p>
+<a href="/kreta">
+  <svg aria-hidden="true"><use href="#icon-arrow"/></svg>
+  <span class="visually-hidden">Wakacje na Krecie</span>
+</a>
+```
+X: Upychanie dokładnej frazy w każdej kotwicy ("tanie wakacje Grecja tanie") wygląda na manipulację.
+
+[article-links] medium
+T: Zrównoważone linkowanie w artykułach
+D: Artykuł linkuje do powiązanych treści w serwisie i do autorytatywnych źródeł zewnętrznych; orientacyjnie 2-3 linki wewnętrzne i 1-2 zewnętrzne, proporcjonalnie do długości tekstu i tylko tam, gdzie pomagają czytelnikowi.
+W: Linki wewnętrzne pozwalają Google odkryć i zrozumieć powiązane strony; strona bez linków przychodzących ("osierocona") może w ogóle nie trafić do indeksu.
+W: Link do źródła zewnętrznego (np. serwisu gov.pl o paszportach) pozwala czytelnikowi sprawdzić informację i pokazuje, że autor jej nie wymyślił.
+W: Przesyt linków rozprasza i wygląda jak farma linków; czytelnik nie wie, który jest naprawdę ważny.
+V: Policz linki w kilku reprezentatywnych artykułach (np. skryptem poniżej w konsoli DevTools) i znajdź w crawlerze strony bez linków wewnętrznych.
+```js Konsola DevTools: linki w treści artykułu
+const article = document.querySelector('article');
+const links = [...article.querySelectorAll('a[href]')];
+const internal = links.filter((a) => a.hostname === location.hostname);
+const external = links.filter((a) => a.hostname !== location.hostname);
+const words = article.innerText.split(/\s+/).length;
+console.table({ words, internal: internal.length, external: external.length });
+console.log(external.map((a) => `${a.href} rel=${a.rel || '-'}`));
+```
+X: Linkowanie wyłącznie do strony głównej lub kategorii zamiast do konkretnych, powiązanych artykułów.
+
+[author-byline] medium
+T: Widoczny autor treści
+D: Imię i nazwisko autora widoczne przy treści, z linkiem do jego profilu w serwisie, oraz zgodny z tym `author` w danych strukturalnych.
+W: Czytelnik i oceniający jakość muszą wiedzieć, kto odpowiada za tekst; anonimowy poradnik o ubezpieczeniu podróżnym budzi mniejsze zaufanie.
+W: Google używa `author.url` lub `sameAs`, by odróżniać autorów o tym samym nazwisku i łączyć ich teksty.
+W: Profil autora z listą artykułów to dodatkowa wartościowa strona i ścieżka linkowania wewnętrznego.
+V: Sprawdź szablony artykułów i poradników: widoczny podpis, link do profilu i zgodność z `author` w JSON-LD (Rich Results Test).
+```html
+<p class="byline">
+  Tekst: <a href="/autorzy/anna-nowak" rel="author">Anna Nowak</a>, pilotka wycieczek po Grecji
+</p>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Kreta z dziećmi: 7 plaż z łagodnym zejściem do wody",
+  "author": [{
+    "@type": "Person",
+    "name": "Anna Nowak",
+    "url": "https://example.pl/autorzy/anna-nowak"
+  }]
+}
+</script>
+```
+X: W `author.name` wpisane "Redakcja Example Travel, pilotka Anna Nowak"; Google zaleca samo imię i nazwisko, a stanowisko w `jobTitle`.
+X: Kilku autorów połączonych w jednym polu `name` zamiast osobnych obiektów `Person`.
+S: Google: Article structured data | https://developers.google.com/search/docs/appearance/structured-data/article
+
+[author-expertise] medium
+T: Pokaż kwalifikacje autora
+D: Profil autora z bio, doświadczeniem i kwalifikacjami (np. "pilotka wycieczek od 10 lat, licencja przewodnika") oraz linkami do zewnętrznych profili wzmacnia sygnały E-E-A-T.
+W: Doświadczenie (pierwsze "E" w E-E-A-T, dodane w grudniu 2022 r.) oceniane jest m.in. po tym, czy autor faktycznie robił to, o czym pisze.
+W: Linki `sameAs` do LinkedIn, publikacji czy wystąpień pozwalają powiązać autora z jego reputacją poza serwisem.
+W: W tematach YMYL wytyczne dla oceniających oczekują kwalifikacji autora lub recenzenta (lekarz medycyny podróży, radca prawny).
+V: Sprawdź strony autorów: bio, zdjęcie, kwalifikacje, lista tekstów, dane ProfilePage (Rich Results Test) i link z każdego artykułu.
+```html Strona /autorzy/anna-nowak
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ProfilePage",
+  "dateModified": "2026-09-14T10:00:00+02:00",
+  "mainEntity": {
+    "@type": "Person",
+    "name": "Anna Nowak",
+    "jobTitle": "Pilotka wycieczek",
+    "description": "Od 2016 r. prowadzi wycieczki objazdowe po Grecji i Cyprze.",
+    "image": "https://example.pl/img/autorzy/anna-nowak.jpg",
+    "knowsAbout": ["Kreta", "Rodos", "turystyka rodzinna"],
+    "sameAs": ["https://www.linkedin.com/in/anna-nowak-example"]
+  }
+}
+</script>
+```
+X: Bio z szablonu ("ekspertka od podróży z pasją") bez faktów, które da się sprawdzić.
+S: Google: Profile page structured data | https://developers.google.com/search/docs/appearance/structured-data/profile-page
+
+[citations] medium
+T: Cytuj wiarygodne źródła
+D: Linki do źródeł pierwotnych (urzędy, przepisy, badania, oficjalna dokumentacja) przy konkretnych twierdzeniach uwiarygadniają treść i pozwalają czytelnikowi ją sprawdzić.
+W: Wytyczne dla oceniających jakość traktują poparcie twierdzeń źródłami jako sygnał wiarygodności, zwłaszcza w tematach YMYL.
+W: Źródło pierwotne (np. rozporządzenie UE 261/2004 o prawach pasażerów) jest stabilniejsze niż cudzy wpis na blogu i łatwiej sprawdzić, czy przepis się zmienił.
+W: Przypisy ułatwiają redakcji okresową weryfikację: wiadomo, co sprawdzić, gdy zmienią się przepisy lub ceny.
+V: Przejrzyj kluczowe artykuły: czy każda liczba, przepis i obietnica ma link do źródła i czy linki działają (crawler: linki zewnętrzne z kodem 4xx/5xx).
+```html
+<p>
+  Przy opóźnieniu lotu o co najmniej 3 godziny przysługuje odszkodowanie od 250 do 600 euro
+  <sup><a href="#zrodlo-1" id="ref-1">[1]</a></sup>.
+</p>
+<figure>
+  <blockquote cite="https://www.gov.pl/web/dyplomacja/grecja">
+    <p>Obywatele RP mogą wjechać do Grecji na podstawie dowodu osobistego.</p>
+  </blockquote>
+  <figcaption>Źródło: <cite><a href="https://www.gov.pl/web/dyplomacja/grecja">MSZ, Polak za granicą</a></cite></figcaption>
+</figure>
+<ol class="sources">
+  <li id="zrodlo-1"><a href="https://eur-lex.europa.eu/eli/reg/2004/261/oj">Rozporządzenie (WE) nr 261/2004, art. 7</a></li>
+</ol>
+```
+X: Linkowanie do agregatora lub innego bloga zamiast do źródła pierwotnego.
+X: "Badania pokazują, że..." bez wskazania, jakie to badania.
+
+[contact-page] medium
+T: Pełna strona kontaktowa
+D: Kilka form kontaktu (formularz, telefon, e-mail, adres, godziny pracy infolinii) na jednej łatwo dostępnej stronie. To sygnał zaufania i wymóg przepisów dla sprzedaży online.
+W: Ustawa o świadczeniu usług drogą elektroniczną (art. 5) wymaga podania m.in. adresu e-mail i danych firmy, a ustawa o prawach konsumenta danych kontaktowych przed zawarciem umowy.
+W: Klient z problemem na wyjeździe szuka telefonu alarmowego; jego brak kończy się złą opinią w sieci i reklamacją.
+W: Wytyczne dla oceniających jakość wskazują brak informacji kontaktowych w serwisie sprzedażowym jako sygnał niskiej jakości.
+V: Sprawdź, czy strona kontaktu jest podlinkowana w stopce i nagłówku, dane są aktualne, a linki `tel:` i `mailto:` działają na telefonie.
+```html
+<h1>Kontakt</h1>
+<address>
+  Example Travel sp. z o.o.<br>
+  ul. Marszałkowska 100, 00-026 Warszawa<br>
+  Infolinia: <a href="tel:+48221234567">+48 22 123 45 67</a> (pn-pt 8:00-20:00, sob. 9:00-15:00)<br>
+  Telefon alarmowy dla klientów na wyjeździe (24/7): <a href="tel:+48600123456">+48 600 123 456</a><br>
+  E-mail: <a href="mailto:rezerwacje@example.pl">rezerwacje@example.pl</a>
+</address>
+<p><a href="/kontakt/formularz">Napisz do nas przez formularz</a></p>
+```
+X: Sam formularz kontaktowy, bez telefonu i e-maila.
+X: Numer telefonu jako obrazek; nie da się go kliknąć ani skopiować.
+
+[content-dates] medium
+T: Daty publikacji i aktualizacji
+D: Widoczna data publikacji i ostatniej aktualizacji, oznaczona elementem `<time datetime>`, oraz te same daty w `datePublished` i `dateModified` w danych strukturalnych (ISO 8601 ze strefą czasową).
+W: Data pomaga ocenić aktualność: ktoś szukający "warunki wjazdu do Turcji" od razu odrzuci tekst sprzed trzech lat.
+W: Bez strefy czasowej Google przyjmuje strefę Googlebota, więc data może przesunąć się o dzień.
+W: Rozbieżność między datą widoczną a znacznikami utrudnia Google wybór właściwej daty; Google zaleca też usunąć inne daty, które mogą mylić.
+V: Sprawdź szablon artykułu: widoczne daty z etykietą ("Opublikowano", "Zaktualizowano"), atrybut `datetime` i zgodny JSON-LD (Rich Results Test).
+```html
+<p class="meta">
+  Opublikowano <time datetime="2025-03-12T09:00:00+01:00">12 marca 2025</time>,
+  zaktualizowano <time datetime="2026-09-30T14:20:00+02:00">30 września 2026</time>
+</p>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Warunki wjazdu do Turcji w 2026 roku",
+  "datePublished": "2025-03-12T09:00:00+01:00",
+  "dateModified": "2026-09-30T14:20:00+02:00"
+}
+</script>
+```
+X: Data wydarzenia (np. termin wylotu) w `datePublished` zamiast daty publikacji strony.
+X: Daty z przyszłości, np. ustawione z wyprzedzeniem dla zaplanowanych publikacji.
+S: Google: Influence your byline dates | https://developers.google.com/search/docs/appearance/publication-dates
+
+[disclaimers] medium
+T: Zastrzeżenia przy treściach wrażliwych
+D: Porady medyczne, prawne, finansowe czy ubezpieczeniowe mają widoczną informację, że nie zastępują konsultacji ze specjalistą, oraz wskazanie, gdzie szukać wiążących informacji.
+W: Czytelnik może podjąć decyzję zdrowotną lub finansową na podstawie tekstu; zastrzeżenie kieruje go do lekarza, ubezpieczyciela czy MSZ.
+W: Ogranicza ryzyko prawne serwisu, choć nie zwalnia z rzetelności samej treści.
+W: Jasne granice porady to oczekiwany element treści YMYL; pokazują, że redakcja rozumie swoją odpowiedzialność.
+V: Przegląd treści YMYL: czy zastrzeżenie jest przy treści (a nie tylko w regulaminie) i czy wskazuje konkretne, wiążące źródło.
+```html
+<aside class="disclaimer" role="note" aria-label="Zastrzeżenie">
+  <p>
+    Artykuł ma charakter informacyjny i nie zastępuje konsultacji z lekarzem medycyny podróży.
+    Zalecenia dotyczące szczepień się zmieniają; aktualne informacje znajdziesz w
+    <a href="https://www.gov.pl/web/dyplomacja/informacje-dla-podrozujacych">serwisie MSZ Polak za granicą</a>.
+  </p>
+  <p>Konsultacja merytoryczna: lek. Jan Kowalski, specjalista chorób zakaźnych. Stan na 1 października 2026.</p>
+</aside>
+```
+X: Zastrzeżenie ukryte w regulaminie albo w drobnym szarym druku pod stopką.
+
+[editorial-policy] medium
+T: Polityka redakcyjna
+D: Publiczna strona opisująca, jak powstają i są weryfikowane treści, kto je recenzuje, jak korzystacie z AI i jak zgłaszać błędy. Ważne dla serwisów publikujących dużo poradników.
+W: Oceniający jakość szukają informacji o odpowiedzialności za treść; polityka redakcyjna odpowiada na pytanie "skąd mam wiedzieć, że to prawda?".
+W: Spisany proces porządkuje pracę zespołu: każdy redaktor i freelancer wie, jakie źródła są akceptowane i kiedy tekst wymaga recenzji eksperta.
+W: Jawna procedura korekt (z datą i opisem zmiany) buduje zaufanie po wykryciu błędu, w przeciwieństwie do cichej poprawki.
+V: Sprawdź, czy strona istnieje, jest podlinkowana w stopce i z profili autorów oraz czy wskazuje ją `publishingPrinciples` w JSON-LD Organization.
+```html Szkielet strony /polityka-redakcyjna
+<h1>Polityka redakcyjna</h1>
+<h2 id="zrodla">Z jakich źródeł korzystamy</h2>
+<h2 id="recenzja">Kto sprawdza teksty o zdrowiu, ubezpieczeniach i prawach pasażera</h2>
+<h2 id="ai">Jak używamy narzędzi AI</h2>
+<h2 id="korekty">Korekty: jak zgłosić błąd i jak oznaczamy poprawki</h2>
+<h2 id="niezaleznosc">Niezależność i linki partnerskie</h2>
+```
+```html JSON-LD Organization
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://example.pl/#organization",
+  "name": "Example Travel",
+  "url": "https://example.pl",
+  "publishingPrinciples": "https://example.pl/polityka-redakcyjna"
+}
+</script>
+```
+X: Polityka napisana raz i nieaktualizowana, opisująca proces, którego zespół nie stosuje.
+
+[freshness] medium
+T: Sygnały aktualności treści
+D: Regularnie aktualizuj treści zależne od czasu (ceny, przepisy, warunki wjazdu, terminy sezonu) i pokazuj datę ostatniej zmiany. Nie zmieniaj samej daty bez realnych zmian w treści.
+W: Przy zapytaniach o bieżące informacje ("ceny wycieczek 2027", "warunki wjazdu") użytkownicy i wyszukiwarka oczekują świeżych źródeł; nieaktualny tekst traci pozycje i zaufanie.
+W: Stara cena lub nieaktualny przepis to reklamacje i koszty obsługi; klient powołuje się na to, co przeczytał.
+W: Sztuczne "odświeżanie" daty bez zmian w treści wprowadza w błąd; według Google `dateModified` ma opisywać faktyczną aktualizację strony.
+V: Raport najczęściej odwiedzanych stron z najstarszym `dateModified`; harmonogram przeglądów (np. co kwartał dla YMYL) z przypisanym właścicielem treści.
+```ts dateModified tylko przy istotnej zmianie
+// Typo fixes and whitespace changes keep the old date; real updates bump it
+type Revision = { body: string; substantive: boolean }; // editor ticks "substantive change"
+
+const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+export function nextDateModified(prevDate: string, prevBody: string, rev: Revision): string {
+  const changed = normalize(prevBody) !== normalize(rev.body);
+  return changed && rev.substantive ? new Date().toISOString() : prevDate;
+}
+```
+X: Automatyczne ustawianie `dateModified` na datę każdego deployu dla wszystkich stron.
+X: Zmiana roku w tytule ("2027") bez aktualizacji treści.
+
+[keyword-stuffing] medium
+T: Bez upychania słów kluczowych
+D: Nienaturalne powtarzanie fraz w treści, nagłówkach, tekstach alternatywnych czy ukrytym tekście narusza zasady Google dotyczące spamu i pogarsza czytelność.
+W: Upychanie słów kluczowych jest wprost wymienione w politykach spamu Google; może skutkować spadkiem pozycji lub działaniem ręcznym.
+W: Współczesne systemy rozumieją synonimy i kontekst; dziesiąte powtórzenie "tanie wakacje Turcja" nic nie dodaje.
+W: Tekst pisany pod frazę zniechęca czytelnika i obniża konwersję.
+V: Przeczytaj tekst na głos; sprawdź gęstość fraz w narzędziu SEO i przejrzyj atrybuty `alt`, `title` oraz ukryte elementy.
+```html Źle
+<h1>Tanie wakacje Turcja: tanie wakacje w Turcji last minute</h1>
+<p>Tanie wakacje Turcja to najlepsze tanie wakacje. Szukasz: tanie wakacje Turcja? Mamy tanie wakacje Turcja!</p>
+<img src="/img/side.webp" alt="tanie wakacje turcja tanie wczasy turcja last minute turcja">
+<div style="display:none">Antalya Side Alanya Kemer Bodrum Marmaris Belek</div>
+```
+```html Dobrze
+<h1>Tanie wakacje w Turcji: oferty do 3000 zł za osobę</h1>
+<p>Zebraliśmy wyjazdy all inclusive do Side, Alanyi i Kemer z wylotem z Warszawy i Katowic.</p>
+<img src="/img/side.webp" alt="Plaża w Side z widokiem na hotelowy basen">
+```
+X: Listy miast lub fraz w stopce dodane "dla SEO".
+S: Google: Spam policies (keyword stuffing) | https://developers.google.com/search/docs/essentials/spam-policies
+
+[llm-parsability] medium
+T: Treść łatwa do przetworzenia przez modele AI
+D: Semantyczne nagłówki, krótkie akapity, listy i tabele, zdania zrozumiałe bez kontekstu oraz treść obecna w początkowym HTML (nie tylko po JS) ułatwiają wykorzystanie strony w AI Overviews, AI Mode i asystentach AI.
+W: Google nie stawia osobnych wymagań dla funkcji AI: strona musi być zaindeksowana i kwalifikować się do snippetu, a ważna treść ma być dostępna jako tekst.
+W: Wiele crawlerów AI nie wykonuje JavaScriptu; treść renderowana wyłącznie po stronie klienta jest dla nich niewidoczna.
+W: Odpowiedź w pierwszym zdaniu sekcji ("Do Grecji wjedziesz na dowód osobisty") łatwo zacytować; ta sama informacja rozmyta w trzech akapitach przepada.
+V: Wyłącz JavaScript (DevTools, Command Menu, "Disable JavaScript") lub obejrzyj źródło strony; sprawdź hierarchię nagłówków i czy kluczowe fakty są tekstem, a nie obrazkiem.
+```html Źle
+<div class="content" id="docs"></div>
+<script>
+  // Content exists only after client-side fetch: invisible to non-JS crawlers
+  fetch('/api/docs/grecja').then((r) => r.json()).then(renderDocs);
+</script>
+```
+```html Dobrze
+<section>
+  <h2>Jaki dokument jest potrzebny do Grecji?</h2>
+  <p>Obywatel Polski wjedzie do Grecji na ważny dowód osobisty lub paszport.</p>
+  <ul>
+    <li>Dziecko potrzebuje własnego dokumentu, wpis w paszporcie rodzica nie wystarczy.</li>
+    <li>Dokument musi być ważny przez cały pobyt.</li>
+  </ul>
+</section>
+```
+X: Dodawanie schematu FAQPage "pod AI"; Google usunął wyniki rozszerzone FAQ w maju 2026 i nie wymaga specjalnego schema ani plików typu llms.txt dla funkcji AI.
+X: Blokowanie tokenu `Google-Extended` w robots.txt w przekonaniu, że wyłączy to AI Overviews; nie wpływa on na wyszukiwarkę.
+S: Google: AI features and your website | https://developers.google.com/search/docs/appearance/ai-features
+
+[reading-level] medium
+T: Odpowiedni poziom trudności tekstu
+D: Pisz językiem dopasowanym do odbiorców: krótkie zdania, proste słowa, wyjaśnione terminy, jedna myśl w akapicie. Prosty język pomaga wszystkim, nie tylko mniej wprawnym czytelnikom.
+W: Większość użytkowników skanuje tekst na telefonie; zdanie na 40 słów z wtrąceniami gubi ich w połowie.
+W: Prosty język wspiera osoby z niepełnosprawnościami poznawczymi, dysleksją i obcokrajowców czytających po polsku (WCAG 3.1.5 Reading Level, poziom AAA).
+W: Zrozumiałe warunki rezerwacji to mniej pytań na infolinii i mniej reklamacji.
+V: Narzędzie oceny czytelności dla polskiego (np. Jasnopis, indeks FOG-PL); w redakcji ustal limit długości zdań i sprawdzaj go przed publikacją.
+```txt Źle
+W przypadku rezygnacji z imprezy turystycznej przez Podróżnego przed jej rozpoczęciem Organizator
+uprawniony jest do potrącenia opłaty za odstąpienie, której wysokość uzależniona jest od terminu
+złożenia oświadczenia, z zastrzeżeniem postanowień art. 47 ustawy.
+```
+```txt Dobrze
+Możesz zrezygnować z wycieczki w każdej chwili przed wyjazdem.
+Zapłacisz wtedy opłatę za odstąpienie. Jej wysokość zależy od tego, ile dni zostało do wyjazdu:
+- 30 dni lub więcej: 10% ceny,
+- 14-29 dni: 50% ceny,
+- mniej niż 14 dni: 80% ceny.
+```
+X: Upraszczanie kosztem precyzji w treściach prawnych; prosty język nie oznacza pomijania warunków.
+
+[trust-signals] medium
+T: Sygnały zaufania na kluczowych stronach
+D: Dane rejestrowe firmy, gwarancje i zabezpieczenia, opinie klientów z informacją o weryfikacji, bezpieczne metody płatności. Najważniejsze na stronach ofert, koszyka i rezerwacji.
+W: Organizator turystyki w Polsce musi być wpisany do rejestru marszałka województwa (CEOTiPU) i mieć zabezpieczenie finansowe na wypadek niewypłacalności; numer wpisu i nazwa gwaranta to konkretny argument dla klienta.
+W: Od 2023 r. (dyrektywa Omnibus) sprzedawca musi informować, czy i jak weryfikuje opinie; fałszywe recenzje są nieuczciwą praktyką rynkową.
+W: Niepewność w momencie płatności to częsta przyczyna porzucenia koszyka; widoczne zabezpieczenia przy przycisku "Rezerwuję" ją zmniejszają.
+V: Przegląd stron oferty, koszyka i płatności na telefonie: czy sygnały zaufania są widoczne w miejscu decyzji, a nie tylko w stopce; sprawdź aktualność danych rejestrowych.
+```html Przy przycisku rezerwacji
+<ul class="trust" aria-label="Bezpieczna rezerwacja">
+  <li>Organizator turystyki wpisany do rejestru Marszałka Województwa Mazowieckiego, nr 1234</li>
+  <li>Gwarancja ubezpieczeniowa i składka na Turystyczny Fundusz Gwarancyjny</li>
+  <li>Płatność BLIK-iem, kartą lub szybkim przelewem</li>
+</ul>
+<p class="reviews">
+  4,7/5 z 2318 opinii.
+  <a href="/jak-weryfikujemy-opinie">Opinie mogą wystawić tylko klienci po powrocie z wyjazdu.</a>
+</p>
+<button type="submit">Rezerwuję i płacę</button>
+```
+X: Logo certyfikatów i nagród, których firma nie ma albo które wygasły.
+X: Opinie bez daty i bez informacji o sposobie weryfikacji.
+
+[word-count] medium
+T: Bez "cienkich" treści na kluczowych stronach
+D: Strony z kilkoma zdaniami unikalnej treści rzadko odpowiadają na potrzeby użytkownika. Liczy się kompletność odpowiedzi, a nie sztywna liczba słów; orientacyjnie strony poniżej ok. 200 słów treści głównej warto przejrzeć.
+W: "Cienkie" strony (np. opis hotelu skopiowany od touroperatora plus galeria) nie wnoszą nic ponad setki identycznych kopii i mają małe szanse na indeksację.
+W: Duża liczba słabych stron rozmywa ocenę jakości całego serwisu i marnuje budżet indeksowania.
+W: Google nie ma minimalnej liczby słów; tekst rozdmuchany do 2000 słów "pod SEO" jest równie zły jak zbyt krótki.
+V: Crawler z ekstrakcją liczby słów treści głównej (bez menu i stopki); listę krótkich stron porównaj z ruchem i z wynikami konkurencji.
+```js Liczba słów treści głównej (konsola lub Playwright)
+// Count words in the main content only, excluding navigation and boilerplate
+const main = document.querySelector('main')?.cloneNode(true);
+main?.querySelectorAll('nav, aside, footer, [data-boilerplate]').forEach((el) => el.remove());
+const words = (main?.textContent ?? '').trim().split(/\s+/).filter(Boolean).length;
+console.log(`${location.pathname}: ${words} words`, words < 200 ? 'REVIEW' : 'OK');
+```
+X: Dopisywanie ogólników tylko po to, by przekroczyć próg słów.
+X: Indeksowanie tysięcy stron tagów i filtrów z samą listą ofert; lepiej je scalić albo oznaczyć `noindex`.
+
+@cl-group Lokalne SEO
+sources: Google: LocalBusiness structured data | https://developers.google.com/search/docs/appearance/structured-data/local-business ; Google Business Profile Help | https://support.google.com/business/
+
+[geo-meta] medium
+T: Meta tagi geograficzne
+D: `geo.region` (kod ISO 3166-2, np. `PL-14` dla Mazowieckiego), `geo.placename` i `geo.position` opisują lokalizację strony. To co najwyżej słaby sygnał pomocniczy: Google ich nie używa, opiera się na treści, danych strukturalnych, hreflang i profilu firmy.
+W: Tagi kosztują niewiele, jeśli generuje je ten sam szablon co dane LocalBusiness; wpisywane ręcznie szybko rozjeżdżają się z adresem.
+W: Błędny region lub współrzędne mogą wprowadzić w błąd narzędzia, które je czytają; lepiej brak tagu niż zły tag.
+W: Dla lokalnej widoczności w Google więcej daje spójny adres w treści, LocalBusiness i Google Business Profile niż jakiekolwiek meta tagi.
+V: Sprawdź `<head>` stron lokalnych i zgodność współrzędnych z adresem (np. wklejając je do mapy).
+```html Strona oddziału /biura/warszawa-centrum
+<meta name="geo.region" content="PL-14">
+<meta name="geo.placename" content="Warszawa">
+<meta name="geo.position" content="52.22977;21.01178">
+<meta name="ICBM" content="52.22977, 21.01178">
+```
+X: Stary kod `PL-MZ` z dawnych poradników; od 2018 r. ISO 3166-2 używa dla województw kodów liczbowych (`PL-02` do `PL-32`).
+X: Te same tagi geo na wszystkich stronach serwisu, także na stronach ofert zagranicznych.
+
+[local-business] medium
+T: Schema LocalBusiness
+D: Dane strukturalne LocalBusiness (w najbardziej szczegółowym podtypie, np. `TravelAgency`) z nazwą, pełnym adresem, telefonem, godzinami otwarcia i współrzędnymi, zgodne z treścią strony.
+W: Google wymaga tylko `name` i `address`, ale telefon z kodem kraju, godziny i `geo` (min. 5 miejsc po przecinku) pomagają poprawnie powiązać stronę z konkretną lokalizacją.
+W: `openingHoursSpecification` obsługuje sezonowość (`validFrom`, `validThrough`), co ma znaczenie dla biur w kurortach czynnych tylko latem.
+W: Każdy oddział powinien mieć własną stronę z własnym blokiem LocalBusiness; jeden wspólny blok dla 30 salonów nic nie mówi o żadnym z nich.
+V: Rich Results Test i Schema Markup Validator; porównaj dane w JSON-LD z widoczną treścią i z Google Business Profile.
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TravelAgency",
+  "name": "Example Travel Warszawa Centrum",
+  "url": "https://example.pl/biura/warszawa-centrum",
+  "telephone": "+48221234567",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "ul. Marszałkowska 100",
+    "postalCode": "00-026",
+    "addressLocality": "Warszawa",
+    "addressCountry": "PL"
+  },
+  "geo": { "@type": "GeoCoordinates", "latitude": 52.22977, "longitude": 21.01178 },
+  "openingHoursSpecification": [
+    { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], "opens": "09:00", "closes": "19:00" },
+    { "@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "10:00", "closes": "15:00" }
+  ]
+}
+</script>
+```
+X: Godziny w JSON-LD inne niż na stronie i w Google Business Profile, bo każde miejsce aktualizuje inna osoba.
+X: `aggregateRating` z opiniami o własnej firmie; Google przewiduje to pole dla serwisów zbierających opinie o innych firmach.
+
+[nap-consistency] medium
+T: Spójne dane NAP
+D: Nazwa, adres i telefon (Name, Address, Phone) muszą być identyczne na stronie, w danych strukturalnych, w Google Business Profile i w katalogach firm.
+W: Rozbieżne dane (inny numer w stopce, inny w profilu) osłabiają pewność, że chodzi o tę samą firmę, i mogą obniżać widoczność w wynikach lokalnych i Mapach.
+W: Klient dzwoniący pod stary numer z katalogu to utracona rezerwacja.
+W: Jedno źródło danych w kodzie eliminuje rozjazdy między stopką, stroną kontaktu i JSON-LD, np. po przeprowadzce biura.
+V: Porównaj dane w stopce, na stronie kontaktu, w JSON-LD, w Google Business Profile i w głównych katalogach (Panorama Firm, Facebook, Apple Maps).
+```tsx Jedno źródło danych NAP
+// lib/business.ts: single source of truth, used by the footer, contact page and JSON-LD
+export const business = {
+  name: 'Example Travel Warszawa Centrum',
+  street: 'ul. Marszałkowska 100',
+  postalCode: '00-026',
+  city: 'Warszawa',
+  phone: '+48 22 123 45 67',
+} as const;
+
+// components/FooterNap.tsx
+import { business as b } from '@/lib/business';
+
+export function FooterNap() {
+  return (
+    <address>
+      {b.name}<br />{b.street}, {b.postalCode} {b.city}<br />
+      <a href={`tel:${b.phone.replace(/\s/g, '')}`}>{b.phone}</a>
+    </address>
+  );
+}
+```
+X: Poprawienie adresu na stronie po przeprowadzce i zapomnienie o Google Business Profile oraz katalogach.
+X: Różne warianty nazwy firmy (z formą prawną i bez, stara marka) w różnych miejscach.
+
+[physical-address] medium
+T: Widoczny adres fizyczny
+D: Adres siedziby lub biura obsługi klienta jest widoczny na stronie (zwykle w stopce i na stronie kontaktu), oznaczony elementem `<address>` i zgodny z danymi rejestrowymi.
+W: Ustawa o świadczeniu usług drogą elektroniczną i ustawa o prawach konsumenta wymagają podania adresu przedsiębiorcy; jego brak to naruszenie obowiązków informacyjnych.
+W: Spółki muszą na swojej stronie podawać m.in. siedzibę i adres, sąd rejestrowy, numer KRS, NIP, a sp. z o.o. także kapitał zakładowy (art. 206 Kodeksu spółek handlowych).
+W: Prawdziwy adres odróżnia firmę od oszukańczych sklepów i biur "widm", a do tego jest podstawą wpisu w Google Business Profile.
+V: Sprawdź stopkę i stronę kontaktu; porównaj adres z KRS lub CEIDG oraz z danymi w JSON-LD.
+```html
+<footer>
+  <address>
+    Example Travel sp. z o.o., ul. Marszałkowska 100, 00-026 Warszawa<br>
+    Sąd Rejonowy dla m.st. Warszawy, XII Wydział Gospodarczy KRS<br>
+    KRS 0000123456, NIP 5250000000, kapitał zakładowy 500 000 zł<br>
+    <a href="/kontakt">Wszystkie dane kontaktowe</a>
+  </address>
+</footer>
+```
+X: Adres tylko jako obrazek albo wyłącznie w regulaminie w PDF.
+
+[service-area] medium
+T: Wartościowe strony lokalizacji
+D: Każda strona miasta lub regionu ma unikalną treść z lokalnymi szczegółami (oddział, dojazd, wyloty z lokalnego lotniska, zespół), własny title, H1 i opis. Szablony różniące się tylko nazwą miasta to "doorway pages".
+W: Doorway abuse jest jedną z polityk spamu Google; setki stron "Wakacje z {miasto}" o tej samej treści mogą obniżyć widoczność całego serwisu.
+W: Realne lokalne informacje (wyloty z Pyrzowic, biuro przy dworcu, godziny otwarcia) odpowiadają na pytanie użytkownika i dobrze konwertują.
+W: Firma działająca bez lokalu klienta wskazuje obszar działania w Google Business Profile i w `areaServed` (schema.org), zamiast tworzyć fikcyjne oddziały.
+V: Porównaj kilka stron lokalizacji (np. raport podobnych treści w crawlerze); sprawdź `areaServed` w schema i czy każda strona ma inne title, H1 i opis.
+```html JSON-LD na stronie /wakacje-z-katowic
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TravelAgency",
+  "name": "Example Travel Katowice",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "ul. Stawowa 5",
+    "postalCode": "40-095",
+    "addressLocality": "Katowice",
+    "addressCountry": "PL"
+  },
+  "areaServed": [
+    { "@type": "City", "name": "Katowice" },
+    { "@type": "AdministrativeArea", "name": "województwo śląskie" }
+  ]
+}
+</script>
+```
+X: Fałszywe adresy oddziałów w miastach, w których firma nie ma biura.
+X: Automatyczna podmiana nazwy miasta w jednym tekście dla 300 lokalizacji.
+S: Google: Spam policies (doorway abuse) | https://developers.google.com/search/docs/essentials/spam-policies
+
+@cl-group Meta tagi
+sources: Google: Influencing title links | https://developers.google.com/search/docs/appearance/title-link ; Google: Control your snippets | https://developers.google.com/search/docs/appearance/snippet
+
+[meta-description] high
+T: Meta description na każdej stronie
+D: Unikalny, zachęcający do kliknięcia opis zawartości, orientacyjnie 120-160 znaków (Google nie ma sztywnego limitu, przycina do szerokości ekranu). Nie wpływa bezpośrednio na ranking, ale na CTR; Google może go zastąpić fragmentem treści.
+W: Opis działa jak reklama strony w wynikach: konkret (cena, termin, liczba ofert) przyciąga kliknięcia bardziej niż ogólnik.
+W: Google używa meta description, gdy lepiej opisuje stronę niż fragment treści; dobry opis daje kontrolę nad pierwszym wrażeniem.
+W: Opis bywa używany jako zapas w podglądach linków w komunikatorach, gdy brakuje `og:description`.
+V: Crawler: brakujące, za krótkie, za długie i zduplikowane opisy; podgląd w symulatorze wyników wyszukiwania.
+```html
+<!-- Bad: generic, no specifics, same on every page -->
+<meta name="description" content="Wakacje, wczasy, wycieczki. Najlepsze oferty. Zapraszamy!">
+
+<!-- Good: specific and unique, about 150 characters -->
+<meta name="description" content="Wakacje na Krecie all inclusive od 2499 zł/os. 214 hoteli, wyloty z 9 miast, pokoje rodzinne i transfer w cenie. Sprawdź terminy na wrzesień.">
+```
+```tsx app/wakacje/[country]/page.tsx
+import type { Metadata } from 'next';
+
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
+  const { country } = await params;
+  const s = await getCountryStats(country); // { locative: 'w Grecji', minPrice, hotels, airports }
+  return {
+    description: `Wakacje ${s.locative} od ${s.minPrice} zł/os. ${s.hotels} hoteli, wyloty z ${s.airports} miast. Porównaj oferty i zarezerwuj online.`,
+  };
+}
+```
+X: Opis wygenerowany jako pierwsze 160 znaków treści, z uciętym w pół słowa zdaniem.
+
+[meta-in-body] high
+T: Meta tagi tylko w head
+D: `<title>`, `<meta>` i `<link rel="canonical">` muszą znaleźć się w `<head>`; w `<body>` wyszukiwarki je ignorują. Head bywa zamykany za wcześnie przez niedozwolony element (np. `<img>`, `<iframe>`, `<div>`) albo tagi trafiają do body przez skrypt.
+W: Parser HTML na pierwszym niedozwolonym elemencie niejawnie zamyka `<head>`; wszystko dalej, łącznie z canonical i robots, ląduje w `<body>`.
+W: Google wprost zapowiada, że po nieprawidłowym elemencie w head ignoruje wszystkie kolejne elementy head (dozwolone są tylko `title`, `meta`, `link`, `script`, `style`, `base`, `noscript`, `template`).
+W: Błąd jest niewidoczny dla użytkownika i często pojawia się po dodaniu piksela marketingowego przez menedżer tagów.
+V: Porównaj źródło strony z wyrenderowanym DOM (DevTools, panel Elements): czy canonical, robots i hreflang są w head; walidator HTML (validator.w3.org) wskaże niedozwolone elementy.
+```html Źle
+<head>
+  <title>Wakacje w Grecji | Example Travel</title>
+  <img src="https://tracker.example.com/px.gif" alt=""> <!-- implicitly closes <head> -->
+  <link rel="canonical" href="https://example.pl/wakacje/grecja"> <!-- now in <body>, ignored -->
+</head>
+```
+```html Dobrze
+<head>
+  <title>Wakacje w Grecji | Example Travel</title>
+  <link rel="canonical" href="https://example.pl/wakacje/grecja">
+</head>
+<body>
+  <noscript><img src="https://tracker.example.com/px.gif" alt=""></noscript>
+```
+X: Wstawianie meta tagów skryptem do `body`; w Next.js używaj Metadata API, a w React 19 `<title>` i `<meta>` renderowane w komponencie są automatycznie przenoszone do head.
+S: Google: Use valid page metadata | https://developers.google.com/search/docs/crawling-indexing/valid-page-metadata
+
+[meta-title] high
+T: Opisowy tytuł strony
+D: `<title>` opisuje treść strony, ma główną frazę na początku i krótką nazwę marki na końcu; orientacyjnie 50-60 znaków, bo Google przycina tytuł do szerokości ekranu. To najważniejszy pojedynczy element on-page dla wyników wyszukiwania.
+W: Tytuł jest głównym źródłem linku tytułowego w wynikach Google i nazwą karty w przeglądarce; decyduje o tym, czy ktoś kliknie.
+W: Google przepisuje tytuły zbyt długie, szablonowe lub upchane słowami kluczowymi; bierze wtedy tekst z H1, `og:title` albo z kotwic linków.
+W: Czytnik ekranu ogłasza tytuł jako pierwszy po załadowaniu strony; to też wymóg WCAG 2.4.2 Page Titled.
+V: Crawler (długość, brak, duplikaty), podgląd w symulatorze wyników, a w Search Console strony z wysoką liczbą wyświetleń i niskim CTR.
+```html
+<!-- Bad: brand first, vague, stuffed with keywords -->
+<title>Example Travel | Wakacje | Tanie wakacje | Wczasy | Last minute</title>
+
+<!-- Good: topic first, specific, brand at the end (about 55 characters) -->
+<title>Wakacje na Krecie all inclusive 2027 | Example Travel</title>
+```
+```tsx app/layout.tsx
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: {
+    template: '%s | Example Travel', // child pages set only their own part
+    default: 'Example Travel: wakacje i wycieczki z wylotem z Polski',
+  },
+};
+```
+X: Ten sam tytuł na wszystkich widokach SPA, bo nikt nie aktualizuje go przy zmianie trasy.
+
+[robots-meta] high
+T: Poprawne dyrektywy robots
+D: `<meta name="robots">` (lub nagłówek `X-Robots-Tag`, jedyna opcja dla PDF i innych plików) z wartościami takimi jak `noindex`, `nofollow`, `max-snippet`, `max-image-preview`. Przypadkowy `noindex` z wersji testowej to częsta przyczyna zniknięcia z Google.
+W: Jeden `noindex` przeniesiony ze stagingu na produkcję potrafi w kilka dni usunąć z wyników cały serwis i ruch z wyszukiwarki.
+W: Jeśli robots.txt blokuje adres, Googlebot nie zobaczy `noindex`; strona może zostać w indeksie jako sam URL znany z linków.
+W: `max-image-preview:large` pozwala pokazywać duże miniatury (np. w Discover), co zwiększa klikalność.
+V: Sprawdź meta robots i nagłówki (`curl -sI`) na produkcji po każdym wdrożeniu; w Search Console raport stron pokazuje adresy wykluczone przez `noindex`.
+```html
+<!-- Indexable page: index and follow are the defaults, no need to write them -->
+<meta name="robots" content="max-snippet:-1, max-image-preview:large">
+
+<!-- Internal search results and cart -->
+<meta name="robots" content="noindex, follow">
+```
+```ts next.config.ts: staging bez indeksowania
+import type { NextConfig } from 'next';
+
+const isProd = process.env.APP_ENV === 'production';
+
+const config: NextConfig = {
+  async headers() {
+    // Only non-production environments send noindex; production stays clean
+    if (isProd) return [];
+    return [{ source: '/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] }];
+  },
+};
+
+export default config;
+```
+X: Blokada w robots.txt dodana razem z `noindex`, w nadziei na szybsze usunięcie z indeksu; efekt jest odwrotny.
+X: Sterowanie `noindex` przez `NODE_ENV`, który na stagingu też ma wartość `production`.
+S: Google: Robots meta tag specifications | https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag
+
+[title-unique] high
+T: Unikalne tytuły stron
+D: Każda strona ma inny `<title>`, opisujący jej własną treść. Dotyczy to także stron paginacji, wariantów filtrów i podstron ofert.
+W: Przy identycznych tytułach Google trudniej wybrać właściwą stronę, a użytkownik w wynikach nie odróżni dwóch linków o tej samej nazwie.
+W: Duplikaty często zdradzają głębszy problem: zduplikowane strony bez canonical albo szablon, który nie dostaje danych z API.
+W: Google może sam przepisać powtarzające się tytuły; tracisz wtedy kontrolę nad tekstem w wynikach.
+V: Raport duplikatów tytułów w crawlerze; w Search Console sprawdź, czy dla jednego zapytania nie pojawiają się na zmianę dwie strony.
+```tsx app/hotele/[slug]/page.tsx
+import type { Metadata } from 'next';
+
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ page?: string }> };
+
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const { page = '1' } = await searchParams;
+  const hotel = await getHotel(slug);
+  const base = `${hotel.name}, ${hotel.city}: opinie i ceny`;
+  // Paginated reviews get a distinct title instead of copying page 1
+  return { title: page === '1' ? base : `${base}, strona ${page}` };
+}
+```
+X: Sam tytuł marki na stronach generowanych dynamicznie, gdy z API nie przyszły dane.
+
+[canonical-header] medium
+T: Spójny canonical w HTML i nagłówku Link
+D: Canonical można podać w `<link rel="canonical">` albo w nagłówku HTTP `Link` (jedyna opcja dla PDF i innych plików). Jeśli są oba, muszą wskazywać ten sam, bezwzględny URL.
+W: Sprzeczne sygnały canonical sprawiają, że Google traktuje je jako niewiarygodne i sam wybiera wersję strony.
+W: Nagłówek bywa dodawany przez CDN, wtyczkę lub proxy niezależnie od szablonu HTML; po zmianie adresów jedno z miejsc zostaje nieaktualne.
+W: Dla plików PDF (cenniki, katalogi) nagłówek `Link` to jedyny sposób, by wskazać preferowaną kopię, gdy ten sam plik jest pod kilkoma adresami.
+V: Porównaj nagłówek i HTML poleceniami poniżej; Search Console (Inspekcja adresu URL) pokaże canonical wybrany przez Google.
+```http Odpowiedź serwera dla PDF
+HTTP/2 200
+content-type: application/pdf
+link: <https://example.pl/katalogi/lato-2027.pdf>; rel="canonical"
+```
+```bash Porównanie nagłówka i HTML
+url="https://example.pl/wakacje/grecja"
+curl -sI "$url" | grep -i '^link:.*canonical'
+curl -s "$url" | grep -oi '<link[^>]*rel="canonical"[^>]*>'
+```
+X: Względny URL w nagłówku `Link`.
+X: Canonical w HTML wskazujący wersję z `https://`, a w nagłówku z `http://` lub bez `www`.
+S: Google: How to specify a canonical URL | https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls
+
+[duplicate-description] medium
+T: Bez zduplikowanych meta description
+D: Ten sam lub prawie ten sam opis na wielu stronach nie pomaga ani użytkownikom, ani wyszukiwarkom. Lepiej brak opisu (Google zbuduje fragment z treści) niż kopia.
+W: Google wprost zaznacza, że identyczne lub podobne opisy na wszystkich stronach nie są pomocne, gdy kilka z nich pojawia się w wynikach.
+W: Duplikaty zwykle pochodzą z domyślnego opisu w layoucie, który "przecieka" na tysiące podstron ofert.
+W: Gdy brakuje danych do unikalnego opisu, pominięcie tagu pozwala Google dobrać fragment pasujący do konkretnego zapytania.
+V: Raport duplikatów meta description w crawlerze; sprawdź, czy opis strony głównej nie trafia na podstrony.
+```tsx Źle: app/layout.tsx
+// Every page without its own description inherits this one
+export const metadata = {
+  description: 'Example Travel: najlepsze wakacje w super cenach!',
+};
+```
+```tsx Dobrze: app/oferty/[id]/page.tsx
+// Root layout has no default description; the home page sets its own in app/page.tsx
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const offer = await getOffer(id);
+  // No editor-written summary: omit description and let Google build the snippet
+  if (!offer.summary) return { title: offer.title };
+  return { title: offer.title, description: offer.summary };
+}
+```
+X: Opis zbudowany z szablonu, w którym zmienia się tylko jedno słowo ("Hotel X na Krecie: najlepsze ceny").
+
+[favicon] medium
+T: Favicon na każdej stronie
+D: Kwadratowa ikona (1:1), najlepiej większa niż 48x48 px (minimum Google to 8x8 px), wskazana przez `<link rel="icon">` co najmniej na stronie głównej, pod stabilnym adresem dostępnym dla Googlebota i Googlebot-Image.
+W: Favicon widać obok adresu w wynikach Google; dzięki niemu strona jest rozpoznawalna wśród konkurencji.
+W: Ikona w kartach, zakładkach i na ekranie głównym telefonu (`apple-touch-icon`, manifest) ułatwia powrót do serwisu.
+W: Plik zablokowany w robots.txt albo zmieniający adres przy każdym deployu może się nie pojawić w wynikach; Google wymaga jednej ikony na hosta i stabilnego URL.
+V: Sprawdź `<link rel="icon">` na stronie głównej, kod 200 pliku, brak blokady w robots.txt; ikony PWA w DevTools (Application, Manifest).
+```html
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"> <!-- 180x180 -->
+<link rel="manifest" href="/site.webmanifest">
+```
+X: Ikona z hashem w nazwie pliku zmieniającym się przy każdym buildzie.
+X: Prostokątne logo użyte jako favicon; Google wymaga proporcji 1:1.
+S: Google: Define a favicon to show in search results | https://developers.google.com/search/docs/appearance/favicon-in-search
+
+[h1] medium
+T: Jeden opisowy H1
+D: Każda strona ma jeden główny nagłówek `<h1>` opisujący temat strony, spójny z tytułem, a pod nim logiczną hierarchię nagłówków `h2`-`h6`.
+W: H1 jest jednym ze źródeł, z których Google buduje link tytułowy, gdy `<title>` jest słaby lub zduplikowany.
+W: Użytkownicy czytników ekranu skaczą po nagłówkach (klawisz H w NVDA i JAWS); H1 jest dla nich punktem startowym treści.
+W: Spójność H1 z tytułem potwierdza użytkownikowi po kliknięciu, że trafił tam, gdzie chciał.
+V: Crawler (brak H1, wiele H1, ten sam H1 na wielu stronach); podgląd struktury rozszerzeniem typu HeadingsMap lub w drzewie dostępności w DevTools.
+```html Źle
+<!-- Logo as H1 on every page, real title is a styled div -->
+<header><h1><img src="/logo.svg" alt="Example Travel"></h1></header>
+<main>
+  <div class="title-xl">Wakacje na Krecie</div>
+</main>
+```
+```html Dobrze
+<header><a href="/"><img src="/logo.svg" alt="Example Travel, strona główna"></a></header>
+<main>
+  <h1>Wakacje na Krecie all inclusive</h1>
+  <h2>Hotele dla rodzin z dziećmi</h2>
+</main>
+```
+X: Dobieranie poziomu nagłówka do rozmiaru czcionki zamiast do struktury treści.
+
+[nosnippet] medium
+T: Bez nosnippet na ważnych stronach
+D: `nosnippet` (meta robots lub `X-Robots-Tag`) blokuje opis strony w wynikach i jej użycie jako bezpośredniego źródła w AI Overviews i AI Mode. Do ukrycia fragmentu służy `data-nosnippet` na `span`, `div` lub `section`, a do skrócenia opisu `max-snippet`.
+W: Wynik bez opisu wygląda na niepełny i zwykle ma wyraźnie niższy CTR niż sąsiednie wyniki.
+W: `nosnippet` wyklucza stronę także z cytowania w odpowiedziach AI w wyszukiwarce, co dla treści poradnikowych oznacza utratę widoczności.
+W: Zmiana dyrektyw podglądu działa dopiero po ponownym przetworzeniu strony, co według Google może trwać od dni do miesięcy; przypadkowy `nosnippet` szkodzi długo.
+V: Wyszukaj `nosnippet` w HTML, szablonach i nagłówkach `X-Robots-Tag`; sprawdź wygląd wyniku w wyszukiwarce.
+```html
+<!-- Bad: whole offer page without a snippet -->
+<meta name="robots" content="nosnippet">
+
+<!-- Good: hide only a fragment (e.g. a subscriber promo code), keep the page snippet -->
+<p>Kreta, 7 nocy all inclusive od 2499 zł/os.</p>
+<div data-nosnippet>Kod rabatowy dla subskrybentów: LATO27</div>
+```
+X: `data-nosnippet` na `<p>` lub `<li>`; Google obsługuje go tylko na `span`, `div` i `section`.
+S: Google: Robots meta tag specifications | https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag
+
+@cl-group Social media
+sources: The Open Graph protocol | https://ogp.me/
+
+[og-image-size] medium
+T: Odpowiedni rozmiar og:image
+D: 1200x630 px (proporcje 1.91:1), JPEG lub PNG, bezwzględny adres HTTPS, z `og:image:width`, `og:image:height` i `og:image:alt`. Dobry obraz zwiększa klikalność udostępnień.
+W: Podane wymiary pozwalają platformie pokazać podgląd już przy pierwszym udostępnieniu, bez czekania na pobranie i analizę obrazu.
+W: Za mały obraz (na Facebooku poniżej ok. 600x315 px) pokazuje się jako mała miniatura zamiast dużej karty.
+W: Komunikatory i platformy przycinają obraz do różnych proporcji, także kwadratu; najważniejsza treść musi być w centrum kadru.
+V: Facebook Sharing Debugger lub LinkedIn Post Inspector; sprawdź, czy obraz zwraca kod 200 i typ `image/*` bez logowania i ciasteczek (`curl -sI`).
+```html
+<meta property="og:image" content="https://example.pl/og/kreta-2027.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Plaża Elafonisi na Krecie z turkusową wodą">
+```
+```tsx app/oferty/[id]/opengraph-image.tsx
+import { ImageResponse } from 'next/og';
+
+// Next.js adds og:image with width, height and type automatically
+export const size = { width: 1200, height: 630 };
+export const contentType = 'image/png';
+export const alt = 'Oferta wakacji Example Travel';
+
+export default async function Image({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const offer = await getOffer(id);
+  return new ImageResponse(
+    <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', padding: 80, fontSize: 64, color: '#fff', background: '#0b4f6c' }}>
+      {`${offer.title}: od ${offer.price} zł`}
+    </div>,
+    size,
+  );
+}
+```
+X: Względna ścieżka w `og:image` (`/og.jpg`); crawlery platform jej nie rozwiążą.
+X: Obraz za ochroną przed hotlinkingiem lub WAF-em blokującym crawlery Facebooka i LinkedIn.
+
+[og-tags] medium
+T: Tagi Open Graph
+D: Minimum `og:title`, `og:description`, `og:image`, `og:url` i `og:type`, a dodatkowo `og:site_name` i `og:locale`. Kontrolują wygląd linku udostępnionego w mediach społecznościowych i komunikatorach (Messenger, WhatsApp, Slack, Teams).
+W: Bez tagów platforma zgaduje: bierze pierwszy obrazek ze strony (często logo lub baner cookies) i przypadkowy fragment tekstu.
+W: Udostępnienia w komunikatorach to ważny kanał w turystyce: znajomi i rodzina wysyłają sobie oferty przed wspólną rezerwacją.
+W: `og:title` może być krótszy i bardziej "społecznościowy" niż `<title>`, bez nazwy marki i fraz pod wyszukiwarkę.
+V: Facebook Sharing Debugger, LinkedIn Post Inspector; po zmianie tagów wymuś ponowne pobranie (np. "Scrape Again"), bo platformy długo cache'ują podgląd.
+```html
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Example Travel">
+<meta property="og:locale" content="pl_PL">
+<meta property="og:title" content="Kreta all inclusive od 2499 zł: wyloty z 9 miast">
+<meta property="og:description" content="214 hoteli, pokoje rodzinne i transfer w cenie. Terminy do października.">
+<meta property="og:url" content="https://example.pl/wakacje/grecja/kreta">
+<meta property="og:image" content="https://example.pl/og/kreta-2027.jpg">
+```
+X: Tagi OG dodawane w SPA dopiero po stronie klienta; crawlery platform nie uruchamiają JavaScriptu.
+X: Ten sam `og:image` (logo) na wszystkich stronach ofert.
+
+[og-url-match] medium
+T: og:url zgodny z canonical
+D: `og:url` wskazuje ten sam bezwzględny adres co `<link rel="canonical">`; inaczej udostępnienia i reakcje rozkładają się na kilka wersji URL.
+W: Facebook zlicza udostępnienia i reakcje dla adresu z `og:url`; adresy z UTM czy `?sort=` tworzą osobne liczniki.
+W: Platforma traktuje `og:url` jako adres kanoniczny obiektu; jeśli wskazuje stronę główną, każdy udostępniony link pokaże podgląd strony głównej.
+W: Wspólne źródło adresu dla canonical i `og:url` w kodzie usuwa ten błąd u podstaw.
+V: Porównaj oba tagi w head na kilku typach stron, również po wejściu z parametrami UTM.
+```tsx app/wakacje/[country]/page.tsx
+import type { Metadata } from 'next';
+
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
+  const { country } = await params;
+  const url = `https://example.pl/wakacje/${country}`; // one source for both tags
+  return {
+    alternates: { canonical: url },
+    openGraph: { url, type: 'website', siteName: 'Example Travel', locale: 'pl_PL' },
+  };
+}
+```
+X: `og:url` ustawione na stałe na stronę główną w layoucie.
+X: W Next.js obiekt `openGraph` strony zastępuje cały `openGraph` z layoutu (płytkie scalanie); pola, których nie powtórzysz, znikają.
+
+[twitter-cards] medium
+T: Meta tagi Twitter Card (X)
+D: `twitter:card` (zwykle `summary_large_image`) i opcjonalnie `twitter:site`. X korzysta z `og:title`, `og:description` i `og:image` jako zapasu, ale typ karty trzeba ustawić osobno.
+W: Bez `twitter:card` link na X może pokazać się jako mała karta albo bez dużego podglądu.
+W: Tagi `twitter:*` odczytują też inne narzędzia budujące podglądy linków, np. Slack i Discord.
+W: Nie trzeba dublować wszystkiego: wystarczy `twitter:card`, resztę X weźmie z Open Graph, co upraszcza utrzymanie.
+V: Wklej link do wersji roboczej posta na X lub użyj zewnętrznego podglądu kart (oficjalny Card Validator nie pokazuje już podglądu).
+```html
+<!-- Minimal set: X falls back to og:title, og:description and og:image -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@exampletravel">
+<meta property="og:title" content="Kreta all inclusive od 2499 zł">
+<meta property="og:description" content="214 hoteli, wyloty z 9 miast.">
+<meta property="og:image" content="https://example.pl/og/kreta-2027.jpg">
+```
+X: Obraz karty w formacie, którego X nie obsługuje (np. SVG).
+
+[share-buttons] low
+T: Przyciski udostępniania
+D: Ułatwiaj dzielenie się treścią prostymi linkami lub Web Share API zamiast ciężkich widżetów zewnętrznych, które śledzą użytkowników i spowalniają stronę.
+W: Oficjalne widżety społecznościowe ładują skrypty z zewnętrznych domen, często setki KB JS, co pogarsza LCP i INP.
+W: Skrypty platform ustawiają ciasteczka śledzące, więc wymagają zgody (RODO, prawo telekomunikacyjne); bez zgody i tak nie powinny się ładować.
+W: Web Share API otwiera natywny arkusz udostępniania z aplikacjami, których użytkownik faktycznie używa (WhatsApp, Messenger, SMS).
+V: Panel Network w DevTools: liczba i waga zapytań do domen społecznościowych; test na telefonie i fallbacku na desktopie.
+```js Web Share API z fallbackiem
+const btn = document.querySelector('#share');
+
+btn.addEventListener('click', async () => {
+  const url = document.querySelector('link[rel="canonical"]')?.href ?? location.href;
+  if (navigator.share) {
+    try { await navigator.share({ title: document.title, url }); } catch { /* user cancelled */ }
+    return;
+  }
+  // Desktop browsers without Web Share: copy the link instead
+  await navigator.clipboard.writeText(url);
+  btn.textContent = 'Skopiowano link';
+});
+```
+X: Liczniki udostępnień pokazujące "0", które zniechęcają zamiast zachęcać.
+
+[social-profiles] low
+T: Linki do aktywnych profili społecznościowych
+D: Linki do aktywnych profili marki w stopce oraz w `sameAs` w danych strukturalnych Organization wiążą stronę z tożsamością firmy.
+W: `sameAs` pomaga Google powiązać serwis z profilami marki i zbudować spójny obraz organizacji.
+W: Aktywny profil z odpowiedziami na pytania klientów to dodatkowy dowód, że firma działa; porzucony profil sprzed lat działa odwrotnie.
+W: Ikony bez etykiety tekstowej są nieczytelne dla czytników ekranu; każdy link potrzebuje dostępnej nazwy.
+V: Sprawdź stopkę (linki działają, profile są aktywne) i JSON-LD Organization na stronie głównej w Rich Results Test.
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://example.pl/#organization",
+  "name": "Example Travel",
+  "url": "https://example.pl",
+  "logo": "https://example.pl/img/logo-512.png",
+  "sameAs": [
+    "https://www.facebook.com/exampletravel",
+    "https://www.instagram.com/exampletravel",
+    "https://www.youtube.com/@exampletravel",
+    "https://www.linkedin.com/company/example-travel"
+  ]
+}
+</script>
+```
+X: Profile w `sameAs`, które nie należą do firmy (np. strona partnera lub hotelu).
+S: Google: Organization structured data | https://developers.google.com/search/docs/appearance/structured-data/organization
+
+@cl-group Techniczne SEO: indeksowanie
+sources: Google: Crawling and indexing overview | https://developers.google.com/search/docs/crawling-indexing ; Google: Introduction to robots.txt | https://developers.google.com/search/docs/crawling-indexing/robots/intro
+
+[canonical-url] high
+T: Canonical na każdej stronie
+D: Każda indeksowalna strona ma `<link rel="canonical">` z pełnym, preferowanym adresem, zwykle wskazującym na samą siebie.
+W: Ta sama treść bywa dostępna pod wieloma adresami (parametry UTM, sortowanie, filtry, wielkość liter, ukośnik na końcu); bez canonical Google sam wybiera wersję, często nie tę, którą chcesz.
+W: Canonical scala sygnały (linki, popularność) z duplikatów w jeden adres, zamiast rozpraszać je na warianty.
+W: Ogranicza marnowanie budżetu indeksowania na kopie stron w dużych serwisach, np. listach ofert z filtrami.
+V: Crawler (np. Screaming Frog): brakujące, niespójne i wskazujące na przekierowanie canonicale; w Search Console Inspekcja adresu URL pokazuje canonical wybrany przez Google.
+```html
+<!-- On https://example.pl/wakacje/grecja?utm_source=newsletter&sort=price -->
+<link rel="canonical" href="https://example.pl/wakacje/grecja" />
+```
+```tsx Next.js App Router
+// app/wakacje/[country]/page.tsx
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }) {
+  const { country } = await params;
+  return { alternates: { canonical: `https://example.pl/wakacje/${country}` } };
+}
+```
+X: Canonical na wszystkich stronach paginacji wskazujący stronę 1.
+X: Względny adres lub adres z parametrami śledzącymi w canonical.
+S: Google: How to specify a canonical URL | https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls
+
+[noindex-in-sitemap] high
+T: Bez stron noindex w sitemap
+D: Sitemap zawiera tylko strony, które chcesz mieć w indeksie. Adres z `noindex` (w meta tagu lub nagłówku `X-Robots-Tag`) umieszczony w sitemapie to sprzeczny sygnał.
+W: Sitemap mówi Google "ta strona jest ważna, zaindeksuj ją", a noindex mówi "nie indeksuj"; Search Console zgłasza takie adresy jako błąd w raporcie stron.
+W: Robot marnuje zapytania na strony, które i tak nie trafią do wyników, zamiast pobierać nowe oferty.
+W: Zwykle to objaw błędu w architekturze: generator sitemap nie zna reguł indeksowania stosowanych przez szablon strony.
+V: Porównaj listę URL z sitemap z dyrektywami robots (crawler w trybie listy); w Search Console sprawdź raport map witryn i stron wykluczonych przez noindex.
+```ts app/sitemap.ts
+import type { MetadataRoute } from "next";
+import { getOffers } from "@/lib/offers";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const offers = await getOffers();
+  return offers
+    // Same predicate the page uses for its robots meta: one source of truth
+    .filter((offer) => offer.isIndexable && !offer.isArchived)
+    .map((offer) => ({
+      url: `https://example.pl/oferty/${offer.slug}`,
+      lastModified: offer.contentUpdatedAt,
+    }));
+}
+```
+X: Sitemap generowana z całej tabeli w bazie, łącznie z ofertami archiwalnymi oznaczonymi noindex.
+X: noindex dodany w CDN (nagłówek), o którym generator sitemap nic nie wie.
+
+[redirect-chain] high
+T: Bez łańcuchów przekierowań
+D: Każde przekierowanie prowadzi od razu do adresu docelowego, który zwraca 200, bez pośrednich kroków A → B → C.
+W: Każdy skok to dodatkowe żądanie HTTP (przy innej domenie także DNS i TLS); na mobile to nawet setki milisekund gorszego TTFB i LCP.
+W: Roboty Google podążają za maksymalnie 10 przekierowaniami; dłuższy łańcuch kończy się błędem i strona docelowa nie zostanie pobrana.
+W: Łańcuchy narastają po każdej migracji (http → https, www → bez www, stara struktura → nowa); bez porządków po kilku latach jeden adres ma 3-4 skoki.
+V: `curl -sIL` pokazuje każdy skok; crawler ma raport łańcuchów przekierowań. Po migracji zaktualizuj stare reguły tak, by wskazywały bezpośrednio nowy cel.
+```bash Sprawdzenie łańcucha
+curl -sIL http://example.pl/Oferty/Grecja | grep -iE '^(HTTP|location)'
+# HTTP/1.1 301 Moved Permanently
+# location: https://example.pl/Oferty/Grecja
+# HTTP/2 301
+# location: https://example.pl/oferty/grecja
+# HTTP/2 308
+# location: https://example.pl/wakacje/grecja
+# HTTP/2 200          <- three hops, should be one
+```
+```txt nginx: jeden skok do celu
+# Map legacy paths straight to final URLs
+map $request_uri $new_uri {
+    ~*^/oferty/grecja/?$   /wakacje/grecja;
+    ~*^/oferty/kreta/?$    /wakacje/grecja/kreta;
+}
+server {
+    listen 80;
+    server_name example.pl www.example.pl;
+    # http + legacy path resolved in a single 301
+    if ($new_uri) { return 301 https://example.pl$new_uri; }
+    return 301 https://example.pl$request_uri;
+}
+```
+X: Nowa reguła przekierowania dopisana "na końcu", tak że stary adres przechodzi przez wszystkie wcześniejsze reguły.
+X: Pętla przekierowań między wersją z ukośnikiem i bez.
+S: Google: Redirects and Google Search | https://developers.google.com/search/docs/crawling-indexing/301-redirects ; Google: How HTTP status codes and network errors affect Google Search | https://developers.google.com/search/docs/crawling-indexing/http-network-errors
+
+[robots-meta-conflict] high
+T: Bez konfliktu robots.txt i noindex
+D: Strona zablokowana w robots.txt nie zostanie pobrana, więc Google nie zobaczy jej `noindex` i może zaindeksować sam adres, jeśli prowadzą do niego linki. Aby usunąć stronę z indeksu, pozwól na crawl i ustaw `noindex` (meta lub `X-Robots-Tag`).
+W: Typowy objaw w wynikach: adres bez opisu, bo Google zna URL z linków, ale nie może przeczytać treści ani dyrektyw.
+W: Reguły robots.txt i noindex często ustawiają różne osoby (dev, SEO, admin serwera), więc konflikt powstaje niezauważony, np. przy blokowaniu wyników wyszukiwania wewnętrznego.
+W: Search Console oznacza takie strony jako "zaindeksowane, mimo blokady w robots.txt"; to sygnał, że blokada nie spełnia swojego celu.
+V: Porównaj reguły robots.txt ze stronami oznaczonymi noindex; sprawdź raport stron w Search Console.
+```txt Źle: robots.txt
+User-agent: *
+# Googlebot never fetches these URLs,
+# so the noindex they carry is never seen
+Disallow: /szukaj
+Disallow: /rezerwacja/
+```
+```http Dobrze: crawl dozwolony, noindex w nagłówku
+GET /szukaj?q=kreta HTTP/2
+Host: example.pl
+
+HTTP/2 200
+content-type: text/html; charset=utf-8
+x-robots-tag: noindex, follow
+```
+X: Dodanie `Disallow` "dla pewności" do stron, które już mają noindex.
+X: Blokada w robots.txt jako sposób na usunięcie z indeksu stron, które już tam są.
+S: Google: Robots meta tag, data-nosnippet, and X-Robots-Tag specifications | https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag
+
+[robots-txt] high
+T: Plik robots.txt
+D: Plik w katalogu głównym domeny z poprawnymi regułami i adresem sitemap. Steruje tylko pobieraniem: nie służy do ukrywania stron przed indeksem (do tego jest noindex) ani do ochrony danych.
+W: Pozwala nie marnować budżetu crawl na niekończące się przestrzenie URL: koszyk, konto, kombinacje sortowania i filtrów.
+W: Plik jest publiczny: wpis `Disallow: /panel-admina-2026/` wręcz podpowiada atakującym, gdzie szukać; ochroną jest uwierzytelnianie.
+W: Jeden błąd (`Disallow: /` skopiowany ze stagingu) zatrzymuje crawl całego serwisu; Google zwykle buforuje plik do 24 godzin, więc poprawka też działa z opóźnieniem.
+V: Otwórz `/robots.txt` (musi zwracać 200 i `text/plain`); raport robots.txt w Search Console pokazuje pobraną wersję i błędy parsowania.
+```txt robots.txt
+User-agent: *
+Disallow: /koszyk
+Disallow: /konto/
+Disallow: /api/
+# Sorting variants add no unique content
+Disallow: /*?*sort=
+
+Sitemap: https://example.pl/sitemap.xml
+```
+```ts app/robots.ts
+import type { MetadataRoute } from "next";
+
+export default function robots(): MetadataRoute.Robots {
+  const isProd = process.env.VERCEL_ENV === "production";
+  return {
+    // Staging blocks everything (plus basic auth); production only private areas
+    rules: isProd
+      ? { userAgent: "*", disallow: ["/koszyk", "/konto/", "/api/"] }
+      : { userAgent: "*", disallow: "/" },
+    sitemap: "https://example.pl/sitemap.xml",
+  };
+}
+```
+X: Blokowanie plików CSS i JS; Google nie wyrenderuje strony tak jak użytkownik.
+X: robots.txt ze stagingu (`Disallow: /`) wdrożony na produkcję.
+
+[schema-noindex-conflict] high
+T: Bez danych strukturalnych na stronach noindex
+D: Dane strukturalne na stronach wykluczonych z indeksu są bezużyteczne i zwykle oznaczają błąd konfiguracji, np. noindex na kopii strony produktowej albo schema wklejana globalnie w layout.
+W: Rich results pojawiają się tylko dla zaindeksowanych stron, więc `Product` na stronie z noindex nigdy nie da ceny ani gwiazdek w wynikach.
+W: To zwykle sygnał większego problemu: noindex trafił przypadkiem na szablon ofert albo JSON-LD produktu renderuje się też w koszyku i podglądzie wydruku.
+W: Zbędny JSON-LD to dodatkowe kilobajty HTML na każdej takiej stronie.
+V: Crawler z ekstrakcją JSON-LD i dyrektyw robots: przefiltruj strony, które mają jednocześnie noindex i dane strukturalne.
+```tsx app/oferty/[slug]/page.tsx
+export default async function OfferPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const offer = await getOffer(slug);
+  return (
+    <>
+      {/* Emit Product schema only for pages we actually want indexed */}
+      {offer.isIndexable && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(toProductSchema(offer)).replace(/</g, "\\u003c"),
+          }}
+        />
+      )}
+      <OfferDetails offer={offer} />
+    </>
+  );
+}
+```
+X: Rozbudowany JSON-LD na stronach wyników wyszukiwania wewnętrznego, które mają noindex.
+
+[sitemap-4xx] high
+T: Bez adresów 4xx w sitemap
+D: Sitemap zawiera tylko adresy zwracające 200, bez 404, 410, 5xx i przekierowań. Generuj ją automatycznie z aktualnych danych, a nie ręcznie.
+W: Google traktuje sitemap jako podpowiedź; gdy duża część adresów to błędy, plik traci na wartości i nowe strony są odkrywane wolniej.
+W: Każdy martwy adres to zmarnowane zapytanie robota i kolejna pozycja w raporcie błędów Search Console, która zasłania prawdziwe problemy.
+W: Statyczny plik wygenerowany przy wdrożeniu dezaktualizuje się, gdy oferty wygasają codziennie.
+V: Crawler w trybie listy dla adresów z sitemap; prosty skrypt w CI (poniżej) dla mniejszych serwisów.
+```bash Statusy adresów z sitemap
+curl -s https://example.pl/sitemap.xml \
+  | grep -oP '(?<=<loc>)[^<]+' \
+  | while read -r url; do
+      code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+      # Anything other than 200 should not be listed
+      [ "$code" != "200" ] && echo "$code $url"
+    done
+```
+X: Wygasłe oferty zostają w sitemap, bo generator nie filtruje po dacie wyjazdu.
+X: Adresy przekierowujące (301) po zmianie slugów zamiast nowych adresów docelowych.
+
+[sitemap-valid] high
+T: Poprawna składnia XML sitemap
+D: Zgodność z protokołem sitemaps.org: maks. 50 000 adresów i 50 MB (bez kompresji) na plik, pełne adresy URL, kodowanie UTF-8, escapowane znaki specjalne (`&` jako `&amp;`), `lastmod` w formacie W3C Datetime.
+W: Błąd składni XML (np. nieescapowany `&` w adresie) sprawia, że Google nie odczyta pliku wcale, nie tylko jednej pozycji.
+W: Większy serwis musi dzielić mapę na pliki i spinać je indeksem map witryn; plik powyżej limitu zostanie odrzucony.
+W: Google ignoruje `priority` i `changefreq`, ale używa `lastmod`, jeśli jest konsekwentnie zgodny z rzeczywistością; data wdrożenia wpisana przy każdym adresie odbiera mu wartość.
+V: Raport map witryn w Search Console, `xmllint --noout sitemap.xml` w CI.
+```xml sitemap.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://example.pl/wakacje/grecja/kreta</loc>
+    <!-- Date of the last real content change, not of the deploy -->
+    <lastmod>2026-09-28T14:30:00+02:00</lastmod>
+  </url>
+  <url>
+    <!-- & must be escaped as &amp; -->
+    <loc>https://example.pl/wycieczki/rodzina&amp;dzieci</loc>
+  </url>
+</urlset>
+```
+```xml sitemap-index.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>https://example.pl/sitemaps/oferty-1.xml</loc></sitemap>
+  <sitemap><loc>https://example.pl/sitemaps/oferty-2.xml</loc></sitemap>
+  <sitemap><loc>https://example.pl/sitemaps/hotele.xml</loc></sitemap>
+</sitemapindex>
+```
+X: Względne adresy (`/wakacje/kreta`) w `<loc>`.
+X: `lastmod` ustawiany na bieżącą datę przy każdym generowaniu.
+S: sitemaps.org: Protocol | https://www.sitemaps.org/protocol.html ; Google: Build and submit a sitemap | https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap
+
+[sitemap] high
+T: Sitemap XML zgłoszona do wyszukiwarek
+D: Mapa witryny pomaga szybciej odkrywać nowe i zmienione strony. Podaj ją w robots.txt (`Sitemap:`) i zgłoś w Search Console oraz Bing Webmaster Tools.
+W: Nowe oferty i strony głęboko w strukturze (np. hotel osiągalny dopiero po kilku filtrach) zostaną znalezione szybciej niż przez samo podążanie za linkami.
+W: Zgłoszona sitemap daje w Search Console raport: ile adresów przesłano, ile zaindeksowano i dlaczego reszta nie.
+W: Dawny "ping" sitemap do Google nie działa od 2023 roku; dziś liczy się wpis w robots.txt, zgłoszenie w Search Console (lub przez API) i rzetelny `lastmod`.
+V: Otwórz `/sitemap.xml` (200, typ XML); status przetwarzania w raporcie map witryn w Search Console.
+```ts app/sitemap.ts
+import type { MetadataRoute } from "next";
+import { getDestinations } from "@/lib/destinations";
+
+const BASE = "https://example.pl";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const destinations = await getDestinations();
+  return [
+    { url: BASE },
+    { url: `${BASE}/last-minute` },
+    ...destinations.map((d) => ({
+      url: `${BASE}/wakacje/${d.slug}`,
+      lastModified: d.contentUpdatedAt, // real content change date
+    })),
+  ];
+}
+```
+X: Sitemap dostępna, ale niezgłoszona i nieobecna w robots.txt, więc nikt nie wie o jej istnieniu.
+S: Google: Build and submit a sitemap | https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap
+
+[all-noindex-pages] medium
+T: Przegląd wszystkich stron noindex
+D: Okresowo sprawdzaj listę stron wykluczonych z indeksu, żeby wyłapać przypadkowe noindexy na ważnych stronach.
+W: Przypadkowy noindex (z flagi stagingowej, wtyczki CMS, nowej reguły w CDN) potrafi po cichu wyciąć z wyników całą kategorię; spadek ruchu widać dopiero po dniach, gdy Google ponownie odwiedzi strony.
+W: noindex bywa ustawiany w kilku warstwach: meta tag, nagłówek `X-Robots-Tag` w serwerze lub CDN, konfiguracja frameworka; przegląd samego szablonu nie wystarczy.
+W: Lista celowych wykluczeń (koszyk, konto, wyniki wyszukiwania) pozwala w porównaniu szybko wyłapać nowe, niechciane pozycje.
+V: Raport stron w Search Console (wykluczone przez tag noindex), crawler z filtrem noindex; porównuj z poprzednim eksportem.
+```bash Test w CI dla kluczowych adresów
+for url in https://example.pl/ https://example.pl/wakacje/grecja https://example.pl/last-minute; do
+  html=$(curl -s -D headers.txt "$url")
+  # Fail the pipeline if a money page is noindexed by header or meta tag
+  if grep -qi '^x-robots-tag:.*noindex' headers.txt || \
+     echo "$html" | grep -qiE '<meta[^>]+name="robots"[^>]+noindex'; then
+    echo "NOINDEX on $url"; exit 1
+  fi
+done
+```
+X: Sprawdzanie tylko meta tagów w HTML i pomijanie nagłówków HTTP.
+
+[broken-html] medium
+T: Poprawna struktura HTML
+D: Niezamknięte lub źle zagnieżdżone tagi mogą sprawić, że przeglądarka i Googlebot zinterpretują stronę inaczej, niż zamierzałeś, np. element niedozwolony w `<head>` zamyka go przedwcześnie i dalsze meta tagi lądują w `<body>`.
+W: Parser HTML po napotkaniu np. `<div>` lub `<iframe>` w `<head>` niejawnie otwiera `<body>`; canonical i hreflang umieszczone dalej Google pomija, bo obsługuje je tylko w `<head>`.
+W: Niezamknięty tag (np. `<a>` bez `</a>` albo brakujący cudzysłów w atrybucie) potrafi zamienić pół strony w jeden link lub ukryć treść.
+W: Częstym źródłem są skrypty wstrzykiwane przez tag managera i wtyczki; problem widać dopiero w wyrenderowanym DOM, nie w szablonie.
+V: W3C Validator (validator.w3.org/nu); w DevTools Elements sprawdź, czy meta tagi faktycznie są w `<head>`; Inspekcja adresu URL w Search Console pokazuje wyrenderowany HTML.
+```html Źle
+<head>
+  <title>Wakacje w Grecji 2026</title>
+  <!-- <div> is not allowed in head: the parser starts <body> here -->
+  <div id="consent-banner"></div>
+  <!-- ...so these end up in body and the canonical is ignored -->
+  <link rel="canonical" href="https://example.pl/wakacje/grecja" />
+  <link rel="alternate" hreflang="en" href="https://example.pl/en/holidays/greece" />
+</head>
+```
+```html Dobrze
+<head>
+  <title>Wakacje w Grecji 2026</title>
+  <link rel="canonical" href="https://example.pl/wakacje/grecja" />
+  <link rel="alternate" hreflang="en" href="https://example.pl/en/holidays/greece" />
+</head>
+<body>
+  <div id="consent-banner"></div>
+</body>
+```
+X: Uznanie strony za poprawną, bo "wygląda dobrze"; przeglądarka po cichu naprawia błędy, ale nie zawsze tak, jak zakładasz.
+
+[canonical-chain] medium
+T: Canonical wskazuje bezpośrednio adres docelowy
+D: Canonical prowadzi wprost do adresu, który zwraca 200, jest indeksowalny i ma canonical na siebie. Canonical do przekierowania, błędu lub strony z innym canonicalem to sprzeczny sygnał.
+W: Canonical to dla Google tylko wskazówka; gdy cel przekierowuje albo wskazuje dalej, Google często ją ignoruje i sam wybiera adres kanoniczny.
+W: Takie łańcuchy powstają przy migracjach: canonicale w CMS wciąż mają stary schemat `http://` lub starą strukturę, a serwer przekierowuje.
+W: Rozjazd kończy się w Search Console statusem "Google wybrał inną stronę kanoniczną niż użytkownik", a sygnały trafiają nie tam, gdzie planowano.
+V: Crawler: canonical do przekierowania, do non-200 lub do strony z innym canonicalem; ręcznie `curl -sI` na adres z canonical.
+```html
+<!-- Bad: http + trailing slash, server redirects to https://example.pl/wakacje/grecja -->
+<link rel="canonical" href="http://example.pl/wakacje/grecja/" />
+
+<!-- Good: exact final URL that answers 200 and is self-canonical -->
+<link rel="canonical" href="https://example.pl/wakacje/grecja" />
+```
+```bash Sprawdzenie celu canonical
+url="https://example.pl/wakacje/grecja?sort=cena"
+canonical=$(curl -s "$url" | grep -oP '<link rel="canonical" href="\K[^"]+')
+echo "canonical: $canonical"
+# Target must answer 200 directly, without a location header
+curl -sI "$canonical" | grep -iE '^(HTTP|location)'
+```
+X: Canonical z wersji mobilnej `m.` wskazujący na desktop, który przekierowuje z powrotem na `m.`.
+
+[html-size] medium
+T: HTML w granicach limitów crawlera
+D: Googlebot pobiera tylko pierwsze 2 MB pliku HTML (liczone bez kompresji); treść i linki poza tym limitem nie istnieją dla wyszukiwarki. Celuj w znacznie mniej, bo ogromny HTML (np. z wielkim JSON stanu aplikacji) to też problem wydajności.
+W: Wszystko po 2 MB jest obcinane: opisy, linki do ofert i dane strukturalne umieszczone na końcu dokumentu nie zostaną zindeksowane.
+W: Zserializowany stan (np. pełne obiekty 500 ofert w payloadzie RSC lub `__NEXT_DATA__`) wydłuża parsowanie i hydratację, pogarszając INP na słabszych telefonach.
+W: Ten sam limit dotyczy osobno każdego zasobu (CSS, JS); wyjątkiem są pliki PDF z limitem 64 MB.
+V: Network w DevTools: rozmiar dokumentu po rozpakowaniu (Resource size) albo `curl` poniżej.
+```bash Rozmiar HTML bez kompresji
+# Ask for identity encoding so wc counts the raw bytes Googlebot is limited by
+curl -s -H 'Accept-Encoding: identity' https://example.pl/wakacje/grecja \
+  | wc -c | awk '{ printf "%.2f MB\n", $1 / 1024 / 1024 }'
+```
+```tsx Dobrze: tylko potrzebne pola trafiają do klienta
+// Server component: do not serialize full offer objects into the RSC payload
+const offers = await getOffers({ country: "grecja", limit: 24 });
+const cards = offers.map(({ id, slug, title, priceFrom, image }) => ({
+  id, slug, title, priceFrom, image,
+}));
+return <OfferGrid offers={cards} />; // client component gets 5 fields, not 80
+```
+X: Inline SVG i base64 obrazów w HTML, które w sumie dają kilka megabajtów.
+S: Google: Overview of Google crawlers | https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers ; Google: Googlebot | https://developers.google.com/search/docs/crawling-indexing/googlebot
+
+[https-downgrade] medium
+T: Bez linków z HTTPS do HTTP
+D: Linki wewnętrzne i zasoby wskazują `https://` (albo ścieżki względne). Linki do wersji HTTP generują zbędne przekierowania, a w przypadku zasobów: mixed content.
+W: Każdy link `http://` to dodatkowy skok 301 przed załadowaniem strony; bez HSTS pierwsze żądanie idzie niezaszyfrowane i może zostać przechwycone lub zmienione.
+W: Przeglądarki automatycznie podnoszą do HTTPS obrazy, audio i wideo, ale skrypty, style i iframe z HTTP blokują; strona może stracić wygląd lub funkcje.
+W: Sygnały z linków trafiają na adres przekierowujący zamiast bezpośrednio na kanoniczny.
+V: Crawler: linki ze schematem `http://`; konsola DevTools pokazuje ostrzeżenia mixed content; `grep -rn 'http://' src/` w kodzie.
+```html Źle
+<a href="http://example.pl/wakacje/grecja">Grecja</a>
+<img src="http://cdn.example.pl/hotele/kreta.jpg" alt="Hotel na Krecie" />
+<script src="http://cdn.example.pl/widget.js"></script>
+<a href="http://partner.example.com/ubezpieczenia">Ubezpieczenia</a>
+```
+```html Dobrze
+<a href="/wakacje/grecja">Grecja</a>
+<img src="https://cdn.example.pl/hotele/kreta.jpg" alt="Hotel na Krecie" />
+<script src="https://cdn.example.pl/widget.js"></script>
+<a href="https://partner.example.com/ubezpieczenia">Ubezpieczenia</a>
+```
+X: Twarde adresy `http://` w treściach z CMS, które przetrwały migrację na HTTPS.
+
+[hyphens] medium
+T: Myślniki w adresach URL
+D: Słowa w URL oddzielaj myślnikami (`/wakacje-w-grecji`), nie podkreśleniami ani spacjami. Google zaleca myślnik jako separator słów.
+W: Podkreślenie nie jest dla wyszukiwarek tak jednoznacznym separatorem, więc `wakacje_w_grecji` bywa traktowane jak jedno długie słowo.
+W: Spacje w URL zamieniają się w `%20` i psują się przy kopiowaniu do komunikatorów, maili i SMS-ów.
+W: Słowa sklejone bez separatora (`wakacjewgrecji`) są nieczytelne dla ludzi w wynikach i przy udostępnianiu.
+V: Przegląd struktury URL; crawler: adresy zawierające `_` lub `%20`.
+```txt
+Źle:    https://example.pl/wakacje_w_grecji
+Źle:    https://example.pl/wakacje%20w%20grecji
+Źle:    https://example.pl/wakacjewgrecji
+Dobrze: https://example.pl/wakacje-w-grecji
+```
+X: Zmiana separatorów w istniejących adresach bez przekierowań 301.
+S: Google: URL structure best practices | https://developers.google.com/search/docs/crawling-indexing/url-structure
+
+[indexability-conflicts] medium
+T: Spójne sygnały indeksowania
+D: robots.txt, meta robots, `X-Robots-Tag`, canonical i sitemap nie mogą sobie przeczyć (np. canonical do strony z noindex albo adres z sitemap zablokowany w robots.txt).
+W: Przy sprzecznych sygnałach Google rozstrzyga sam i wynik bywa nieprzewidywalny: indeksuje inny adres niż wskazany w canonical albo pomija stronę.
+W: Typowe konflikty: canonical do strony noindex, adres z sitemap zablokowany w robots.txt, noindex razem z canonicalem na inny adres, `index` w meta i `noindex` w nagłówku.
+W: Sygnały pochodzą z różnych warstw (CDN, serwer, framework, CMS), więc konflikt zwykle nie jest widoczny w żadnym pojedynczym pliku.
+V: Crawler z raportem indeksowalności; Inspekcja adresu URL pokazuje canonical deklarowany i wybrany przez Google.
+```ts Wykrywanie konfliktów w audycie
+type PageSignals = {
+  url: string; status: number; inSitemap: boolean;
+  robotsTxtAllowed: boolean; noindex: boolean; canonical: string | null;
+};
+
+export function findConflicts(p: PageSignals): string[] {
+  const issues: string[] = [];
+  if (p.inSitemap && p.noindex) issues.push("noindex page listed in sitemap");
+  if (p.inSitemap && !p.robotsTxtAllowed) issues.push("sitemap URL blocked by robots.txt");
+  if (p.noindex && !p.robotsTxtAllowed) issues.push("noindex invisible: blocked by robots.txt");
+  if (p.noindex && p.canonical && p.canonical !== p.url) issues.push("noindex plus canonical to another URL");
+  if (p.canonical === p.url && p.status !== 200) issues.push("self-canonical on non-200 page");
+  return issues;
+}
+```
+X: Ustawianie noindex i canonicala na inny adres jednocześnie "na wszelki wypadek".
+
+[indexability] medium
+T: Ważne strony są indeksowalne
+D: Strony, które mają przynosić ruch, zwracają 200, nie mają noindex, nie są blokowane w robots.txt i mają canonical na siebie.
+W: Strona spoza indeksu nie przynosi ruchu organicznego niezależnie od jakości treści; w e-commerce to bezpośrednio utracona sprzedaż.
+W: Najczęstsze przyczyny są banalne: noindex ze stagingu, `Disallow` w robots.txt, canonical na inny adres, soft 404 (pusta lista ofert ze statusem 200).
+W: Treść dostępna dopiero po wykonaniu JS bywa indeksowana z opóźnieniem lub częściowo; SSR lub SSG daje pewniejszy wynik dla kluczowych stron.
+V: Inspekcja adresu URL w Search Console (stan indeksowania, wybrany canonical, wyrenderowany HTML); `curl -I` dla nagłówków.
+```bash Szybka kontrola indeksowalności
+url="https://example.pl/wakacje/grecja"
+curl -sI "$url" | grep -iE '^(HTTP|x-robots-tag|location)'   # expect 200, no noindex
+curl -s "$url" | grep -oiE '<meta name="robots"[^>]*>|<link rel="canonical"[^>]*>'
+curl -s https://example.pl/robots.txt | grep -i disallow      # path must not be blocked
+```
+X: Sprawdzenie strony tylko w przeglądarce, gdzie nie widać nagłówków HTTP ani canonicala.
+
+[pagination] medium
+T: Canonical na stronach paginacji
+D: Każda strona paginacji (`?page=2`) ma unikalny adres i canonical na siebie, a nie na stronę 1, bo zawiera inne oferty. Strony łączą zwykłe linki `<a href>`. Google nie używa już `rel=prev/next` jako sygnału indeksowania.
+W: Canonical na stronę 1 mówi Google, że strony 2 i dalsze są duplikatami; oferty widoczne tylko tam mogą nie zostać odkryte.
+W: Przycisk "Pokaż więcej" i nieskończone przewijanie bez prawdziwych linków do kolejnych stron ukrywają produkty przed robotem, który nie klika i nie przewija.
+W: Google ignoruje fragmenty adresu, więc `#page=2` nie tworzy osobnej strony; numer musi być w ścieżce lub parametrze zapytania.
+V: Sprawdź canonical na stronach 2, 3 itd.; wyłącz JS i upewnij się, że linki do kolejnych stron są w HTML.
+```html Strona 2 listy ofert
+<!-- https://example.pl/wakacje/grecja?page=2 -->
+<link rel="canonical" href="https://example.pl/wakacje/grecja?page=2" />
+<title>Wakacje w Grecji: oferty, strona 2</title>
+
+<nav aria-label="Paginacja">
+  <a href="/wakacje/grecja">1</a>
+  <a href="/wakacje/grecja?page=2" aria-current="page">2</a>
+  <a href="/wakacje/grecja?page=3">3</a>
+</nav>
+```
+X: Paginacja na `<button onClick>` bez adresów URL.
+X: Link do `?page=1` obok adresu bez parametru, co tworzy duplikat strony 1.
+S: Google: Pagination best practices | https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading
+
+[parameters] medium
+T: Ogranicz zbędne parametry URL
+D: Parametry sortowania, filtrów i śledzenia tworzą tysiące wariantów adresów. Używaj canonical, nie linkuj wewnętrznie do adresów z UTM i ogranicz kombinacje filtrów dostępne dla robotów.
+W: Kilka filtrów z kilkoma wartościami i kilka sortowań to tysiące kombinacji; robot marnuje na nie budżet zamiast odwiedzać nowe oferty.
+W: Wewnętrzne linki z `?utm_source=` tworzą duplikaty i psują analitykę: wizyta z własnego banera liczy się jako nowa kampania.
+W: Narzędzie "Parametry URL" w Search Console wycofano w 2022 roku; kontrola leży po stronie serwisu: canonical, robots.txt, sposób linkowania.
+V: Raport URL z parametrami w crawlerze i statystyki indeksowania w Search Console.
+```ts Canonical tylko z dozwolonymi parametrami
+const INDEXABLE_PARAMS = new Set(["page"]); // filters, sort and utm are dropped
+
+export function canonicalFor(rawUrl: string): string {
+  const url = new URL(rawUrl);
+  for (const key of [...url.searchParams.keys()]) {
+    if (!INDEXABLE_PARAMS.has(key)) url.searchParams.delete(key);
+  }
+  url.searchParams.sort(); // stable order: ?a=1&b=2 equals ?b=2&a=1
+  url.hash = "";
+  return url.toString();
+}
+
+canonicalFor("https://example.pl/wakacje/grecja?sort=cena&utm_source=fb&page=2");
+// "https://example.pl/wakacje/grecja?page=2"
+```
+X: Wartości filtrów w różnej kolejności (`?a=1&b=2` i `?b=2&a=1`) tworzące kolejne duplikaty.
+X: Identyfikator sesji lub koszyka w parametrze adresu.
+
+[pdf-size] medium
+T: Linkowane PDF-y poniżej 64 MB
+D: Googlebot pobiera tylko pierwsze 64 MB pliku PDF; reszta jest pomijana przy indeksowaniu. Kompresuj PDF-y, a ważną treść publikuj też jako HTML.
+W: Katalog lub warunki uczestnictwa w PDF powyżej limitu zostaną zindeksowane tylko częściowo.
+W: Duży PDF to długie pobieranie na mobile; użytkownik z wyników często rezygnuje, a strona HTML ładuje się od razu, jest responsywna i lepiej działa z czytnikami ekranu.
+W: PDF ze skanu (sam obraz) nie zawiera tekstu do indeksowania; potrzebna jest warstwa OCR lub wersja HTML.
+V: Sprawdź rozmiary plików (`Content-Length`) i czy PDF zawiera tekst (zaznacz fragment w przeglądarce).
+```bash
+# Size of a linked PDF without downloading it
+curl -sI https://example.pl/pliki/katalog-lato-2026.pdf | grep -i content-length
+
+# Recompress with Ghostscript (images downsampled to ~150 dpi)
+gs -sDEVICE=pdfwrite -dPDFSETTINGS=/ebook -dNOPAUSE -dBATCH -dQUIET \
+   -sOutputFile=katalog-lato-2026-min.pdf katalog-lato-2026.pdf
+```
+X: Cennik dostępny wyłącznie jako PDF, bez odpowiednika HTML.
+S: Google: File types indexable by Google | https://developers.google.com/search/docs/crawling-indexing/indexable-file-types ; Google: Googlebot | https://developers.google.com/search/docs/crawling-indexing/googlebot
+
+[mime-type] medium
+T: Poprawne nagłówki Content-Type
+D: `text/html; charset=utf-8`, `text/css`, `text/javascript`, `application/xml` itd. Błędny typ może zablokować zasób (przy `nosniff`) lub zmienić sposób jego przetwarzania.
+W: Z nagłówkiem `X-Content-Type-Options: nosniff` przeglądarka odrzuci skrypt lub arkusz z błędnym typem (np. `text/plain`), a strona straci style lub interaktywność.
+W: Brak `charset=utf-8` w nagłówku lub `<meta charset>` może zepsuć polskie znaki ("zażółć" zamienia się w krzaki).
+W: Skrypty modułowe (`type="module"`) wymagają poprawnego typu JavaScript nawet bez `nosniff`; inaczej się nie wykonają.
+V: `curl -I` dla typowych zasobów; zakładka Network (kolumna Type i ostrzeżenia w konsoli).
+```bash
+for path in / /assets/app.css /assets/app.js /sitemap.xml /robots.txt; do
+  printf '%-20s ' "$path"
+  curl -sI "https://example.pl$path" | grep -i '^content-type' | tr -d '\r'
+done
+# Expected: text/html; charset=utf-8 | text/css | text/javascript
+#           application/xml | text/plain
+```
+X: Serwer zwracający `application/octet-stream` dla plików `.mjs` lub `.webmanifest`.
+
+@cl-group Techniczne SEO: dane strukturalne
+sources: Google: Search gallery of structured data | https://developers.google.com/search/docs/appearance/structured-data/search-gallery ; Schema.org | https://schema.org/
+
+[article] high
+T: Poprawne dane strukturalne Article
+D: `Article`/`NewsArticle`/`BlogPosting` z `headline`, `image`, `datePublished`, `dateModified` i `author` pomaga Google zrozumieć artykuł i poprawnie pokazać go w wynikach i Discover. Google nie wymaga żadnej z tych właściwości, ale im pełniejsze i zgodne z treścią, tym lepiej.
+W: Daty w danych strukturalnych pomagają Google wyświetlić właściwą datę przy wyniku; rozjazd z datą widoczną na stronie to częsta przyczyna błędnej daty w SERP.
+W: Kilka wersji `image` (16:9, 4:3, 1:1) w dobrej rozdzielczości pozwala Google dobrać miniaturę do miejsca wyświetlenia, a duże obrazy (min. 1200 px szerokości) zwiększają szansę na duży podgląd w Discover.
+W: `author` z adresem strony autora wiąże tekst z konkretnym ekspertem, co wspiera ocenę wiarygodności treści (E-E-A-T).
+V: Rich Results Test; porównaj tytuł, daty i autora w JSON-LD z treścią widoczną na stronie.
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Kreta we wrześniu: pogoda, ceny i najlepsze plaże",
+  "image": [
+    "https://example.pl/img/kreta-1x1.jpg",
+    "https://example.pl/img/kreta-4x3.jpg",
+    "https://example.pl/img/kreta-16x9.jpg"
+  ],
+  "datePublished": "2026-08-12T09:00:00+02:00",
+  "dateModified": "2026-09-30T16:20:00+02:00",
+  "author": [{
+    "@type": "Person",
+    "name": "Anna Kowalska",
+    "url": "https://example.pl/autorzy/anna-kowalska"
+  }]
+}
+</script>
+```
+X: `dateModified` aktualizowany przy każdym wdrożeniu, a nie przy zmianie treści.
+X: Nazwa serwisu, "Redakcja" lub "admin" w `author` zamiast osoby.
+S: Google: Article structured data | https://developers.google.com/search/docs/appearance/structured-data/article
+
+[structured-data] high
+T: Dane strukturalne JSON-LD
+D: JSON-LD (zalecany przez Google format) opisuje typ treści: organizację, produkt, ofertę, wydarzenie, artykuł. Umożliwia rich results i lepsze zrozumienie strony, także przez systemy AI. Dane muszą odpowiadać treści widocznej na stronie.
+W: Rich results (cena i dostępność, oceny, ścieżka nawigacyjna, wideo) wyróżniają wynik w SERP i zwykle zwiększają CTR bez zmiany pozycji.
+W: JSON-LD jest oddzielony od HTML, więc łatwo generować go z tych samych danych co widok i testować w CI; microdata wymaga przeplatania atrybutów z markupem.
+W: Dane niezgodne z treścią lub wprowadzające w błąd mogą skończyć się ręcznym działaniem Google i utratą rich results w całym serwisie.
+W: Część typów nie daje już rich results w Google (FAQ od maja 2026, HowTo, pole wyszukiwania w linkach do podstron), więc priorytetem są typy z aktualnej galerii Search Central.
+V: Rich Results Test, Schema Markup Validator, raporty ulepszeń w Search Console.
+```tsx components/JsonLd.tsx
+import type { Thing, WithContext } from "schema-dts";
+
+export function JsonLd({ data }: { data: WithContext<Thing> }) {
+  return (
+    <script
+      type="application/ld+json"
+      // Escape "<" so a value like "</script>" cannot break out of the tag (XSS)
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }}
+    />
+  );
+}
+
+// Usage: <JsonLd data={{ "@context": "https://schema.org", "@type": "TravelAgency", name: "Example Podróże" }} />
+```
+X: Oznaczanie treści niewidocznych dla użytkownika, np. ocen, których nie ma na stronie.
+X: Sklejanie JSON-LD ze stringów w szablonie zamiast serializacji obiektu.
+
+[author-info] medium
+T: Dane strukturalne autora
+D: `author` jako `Person` (lub `Organization`) z `name`, `url` prowadzącym do strony autora i opcjonalnie `sameAs` z profilami zewnętrznymi wiąże treść z konkretną osobą.
+W: Google zaleca wpisywanie w `name` tylko imienia i nazwiska, bez stanowiska czy nazwy serwisu; kilku autorów to osobne obiekty w tablicy.
+W: Strona autora z biogramem i linkami pozwala odróżnić osoby o tym samym nazwisku i wspiera ocenę doświadczenia (E-E-A-T) w tematach wymagających zaufania, np. ubezpieczenia podróżne czy wymogi wizowe.
+W: Spójne dane autora na wszystkich artykułach budują rozpoznawalność eksperta, także w systemach AI cytujących źródła.
+V: Rich Results Test na artykułach; adres z `url` autora zwraca 200 i jest indeksowalny.
+```json Fragment JSON-LD artykułu
+{
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Anna Kowalska",
+      "url": "https://example.pl/autorzy/anna-kowalska",
+      "jobTitle": "Pilotka wycieczek i redaktorka",
+      "sameAs": ["https://www.linkedin.com/in/anna-kowalska-travel"]
+    },
+    {
+      "@type": "Person",
+      "name": "Piotr Nowak",
+      "url": "https://example.pl/autorzy/piotr-nowak"
+    }
+  ]
+}
+```
+X: `name` z dopiskiem typu "Anna Kowalska | Ekspertka od Grecji".
+X: `url` autora prowadzący do strony z noindex lub 404.
+
+[breadcrumb] medium
+T: Schema BreadcrumbList
+D: Dane `BreadcrumbList` opisują położenie strony w hierarchii serwisu; Google może pokazać tę ścieżkę w wyniku zamiast surowego URL (obecnie w wynikach na komputerach).
+W: Ścieżka "example.pl > Wakacje > Grecja > Kreta" mówi użytkownikowi więcej niż długi adres i zachęca do kliknięcia.
+W: Pomaga Google zrozumieć strukturę serwisu także wtedy, gdy URL jest płaski (np. `/p/48213`).
+W: Wymagane są co najmniej 2 elementy `ListItem` z `position`, `name` i `item`; ostatni element może nie mieć `item`, wtedy Google użyje adresu bieżącej strony.
+V: Rich Results Test; ścieżka w JSON-LD odpowiada okruszkom widocznym na stronie.
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Wakacje", "item": "https://example.pl/wakacje" },
+    { "@type": "ListItem", "position": 2, "name": "Grecja", "item": "https://example.pl/wakacje/grecja" },
+    { "@type": "ListItem", "position": 3, "name": "Kreta" }
+  ]
+}
+</script>
+```
+X: Okruszki w JSON-LD niezgodne z widoczną nawigacją.
+X: Ścieżka odwzorowująca strukturę URL zamiast typowej drogi użytkownika.
+S: Google: Breadcrumb structured data | https://developers.google.com/search/docs/appearance/structured-data/breadcrumb
+
+[faq] medium
+T: Schema FAQPage
+D: Dla stron z pytaniami i odpowiedziami. Uwaga: Google najpierw (2023) ograniczyło rich results FAQ do serwisów rządowych i medycznych, a w maju 2026 przestało je wyświetlać całkowicie. Znacznik może nadal pomagać innym wyszukiwarkom i systemom AI zrozumieć strukturę treści, ale nie da już rozszerzonego wyniku w Google.
+W: Wdrażanie `FAQPage` tylko po to, by uzyskać rozwijane pytania pod wynikiem, nie ma już sensu; nie traktuj go jako priorytetu SEO.
+W: Sama sekcja pytań i odpowiedzi nadal ma wartość: odpowiada na realne wątpliwości (bagaż, wiza, dopłaty) i zmniejsza liczbę zapytań do obsługi klienta.
+W: Jasna struktura pytanie-odpowiedź ułatwia cytowanie treści przez wyszukiwarki AI; znacznik to tani dodatek, jeśli treść i tak jest na stronie.
+V: Schema Markup Validator; treść FAQ musi być widoczna na stronie.
+```html
+<section aria-labelledby="faq-title">
+  <h2 id="faq-title">Najczęstsze pytania</h2>
+  <details>
+    <summary>Czy cena obejmuje bagaż rejestrowany?</summary>
+    <p>Tak, 20 kg bagażu rejestrowanego na osobę jest w cenie.</p>
+  </details>
+</section>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [{
+    "@type": "Question",
+    "name": "Czy cena obejmuje bagaż rejestrowany?",
+    "acceptedAnswer": { "@type": "Answer", "text": "Tak, 20 kg bagażu rejestrowanego na osobę jest w cenie." }
+  }]
+}
+</script>
+```
+X: Pytania marketingowe ("Dlaczego jesteśmy najlepsi?") zamiast realnych wątpliwości klientów.
+X: Odpowiedzi w JSON-LD, których nie ma w widocznej treści.
+
+[json-ld-valid] medium
+T: Poprawny składniowo JSON-LD
+D: Błąd składni (np. przecinek na końcu) unieważnia cały blok. Wartości muszą odpowiadać typom schema.org i treści widocznej na stronie.
+W: Jeden przecinek za ostatnim elementem albo nieescapowany cudzysłów w nazwie hotelu unieważnia cały blok, a z nim wszystkie rich results strony.
+W: Poprawna składnia to nie wszystko: cena jako `"od 2 499 zł"` zamiast `2499` czy data `12.08.2026` zamiast ISO 8601 nie zostaną poprawnie zinterpretowane.
+W: Generowanie przez `JSON.stringify` z obiektów (zamiast sklejania stringów w szablonie) eliminuje większość błędów składni.
+V: Schema Markup Validator, Rich Results Test, test w CI parsujący każdy blok `application/ld+json`.
+```json Źle
+{
+  "@type": "Offer",
+  "price": "od 2 499 zł",
+  "priceCurrency": "PLN",
+  "validFrom": "12.08.2026",
+}
+```
+```ts Dobrze: test w CI (Playwright)
+import { test, expect } from "@playwright/test";
+
+test("offer page has parseable JSON-LD with numeric price", async ({ page }) => {
+  await page.goto("/oferty/kreta-hotel-olimp");
+  const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+  expect(blocks.length).toBeGreaterThan(0);
+  for (const raw of blocks) {
+    const data = JSON.parse(raw); // throws on syntax errors
+    if (data["@type"] === "Product") {
+      expect(String(data.offers.price)).toMatch(/^\d+(\.\d{1,2})?$/);
+    }
+  }
+});
+```
+X: Ręcznie edytowany JSON-LD w polu CMS bez walidacji.
+S: Schema.org: Schema Markup Validator | https://validator.schema.org/
+
+[organization] medium
+T: Schema Organization
+D: `Organization` (lub bardziej szczegółowy typ, np. `TravelAgency`) z nazwą, `url`, `logo`, adresem, danymi kontaktowymi i `sameAs` pomaga Google poprawnie przedstawić markę (panel wiedzy, logo w wynikach). Wystarczy na stronie głównej lub stronie "O nas".
+W: Google może użyć `logo` przy wynikach i w panelu wiedzy; obraz musi być indeksowalny i mieć co najmniej 112x112 px.
+W: `sameAs` łączy serwis z profilami w mediach społecznościowych i bazach wiedzy, co ułatwia rozpoznanie marki jako jednego podmiotu, także przez systemy AI.
+W: Pola identyfikacyjne (`legalName`, `vatID`, `address`) pomagają odróżnić firmę od innych o podobnej nazwie, co ma znaczenie dla zaufania do serwisu sprzedażowego.
+V: Rich Results Test na stronie głównej.
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TravelAgency",
+  "name": "Example Podróże",
+  "legalName": "Example Podróże sp. z o.o.",
+  "url": "https://example.pl/",
+  "logo": "https://example.pl/img/logo-512.png",
+  "vatID": "PL1234567890",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "ul. Wakacyjna 10",
+    "postalCode": "00-001",
+    "addressLocality": "Warszawa",
+    "addressCountry": "PL"
+  },
+  "contactPoint": { "@type": "ContactPoint", "telephone": "+48-22-123-45-67", "contactType": "customer service" },
+  "sameAs": ["https://www.facebook.com/examplepodroze", "https://www.instagram.com/examplepodroze"]
+}
+</script>
+```
+X: Logo w białym kolorze na przezroczystym tle, niewidoczne na jasnym tle wyników.
+X: Ten sam blok Organization z innymi danymi na różnych podstronach.
+S: Google: Organization structured data | https://developers.google.com/search/docs/appearance/structured-data/organization
+
+[product] medium
+T: Schema Product
+D: Dla e-commerce: `Product` z `name`, `image`, `description` i `offers` (`Offer` z `price`, `priceCurrency`, `availability`), opcjonalnie oceny. Umożliwia wyniki produktowe z ceną, dostępnością i gwiazdkami.
+W: Cena i dostępność widoczne już w wynikach przyciągają osoby gotowe do zakupu, a odsiewają te, dla których oferta jest za droga; ruch z wyników lepiej konwertuje.
+W: Google porównuje cenę z JSON-LD z ceną na stronie (i w Merchant Center); rozbieżności blokują rich result i generują ostrzeżenia.
+W: Dla ofert terminowych (wycieczki, noclegi) `priceValidUntil` i aktualna `availability` chronią przed pokazywaniem nieaktualnej ceny.
+V: Rich Results Test, raport Merchant listings w Search Console.
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Kreta, Hotel Olimp 4*, 7 nocy all inclusive",
+  "image": ["https://example.pl/img/olimp-16x9.jpg", "https://example.pl/img/olimp-1x1.jpg"],
+  "description": "Tydzień all inclusive w hotelu przy plaży w Chanii, wylot z Katowic.",
+  "sku": "KRE-OLIMP-7AI",
+  "brand": { "@type": "Brand", "name": "Example Podróże" },
+  "offers": {
+    "@type": "Offer",
+    "url": "https://example.pl/oferty/kreta-hotel-olimp",
+    "price": 3499.00,
+    "priceCurrency": "PLN",
+    "priceValidUntil": "2026-10-31",
+    "availability": "https://schema.org/InStock"
+  }
+}
+</script>
+```
+X: Cena z walutą lub spacjami w `price` ("3 499 zł") zamiast liczby.
+X: Cena "od" w JSON-LD, a na stronie inna po wybraniu terminu.
+S: Google: Product structured data | https://developers.google.com/search/docs/appearance/structured-data/product
+
+[review] medium
+T: Schema Review i AggregateRating
+D: Oceny gwiazdkowe w wynikach, tylko dla prawdziwych opinii o konkretnym produkcie lub usłudze. Opinie o własnej firmie na własnej stronie (self-serving) nie kwalifikują się do gwiazdek.
+W: Gwiazdki przyciągają uwagę w wynikach, ale Google pokazuje je tylko, gdy oceny są widoczne na stronie i pochodzą od użytkowników.
+W: Self-serving: firma oceniająca samą siebie (`Organization` lub `LocalBusiness` z opiniami z własnej strony) nie dostanie gwiazdek; oceny konkretnego hotelu czy wycieczki w ofercie już tak.
+W: Fikcyjne lub wybiórczo dobrane opinie łamią wytyczne Google i polskie prawo konsumenckie: od 2023 roku sprzedawca musi informować, czy i jak weryfikuje opinie.
+V: Rich Results Test; zgodność z wytycznymi review snippet.
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Hotel Olimp 4*, Kreta",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": 4.6,
+    "bestRating": 5,
+    "reviewCount": 318
+  },
+  "review": [{
+    "@type": "Review",
+    "author": { "@type": "Person", "name": "Marta K." },
+    "datePublished": "2026-09-14",
+    "reviewRating": { "@type": "Rating", "ratingValue": 5, "bestRating": 5 },
+    "reviewBody": "Świetna plaża i jedzenie, polecamy rodzinom z dziećmi."
+  }]
+}
+</script>
+```
+X: Gwiazdki w JSON-LD bez widocznych opinii na stronie.
+X: Przepisywanie średniej z Map Google lub innego serwisu jako własnych ocen.
+S: Google: Review snippet structured data | https://developers.google.com/search/docs/appearance/structured-data/review-snippet
+
+[video] medium
+T: Schema VideoObject
+D: `VideoObject` z `name`, `thumbnailUrl` i `uploadDate` (wymagane) oraz `description`, `duration` i `contentUrl` lub `embedUrl` (zalecane) pozwala pokazać wideo w wynikach, zakładce Filmy i Discover.
+W: Bez danych strukturalnych Google musi sam wykryć wideo i jego metadane; często nie pokaże miniatury przy wyniku.
+W: `contentUrl` do pliku wideo pozwala Google pobrać i zrozumieć film, a znaczniki `Clip` lub `SeekToAction` umożliwiają kluczowe momenty (przejście do fragmentu) w wynikach.
+W: Wideo musi być głównym elementem strony i być dostępne bez logowania; film wstawiony jako dodatek do artykułu zwykle nie zostanie zindeksowany jako wideo strony.
+V: Rich Results Test, raport Filmy w Search Console.
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "name": "Hotel Olimp na Krecie: spacer po hotelu i plaży",
+  "description": "Pięciominutowy film z pokojami, basenami i plażą hotelu Olimp w Chanii.",
+  "thumbnailUrl": ["https://example.pl/video/olimp-thumb-16x9.jpg"],
+  "uploadDate": "2026-06-02T10:00:00+02:00",
+  "duration": "PT5M12S",
+  "contentUrl": "https://cdn.example.pl/video/olimp-tour.mp4",
+  "embedUrl": "https://example.pl/embed/olimp-tour"
+}
+</script>
+```
+X: Miniatura zablokowana w robots.txt lub dostępna tylko po zalogowaniu.
+S: Google: Video structured data | https://developers.google.com/search/docs/appearance/structured-data/video
+
+[website-search] low
+T: Schema WebSite z SearchAction
+D: Historycznie `WebSite` z `potentialAction` typu `SearchAction` dawało pole wyszukiwania w wynikach (sitelinks search box). Google wycofało tę funkcję w listopadzie 2024, więc dziś to głównie opis witryny; sam `WebSite` z `name` i `alternateName` nadal pomaga Google wybrać nazwę witryny w wynikach.
+W: Nie wdrażaj `SearchAction` w nadziei na pole wyszukiwania w Google; istniejący znacznik nie szkodzi i może być rozumiany przez inne systemy.
+W: Google używa `WebSite` (`name`, `alternateName`, `url`) ze strony głównej do ustalenia nazwy witryny wyświetlanej przy wyniku; bez niego może pokazać samą domenę lub niechcianą nazwę.
+W: Znacznik umieszcza się na stronie głównej domeny, nie na każdej podstronie.
+V: Sprawdź JSON-LD strony głównej; porównaj nazwę witryny w wynikach z `name`.
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Example Podróże",
+  "alternateName": ["ExamplePodroze", "example.pl"],
+  "url": "https://example.pl/",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://example.pl/szukaj?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+```
+X: Różne wartości `name` w `WebSite`, `og:site_name` i `<title>` strony głównej.
+
+@cl-group Techniczne SEO: linki i adresy URL
+sources: Google: Link best practices | https://developers.google.com/search/docs/crawling-indexing/links-crawlable ; Google: URL structure best practices | https://developers.google.com/search/docs/crawling-indexing/url-structure
+
+[broken-links] high
+T: Bez zepsutych linków wewnętrznych
+D: Linki do stron 404 lub 5xx marnują budżet indeksowania i frustrują użytkowników. Po zmianach URL dodaj przekierowania 301, a usunięte treści oznaczaj 404 lub 410 z pomocną stroną.
+W: Użytkownik, który trafia na 404 w ścieżce zakupowej (np. z listy ofert do szczegółów), zwykle opuszcza serwis; to bezpośrednio utracona rezerwacja.
+W: Robot traci zapytania na martwe adresy, a strona, której adres się zmienił, nie dostaje sygnałów z linków.
+W: Linki psują się najczęściej przy zmianie slugów, usuwaniu ofert i migracjach CMS; bez przekierowań i testu w CI problem wraca po każdej zmianie.
+V: Crawler (raport 4xx/5xx), regularnie lub w CI.
+```ts server.ts (Express 5)
+import express from "express";
+import { findRedirect } from "./redirects"; // old slug -> new path, stored in DB
+
+const app = express();
+
+app.get("/oferty/:slug", async (req, res, next) => {
+  const target = await findRedirect(req.params.slug);
+  // Removed for good: 410 plus a helpful page with alternatives
+  if (target?.gone) return res.status(410).render("offer-expired", { related: target.related });
+  // Renamed: one 301 hop straight to the new URL
+  if (target) return res.redirect(301, target.path);
+  next();
+});
+```
+X: Zmiana slugu oferty w CMS bez automatycznego przekierowania ze starego adresu.
+X: Przekierowanie wszystkich usuniętych stron na stronę główną (Google traktuje to jak soft 404).
+
+[link-checker] medium
+T: Regularne sprawdzanie linków
+D: Automatyczne sprawdzanie wszystkich linków (wewnętrznych i zewnętrznych) wychwytuje błędy, zanim zrobią to użytkownicy.
+W: Linki psują się "same": partnerzy zmieniają adresy, oferty wygasają, CMS zmienia slugi; ręczna kontrola nie skaluje się powyżej kilkudziesięciu stron.
+W: Sprawdzanie na pull requeście łapie zepsute linki w nowych treściach, zanim trafią na produkcję.
+W: Harmonogram (np. raz w tygodniu) z raportem dla zespołu wychwytuje zmiany po stronie serwisów zewnętrznych, na które nie masz wpływu.
+V: Crawler w harmonogramie lub narzędzie typu lychee w CI.
+```yaml .github/workflows/links.yml
+name: Link check
+on:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday 06:00 UTC
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          # Check content sources; skip sites that block bots
+          args: --no-progress --exclude 'linkedin\.com' './content/**/*.md'
+          fail: true
+```
+X: Raport z crawlera, którego nikt nie czyta, bo nie trafia do żadnego kanału zespołu.
+
+[broken-external-links] medium
+T: Naprawione linki zewnętrzne
+D: Linki do nieistniejących stron zewnętrznych obniżają jakość treści. Zaktualizuj adres, podmień źródło lub usuń link.
+W: Martwy link do regulaminu przewoźnika czy strony z wymogami wjazdowymi zawodzi użytkownika dokładnie wtedy, gdy potrzebuje rzetelnej informacji.
+W: Wygasłe domeny bywają przejmowane i zamieniane w spam lub phishing; stary link nagle prowadzi do szkodliwej strony z Twoją rekomendacją.
+W: Martwe źródła obniżają wiarygodność treści w oczach czytelników i osób oceniających jakość.
+V: Crawler z opcją sprawdzania linków zewnętrznych; lychee lokalnie lub w CI.
+```bash
+# Check only external links in published articles; retry flaky hosts, accept rate limiting
+lychee --no-progress --max-retries 3 --timeout 20 \
+  --exclude '^https://example\.pl' \
+  --accept '200..=299,429' \
+  'content/blog/**/*.md'
+```
+X: Zamiana martwego linku na stronę główną domeny zamiast konkretnej treści lub kopii w archiwum (web.archive.org).
+
+[dead-end-pages] medium
+T: Brak stron bez linków wychodzących
+D: Strona bez linków wewnętrznych "zatrzymuje" użytkownika i robota. Dodaj powiązane treści, nawigację, CTA.
+W: Użytkownik na takiej stronie ma do wyboru tylko przycisk Wstecz lub zamknięcie karty; rosną odrzucenia, spada liczba odsłon ofert.
+W: Robot nie przechodzi dalej, więc sygnały z linków prowadzących do tej strony nie płyną do reszty serwisu.
+W: Typowe przypadki: landing kampanii bez nawigacji, strona podziękowania po rezerwacji, wygasła oferta bez propozycji alternatyw.
+V: Crawler: strony bez linków wychodzących (outlinks = 0).
+```html Wygasła oferta z dalszą ścieżką
+<main>
+  <h1>Ta oferta nie jest już dostępna</h1>
+  <p>Termin wyjazdu do hotelu Olimp minął. Zobacz podobne propozycje:</p>
+  <ul>
+    <li><a href="/oferty/kreta-hotel-aria">Kreta, Hotel Aria 4*, od 3 290 zł</a></li>
+    <li><a href="/oferty/kreta-hotel-minos">Kreta, Hotel Minos 5*, od 4 150 zł</a></li>
+  </ul>
+  <a href="/wakacje/grecja/kreta">Wszystkie oferty na Krecie</a>
+</main>
+```
+X: Strona z linkami wyłącznie w elementach JS bez `href` (np. karuzela z `onClick`).
+
+[external-links] medium
+T: Linki do wartościowych źródeł zewnętrznych
+D: Odwołania do autorytatywnych źródeł pomagają użytkownikom i świadczą o rzetelności treści. Linki płatne i od użytkowników oznaczaj odpowiednim `rel`.
+W: Link do źródła (np. oficjalnej strony z wymogami wjazdowymi) pozwala czytelnikowi sprawdzić informację i zwiększa zaufanie do treści.
+W: Pytania samooceny Google dotyczące pomocnych treści obejmują m.in. to, czy treść budzi zaufanie dzięki jasnemu podaniu źródeł.
+W: Linki sponsorowane i afiliacyjne oznaczaj `rel="sponsored"`, a z treści użytkowników `rel="ugc"`; zwykłe linki redakcyjne do źródeł nie potrzebują nofollow.
+V: Przegląd treści; crawler: lista domen zewnętrznych i atrybutów `rel`.
+```html
+<!-- Editorial source: plain link, no nofollow needed -->
+<a href="https://www.gov.pl/web/dyplomacja">Informacje dla podróżujących (gov.pl)</a>
+
+<!-- Paid or affiliate link -->
+<a href="https://partner.example.com/ubezpieczenie?aff=123" rel="sponsored">Ubezpieczenie podróżne</a>
+
+<!-- Link inside a user review -->
+<a href="https://blog-podroznika.example" rel="ugc">blog autora opinii</a>
+```
+X: Nofollow na wszystkich linkach zewnętrznych "dla bezpieczeństwa", także do rzetelnych źródeł.
+
+[internal-links] medium
+T: Linki wewnętrzne do kluczowych stron
+D: Ważne strony (kategorie, bestsellery) powinny dostawać wiele linków z nawigacji i treści. To główny sposób przekazywania im "mocy" i kontekstu.
+W: Liczba i jakość linków wewnętrznych to dla Google sygnał, które strony uważasz za najważniejsze; strona dostępna tylko z sitemap dostaje go niewiele.
+W: Tekst linku daje kontekst: "wakacje na Krecie" mówi więcej niż "kliknij tutaj" lub "więcej".
+W: Krótka ścieżka (2-3 kliknięcia od strony głównej) przyspiesza odkrywanie i odświeżanie kluczowych stron przez robota.
+V: Crawler: liczba linków przychodzących (inlinks) dla kluczowych stron i ich głębokość kliknięć.
+```html Źle
+<p>Szukasz słońca we wrześniu? <a href="/wakacje/grecja/kreta">Kliknij tutaj</a>.</p>
+<!-- Not a link for crawlers: no <a href> -->
+<div class="tile" onclick="location.href='/last-minute'">Last minute</div>
+```
+```html Dobrze
+<p>Szukasz słońca we wrześniu? Sprawdź
+  <a href="/wakacje/grecja/kreta">wakacje na Krecie</a>
+  albo <a href="/last-minute">oferty last minute</a>.</p>
+```
+X: Kluczowe kategorie dostępne tylko z wyszukiwarki wewnętrznej lub filtrów.
+S: Google: Link best practices | https://developers.google.com/search/docs/crawling-indexing/links-crawlable
+
+[invalid-links] medium
+T: Bez niepoprawnych linków
+D: Puste `href`, `href="#"` bez funkcji, literówki w schemacie (`htp://`), `javascript:` jako nawigacja. Roboty i czytniki ekranu potrzebują prawdziwych adresów w `<a href>`.
+W: Google odkrywa linki tylko z elementów `<a>` z atrybutem `href` zawierającym adres URL; nawigacja przez `onclick` lub `javascript:void(0)` nie zostanie przez robota podjęta.
+W: Czytnik ekranu ogłasza `<a href="#">` jako link, a po aktywacji strona przewija się na górę; element udaje coś, czym nie jest. Akcje bez zmiany adresu to `<button>`.
+W: Literówka w schemacie (`https//`) zamienia link w ścieżkę względną i tworzy 404 w obrębie Twojej domeny.
+V: Crawler, axe, wyszukanie w kodzie wzorca `href="(#|javascript:)?"`.
+```html Źle
+<a href="#" onclick="openGallery()">Zobacz zdjęcia</a>
+<a href="javascript:void(0)" onclick="goTo('/oferty/kreta')">Kreta</a>
+<a href="">Regulamin</a>
+<a href="https//example.pl/warunki">Warunki uczestnictwa</a>
+```
+```html Dobrze
+<button type="button" onclick="openGallery()">Zobacz zdjęcia</button>
+<a href="/oferty/kreta">Kreta</a>
+<a href="/regulamin">Regulamin</a>
+<a href="https://example.pl/warunki">Warunki uczestnictwa</a>
+```
+X: Komponent `Link` renderowany jako `<span>` w trakcie ładowania danych i nigdy niezamieniany na `<a>` w SSR.
+
+[length] medium
+T: Krótkie adresy URL
+D: Ścieżka najlepiej poniżej ok. 60 znaków i do 4 segmentów; bez dat w treściach "evergreen" i bez identyfikatorów sesji.
+W: Krótki adres jest czytelny w wynikach i przy udostępnianiu, łatwiej go podyktować przez telefon i wkleić w wiadomość.
+W: Daty w ścieżce (`/2024/05/kreta`) postarzają treść aktualizowaną co roku i wymuszają przekierowania przy jej odświeżeniu.
+W: Identyfikatory sesji w URL (`;jsessionid=`, `?sid=`) tworzą nieskończenie wiele duplikatów i mogą ujawnić sesję użytkownika po udostępnieniu linku.
+V: Raport długości URL w crawlerze.
+```txt
+Źle:    https://example.pl/kategorie/oferty-wakacyjne/europa/grecja/wyspy/kreta/hotel-olimp-4-gwiazdki?sid=8f3a
+Dobrze: https://example.pl/wakacje/grecja/kreta/hotel-olimp
+
+Źle:    https://example.pl/blog/2023/03/14/co-warto-zabrac-ze-soba-na-wakacje-pelna-lista
+Dobrze: https://example.pl/blog/co-zabrac-na-wakacje
+```
+X: Skracanie istniejących adresów bez planu przekierowań 301.
+
+[llms-txt] medium
+T: Plik llms.txt dla serwisów z dużą dokumentacją
+D: Proponowany standard `/llms.txt` z wyselekcjonowaną listą najważniejszych stron dla narzędzi AI. To dobrowolna konwencja: Google oficjalnie z niej nie korzysta, ale używają jej niektóre narzędzia i agenci.
+W: Asystenci i agenci AI mają ograniczony kontekst; krótka lista linków do wersji Markdown dokumentacji pozwala im szybciej trafić we właściwe strony zamiast parsować nawigację HTML.
+W: Plik nie wpływa na pozycje w Google, więc nie inwestuj w niego kosztem podstaw: indeksowalności, szybkości i jakości treści.
+W: Największy sens ma w serwisach z dokumentacją, API lub bazą wiedzy, np. warunki uczestnictwa i API ofert dla partnerów.
+V: Otwórz `/llms.txt` i sprawdź, czy linki zwracają 200.
+```md llms.txt
+# Example Podróże
+
+> Biuro podróży online: wakacje, last minute i wycieczki objazdowe z wylotem z Polski.
+
+## Dla klientów
+- [Warunki uczestnictwa](https://example.pl/warunki.md): rezerwacja, płatności i rezygnacja
+- [Ubezpieczenia](https://example.pl/ubezpieczenia.md): zakres polis w cenie wyjazdu
+
+## Dla partnerów
+- [API ofert](https://example.pl/docs/api.md): wyszukiwanie ofert i dostępności
+
+## Optional
+- [Blog](https://example.pl/blog): porady i przewodniki
+```
+X: Linki w llms.txt do stron, które już nie istnieją lub wymagają logowania.
+S: llmstxt.org: The /llms.txt file | https://llmstxt.org/
+
+[lowercase] medium
+T: Małe litery w adresach URL
+D: Ścieżki URL rozróżniają wielkość liter, więc `/Oferta` i `/oferta` to dwa różne adresy (duplikaty). Używaj tylko małych liter i przekierowuj warianty.
+W: Większość serwerów i CDN traktuje `/Oferta` i `/oferta` jako różne zasoby: kończy się to albo 404, albo duplikatem treści.
+W: Wielkie litery pojawiają się z kampanii (ręcznie wpisane adresy), z CMS (tytuł zamieniony w slug bez normalizacji) i z linków od partnerów.
+W: Przekierowanie 301/308 na wersję z małymi literami scala sygnały z wariantów w jeden adres.
+V: Crawler: adresy z wielkimi literami; `curl -sI https://example.pl/Wakacje/Grecja` powinien zwrócić przekierowanie.
+```ts proxy.ts (Next.js 16)
+import { NextResponse, type NextRequest } from "next/server";
+
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (pathname !== pathname.toLowerCase()) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname.toLowerCase(); // query string is preserved
+    return NextResponse.redirect(url, 308);
+  }
+  return NextResponse.next();
+}
+
+// Skip static assets and API routes
+export const config = { matcher: ["/((?!_next|api|.*\\..*).*)"] };
+```
+X: Obniżanie wielkości liter także w parametrach zapytania, które mogą być wrażliwe (np. tokeny).
+
+[nofollow-internal] medium
+T: Bez nofollow na linkach wewnętrznych
+D: `rel="nofollow"` wewnątrz własnej strony utrudnia odkrywanie i ocenę ważnych podstron. Do ukrywania stron służy noindex.
+W: Google traktuje nofollow jako wskazówkę; link z nofollow może nie zostać użyty ani do odkrycia, ani do oceny strony docelowej.
+W: "Rzeźbienie PageRanku" przez nofollow nie działa od lat: wartość nie przelewa się na pozostałe linki, po prostu przepada.
+W: Strony, których nie chcesz w indeksie (koszyk, logowanie), oznacz noindex; link do nich może pozostać zwykłym linkiem.
+V: Crawler: wewnętrzne linki z nofollow.
+```html Źle
+<nav>
+  <a href="/wakacje/grecja" rel="nofollow">Grecja</a>
+  <a href="/last-minute" rel="nofollow">Last minute</a>
+  <a href="/logowanie" rel="nofollow">Zaloguj się</a>
+</nav>
+```
+```html Dobrze
+<nav>
+  <a href="/wakacje/grecja">Grecja</a>
+  <a href="/last-minute">Last minute</a>
+  <a href="/logowanie">Zaloguj się</a>
+</nav>
+<!-- On /logowanie itself -->
+<meta name="robots" content="noindex" />
+```
+X: Globalny nofollow w meta robots (`content="nofollow"`) skopiowany z szablonu stagingu.
+
+[orphan-pages] medium
+T: Brak stron-sierot
+D: Strona bez żadnych linków wewnętrznych jest trudna do odnalezienia dla robotów i użytkowników, nawet jeśli jest w sitemap.
+W: Google odkrywa i ocenia strony głównie przez linki; strona obecna tylko w sitemap dostaje mało sygnałów i bywa uznana za mało ważną.
+W: Sieroty powstają po przebudowie nawigacji, przy landingach kampanii i ofertach dodanych w CMS bez przypisania do kategorii.
+W: Użytkownik też jej nie znajdzie bez wyszukiwarki; często to treści, za które zapłacono, a które nie pracują.
+V: Porównaj adresy z sitemap/analityki z listą stron znalezionych przez crawler.
+```bash Adresy z sitemap nieosiągalne przez linki
+# crawl.txt: URLs exported from the crawler (internal, HTML, status 200)
+curl -s https://example.pl/sitemap.xml | grep -oP '(?<=<loc>)[^<]+' | sort -u > sitemap.txt
+sort -u crawl.txt > crawled.txt
+# In the sitemap but never reached through links = orphan pages
+comm -23 sitemap.txt crawled.txt
+```
+X: Uznanie problemu za rozwiązany, bo strona "jest w sitemap".
+
+[redirect-chains] medium
+T: Linkuj bezpośrednio do adresów docelowych
+D: Linki wewnętrzne powinny wskazywać aktualny URL, a nie adres, który przekierowuje (np. bez końcowego ukośnika lub po zmianie struktury).
+W: Każdy link do adresu przekierowującego to dodatkowe żądanie przy każdym kliknięciu i każdej wizycie robota.
+W: Typowe źródła: niespójny końcowy ukośnik, `http://` w linkach, stare ścieżki w menu i stopce po zmianie struktury.
+W: Przekierowanie przekazuje sygnały, ale bezpośredni link jest najczystszą informacją, który adres jest kanoniczny.
+V: Crawler: linki do przekierowań 3xx (lista stron źródłowych pokazuje, co poprawić).
+```html
+<!-- Bad: server answers 308 to /wakacje/grecja (no trailing slash) -->
+<a href="/wakacje/grecja/">Grecja</a>
+<!-- Bad: old structure, 301 to /wakacje/grecja -->
+<a href="/oferty/grecja">Grecja</a>
+<!-- Good: final canonical URL -->
+<a href="/wakacje/grecja">Grecja</a>
+```
+```ts lib/routes.ts
+// Single source of truth for internal URLs; components never build paths by hand
+export const routes = {
+  country: (country: string) => `/wakacje/${country}`,
+  region: (country: string, region: string) => `/wakacje/${country}/${region}`,
+  offer: (slug: string) => `/oferty/${slug}`,
+} as const;
+```
+X: Poprawienie przekierowań na serwerze bez aktualizacji linków w menu i treściach.
+
+[sitemap-coverage] medium
+T: Wszystkie indeksowalne strony w sitemap
+D: Sitemap powinna zawierać każdą stronę kanoniczną, którą chcesz mieć w wynikach.
+W: Sitemap to dla Google lista adresów, które uważasz za kanoniczne; strony spoza niej mogą być odkrywane wolniej, zwłaszcza głęboko w strukturze.
+W: Raport map witryn w Search Console pozwala porównać przesłane adresy z zaindeksowanymi tylko dla tego, co jest w sitemap; brakujące strony wypadają z tej kontroli.
+W: Ręcznie utrzymywana sitemap szybko się rozjeżdża; generowana z tej samej bazy co routing obejmuje każdą nową stronę automatycznie.
+V: Porównaj crawl z zawartością sitemap.
+```ts app/oferty/sitemap.ts
+import type { MetadataRoute } from "next";
+import { countIndexableOffers, getIndexableOffers } from "@/lib/offers";
+
+const PER_FILE = 45_000; // below the 50 000 URL limit per file
+
+export async function generateSitemaps() {
+  const total = await countIndexableOffers();
+  return Array.from({ length: Math.ceil(total / PER_FILE) }, (_, id) => ({ id }));
+}
+
+export default async function sitemap({ id }: { id: Promise<string> }): Promise<MetadataRoute.Sitemap> {
+  const page = Number(await id);
+  const offers = await getIndexableOffers({ offset: page * PER_FILE, limit: PER_FILE });
+  return offers.map((o) => ({ url: `https://example.pl/oferty/${o.slug}`, lastModified: o.updatedAt }));
+}
+```
+X: Sitemap tylko z artykułami bloga, bez kategorii i ofert, które przynoszą przychód.
+
+[sitemap-domain] medium
+T: Adresy w sitemap z właściwej domeny
+D: Wszystkie URL w sitemap muszą należeć do tej samej domeny i protokołu (np. bez adresów stagingu czy `http://`).
+W: Adresy z innego hosta niż ten, na którym leży sitemap, są pomijane, chyba że obie właściwości są zweryfikowane w Search Console i zgłoszone celowo.
+W: Adresy stagingu w produkcyjnej sitemap to wyciek nieopublikowanych treści i zaproszenie dla robota do indeksowania kopii serwisu.
+W: Wersje `http://` lub z `www.` tam, gdzie kanoniczna jest inna, dodają przekierowania i rozmywają sygnał kanoniczny.
+V: Przegląd sitemap; skrypt poniżej w CI.
+```bash Wszystkie adresy z jednej domeny i przez HTTPS
+foreign=$(curl -s https://example.pl/sitemap.xml \
+  | grep -oP '(?<=<loc>)[^<]+' \
+  | grep -vE '^https://example\.pl(/|$)')
+# Fail the build on staging hosts, www or plain http
+if [ -n "$foreign" ]; then echo "Unexpected URLs:"; echo "$foreign"; exit 1; fi
+echo "OK"
+```
+X: Domena sitemap budowana z nagłówka `Host` żądania, więc na stagingu i produkcji powstają różne adresy.
+
+[slug-keywords] medium
+T: Opisowe słowa w slugach
+D: `/wakacje/grecja/kreta` mówi więcej niż `/p?id=123`. Opisowy adres pomaga użytkownikom i wyszukiwarkom.
+W: Słowa w adresie pokazują w wynikach i przy udostępnianiu, dokąd prowadzi link; `/p?id=123` nic nie mówi.
+W: Hierarchiczna ścieżka pozwala crawlerom, analityce i raportom Search Console grupować strony według sekcji (np. wszystkie `/wakacje/grecja/`).
+W: Slug generuj raz z tytułu i nie zmieniaj go przy każdej edycji nazwy; stabilny adres jest ważniejszy niż idealne słowa.
+V: Przegląd struktury URL.
+```txt
+Źle:    https://example.pl/p?id=48213
+Źle:    https://example.pl/oferta/48213
+Dobrze: https://example.pl/wakacje/grecja/kreta
+Dobrze: https://example.pl/oferty/kreta-hotel-olimp-48213
+```
+X: Upychanie słów kluczowych w slugu (`/tanie-wakacje-grecja-tanie-loty-grecja`).
+S: Google: URL structure best practices | https://developers.google.com/search/docs/crawling-indexing/url-structure
+
+[special-chars] medium
+T: Bez problematycznych znaków w URL
+D: Spacje, wielkie litery, znaki specjalne i polskie znaki diakrytyczne bywają kodowane (`%C4%85`) i źle wyglądają przy udostępnianiu. Transliteruj (ą → a).
+W: `/wycieczki/łódź` w praktyce trafia do schowka jako `/wycieczki/%C5%82%C3%B3d%C5%BA` i tak wygląda w mailu czy komunikatorze.
+W: Różne systemy różnie normalizują Unicode (NFC i NFD), więc ten sam tytuł może dać dwa różne adresy.
+W: Znaki takie jak `&`, `?`, `#`, `%` w slugach psują parsowanie adresu i kończą się 404.
+V: Crawler: adresy z zakodowanymi znakami.
+```ts lib/slugify.ts
+const PL_MAP: Record<string, string> = {
+  ą: "a", ć: "c", ę: "e", ł: "l", ń: "n", ó: "o", ś: "s", ź: "z", ż: "z",
+};
+
+export function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[ąćęłńóśźż]/g, (ch) => PL_MAP[ch])
+    .normalize("NFKD")                 // split other accents (é becomes e + mark)
+    .replace(/[̀-ͯ]/g, "")   // drop combining marks
+    .replace(/[^a-z0-9]+/g, "-")       // anything else becomes a hyphen
+    .replace(/^-+|-+$/g, "");          // trim leading and trailing hyphens
+}
+
+slugify("Wycieczka: Łódź & Żółta Plaża 2026"); // "wycieczka-lodz-zolta-plaza-2026"
+```
+X: Usuwanie polskich znaków zamiast ich transliteracji (`d` zamiast `lodz` z "Łódź").
+
+[tel-mailto] medium
+T: Linki tel: i mailto:
+D: Numery telefonów jako `<a href="tel:+48...">` w formacie międzynarodowym bez spacji, adresy e-mail jako `mailto:`. Na telefonie jedno dotknięcie uruchamia połączenie.
+W: Klient przed wyjazdem często dzwoni z telefonu; przepisywanie numeru z ekranu to tarcie, które kończy się rezygnacją.
+W: Format `+48` działa także dla klientów za granicą (np. dzwoniących z miejsca wypoczynku), a spacje i nawiasy w `href` bywają różnie interpretowane przez aplikacje.
+W: Czytelny tekst linku (numer w zwykłym zapisie) i godziny pracy obok numeru ograniczają nieudane połączenia.
+V: Przegląd stopki i strony kontaktu na urządzeniu mobilnym.
+```html
+<address>
+  <p>Infolinia (pn-pt 8:00-20:00):
+    <a href="tel:+48221234567">+48 22 123 45 67</a></p>
+  <p>Pomoc w podróży 24/7:
+    <a href="tel:+48600123456">+48 600 123 456</a></p>
+  <p>E-mail:
+    <a href="mailto:rezerwacje@example.pl?subject=Pytanie%20o%20rezerwacj%C4%99">rezerwacje@example.pl</a></p>
+</address>
+```
+X: Numer telefonu jako obrazek lub zwykły tekst bez linku.
+X: Link `tel:` z tekstem "Zadzwoń" bez widocznego numeru, bezużyteczny na komputerze.
+
+[trailing-slash] medium
+T: Spójne końcowe ukośniki
+D: Wybierz jedną wersję (`/oferty` albo `/oferty/`) i przekierowuj drugą 301. Inaczej powstają duplikaty.
+W: `/oferty` i `/oferty/` to dla Google dwa różne adresy; obie wersje zwracające 200 to duplikat treści.
+W: Niespójne linkowanie (raz z ukośnikiem, raz bez) w połączeniu z przekierowaniem daje dodatkowy skok przy każdym kliknięciu.
+W: Wybór jest dowolny, liczy się konsekwencja w routingu, linkach, canonicalach i sitemap; późniejsza zmiana wymaga przekierowania całego serwisu.
+V: Otwórz obie wersje kilku adresów lub użyj `curl -sI` (oczekiwane 301 lub 308 na wersję kanoniczną).
+```ts next.config.ts
+import type { NextConfig } from "next";
+
+const config: NextConfig = {
+  // false (default): /oferty/ redirects with 308 to /oferty; true does the opposite
+  trailingSlash: false,
+};
+
+export default config;
+```
+```bash
+curl -sI https://example.pl/oferty/ | grep -iE '^(HTTP|location)'
+# HTTP/2 308
+# location: /oferty
+```
+X: Canonical z ukośnikiem, a linki i sitemap bez niego.
+
+[weak-internal-links] medium
+T: Strony ze zbyt małą liczbą linków wewnętrznych
+D: Strony z jednym lub dwoma linkami przychodzącymi są słabo widoczne dla robotów. Dodaj linki z treści i nawigacji.
+W: Strona z jednym linkiem przychodzącym (np. tylko z 14. strony paginacji) jest rzadko odwiedzana przez robota i dostaje mało sygnałów ważności.
+W: Bloki "podobne oferty", "popularne w regionie" i linki kontekstowe w artykułach to skalowalny sposób na wzmocnienie wielu stron naraz.
+W: Analiza linków przychodzących pokazuje też odwrotny problem: setki linków z mega menu do mało ważnych stron rozmywają przekaz.
+V: Crawler: rozkład liczby inlinks.
+```tsx components/RelatedOffers.tsx
+import Link from "next/link";
+import { getRelatedOffers } from "@/lib/offers";
+
+// Server component: plain <a href> links in the HTML, crawlable without JS
+export async function RelatedOffers({ region, excludeSlug }: { region: string; excludeSlug: string }) {
+  const offers = await getRelatedOffers({ region, excludeSlug, limit: 6 });
+  return (
+    <section aria-labelledby="related-title">
+      <h2 id="related-title">Podobne oferty w regionie</h2>
+      <ul>
+        {offers.map((o) => (
+          <li key={o.slug}>
+            <Link href={`/oferty/${o.slug}`}>{o.title}, od {o.priceFrom} zł</Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+```
+X: Linki "podobne" ładowane dopiero po przewinięciu, przez JS bez SSR.
+
+[stop-words] low
+T: Bez zbędnych słów w slugach
+D: Spójniki i przyimki ("i", "w", "na", "the", "and") zwykle można pominąć w nowych adresach. Nie zmieniaj istniejących URL bez planu przekierowań.
+W: Krótszy slug jest czytelniejszy i łatwiejszy do zapamiętania: `/co-zabrac-wakacje-gory` zamiast `/co-warto-zabrac-ze-soba-na-wakacje-w-gory`.
+W: Wyszukiwarki rozumieją zapytania bez spójników, więc ich usunięcie nie szkodzi trafności; słowa zmieniające sens ("bez", "z" w "wakacje-z-psem") zostaw.
+W: Zmiana istniejących adresów tylko dla estetyki to ryzyko: utrata sygnałów, łańcuchy przekierowań, zepsute linki zewnętrzne.
+V: Przegląd slugów nowych treści.
+```ts lib/slug-words.ts
+// Conjunctions and prepositions usually safe to drop from new slugs.
+// Meaning-changing words like "bez" (without) or "z" (with) are kept on purpose.
+const STOP_WORDS = new Set(["i", "oraz", "w", "we", "na", "do", "o", "the", "and", "of", "in"]);
+
+export function trimStopWords(slug: string): string {
+  const parts = slug.split("-").filter((word) => !STOP_WORDS.has(word));
+  return parts.length >= 2 ? parts.join("-") : slug; // never collapse to one word
+}
+
+trimStopWords("co-zabrac-na-wakacje-w-gory"); // "co-zabrac-wakacje-gory"
+```
+X: Hurtowe skracanie slugów istniejących artykułów bez przekierowań.

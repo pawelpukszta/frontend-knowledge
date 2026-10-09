@@ -1,0 +1,510 @@
+@category http
+name: HTTP & REST API
+short: HTTP
+hue: loading
+desc: Jak działa HTTP, czym jest REST, metody i statusy, projektowanie API, GraphQL, CORS i cache.
+
+@topic http-basics
+title: HTTP: request, response, nagłówki
+level: mid
+tags: HTTP, request, response, headers, HTTP/2, HTTP/3
+summary: HTTP to bezstanowy protokół zapytanie-odpowiedź. Klient wysyła metodę, ścieżkę, nagłówki i opcjonalne body; serwer odpowiada statusem, nagłówkami i body.
+
+::: body
+**Request**: metoda (`GET`), URL, wersja, nagłówki (`Accept`, `Authorization`, `Content-Type`, `Cookie`), opcjonalne body.
+
+**Response**: kod statusu (`200 OK`), nagłówki (`Content-Type`, `Cache-Control`, `Set-Cookie`), body.
+
+- **Bezstanowość**: serwer nie pamięta poprzednich zapytań. Stan (sesję) przenoszą cookies lub tokeny.
+- **HTTPS** = HTTP + TLS (szyfrowanie, integralność, uwierzytelnienie serwera).
+- **HTTP/2**: wiele zapytań równolegle w jednym połączeniu (multiplexing), kompresja nagłówków. Łączenie plików w jeden bundle ma mniejsze znaczenie niż za czasów HTTP/1.1.
+- **HTTP/3**: działa na QUIC (UDP), szybsze nawiązywanie połączenia i brak blokowania całego połączenia przez zgubiony pakiet.
+
+::: code http
+GET /api/offers?city=rzym HTTP/1.1
+Host: api.example.com
+Accept: application/json
+Authorization: Bearer eyJhbGciOi...
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+Cache-Control: max-age=60
+
+[{ "id": 1, "city": "Rzym", "price": 2400 }]
+
+::: qa
+Q: Co to znaczy, że HTTP jest bezstanowy?
+A: Każde zapytanie jest niezależne; serwer nie przechowuje kontekstu między nimi z samego protokołu. Sesję przenosi się w każdym zapytaniu, np. przez cookie lub nagłówek `Authorization`.
+Q: Co daje HTTP/2 w porównaniu z HTTP/1.1?
+A: Multiplexing wielu zapytań w jednym połączeniu TCP, kompresję nagłówków (HPACK) i binarny format ramek. W efekcie mniej kosztowne są liczne małe pliki, a techniki typu domain sharding tracą sens.
+
+::: sources
+- MDN: An overview of HTTP | https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview
+- MDN: HTTP headers | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers
+
+@topic http-xhr-fetch
+title: XMLHttpRequest, fetch i AJAX
+level: mid
+tags: XMLHttpRequest, XHR, fetch, AJAX, axios
+summary: XMLHttpRequest to starsze API do asynchronicznych zapytań HTTP bez przeładowania strony (fundament AJAX). Nowoczesny odpowiednik to fetch oparty na Promise.
+
+::: body
+**AJAX** (Asynchronous JavaScript and XML) to technika, a nie konkretne API: strona pobiera lub wysyła dane w tle i aktualizuje fragment widoku bez przeładowania. Nazwa pochodzi z czasów, gdy dane przesyłano w XML; dziś zwykle w JSON.
+
+**XMLHttpRequest (XHR)**:
+
+- API oparte na zdarzeniach (`onload`, `onerror`, `onreadystatechange`, `readyState` 0-4).
+- Ma rzeczy, których `fetch` długo nie miał: zdarzenie **`upload.onprogress`** (postęp wysyłania pliku), `timeout`, `abort()`.
+- Wersja synchroniczna (`open(..., false)`) jest przestarzała: blokuje wątek główny.
+- Na nim oparte są m.in. axios (w przeglądarce) i starsze biblioteki (jQuery `$.ajax`).
+
+**fetch**:
+
+- Oparty na Promise, współpracuje z `async/await`, standard WHATWG Fetch; dostępny także w Node.js 18+.
+- `Request`, `Response`, `Headers`, strumienie (`response.body`), anulowanie przez `AbortController`, `AbortSignal.timeout()`.
+- **Nie odrzuca** Promise dla 4xx/5xx; sprawdzaj `response.ok`.
+- Cookies cross-origin tylko z `credentials: 'include'`.
+- Postęp pobierania da się liczyć ze strumienia; postęp wysyłania wciąż najprościej obsłużyć przez XHR.
+
+::: code js
+// XMLHttpRequest
+const xhr = new XMLHttpRequest();
+xhr.open('GET', '/api/offers');
+xhr.responseType = 'json';
+xhr.onload = () => {
+  if (xhr.status >= 200 && xhr.status < 300) render(xhr.response);
+  else showError(xhr.status);
+};
+xhr.onerror = () => showError('network');
+xhr.send();
+
+// Upload progress: still a good reason to use XHR
+xhr.upload.onprogress = (e) => setProgress(e.loaded / e.total);
+
+// fetch
+const res = await fetch('/api/offers', { signal: AbortSignal.timeout(5000) });
+if (!res.ok) throw new Error(`HTTP ${res.status}`);
+const offers = await res.json();
+
+::: qa
+Q: Czym jest XMLHttpRequest?
+A: Wbudowanym API przeglądarki do asynchronicznych zapytań HTTP bez przeładowania strony, podstawą techniki AJAX. Działa na zdarzeniach (`onload`, `onerror`, `readyState`) i obsługuje m.in. postęp wysyłania plików. W nowym kodzie zwykle zastępuje go `fetch`.
+Q: Czym różni się fetch od XMLHttpRequest?
+A: `fetch` zwraca Promise, ma czytelniejsze API (`Request`, `Response`, `Headers`), obsługuje strumienie i anulowanie przez `AbortController`, działa też w Node.js i Service Workerach. Nie odrzuca Promise przy 4xx/5xx i nie ma zdarzenia postępu wysyłania, które daje XHR.
+Q: Czym jest AJAX?
+A: Techniką asynchronicznej komunikacji z serwerem w tle, dzięki której strona aktualizuje fragment widoku bez pełnego przeładowania. Realizuje się ją przez XHR lub `fetch`; format danych to dziś zwykle JSON.
+
+::: sources
+- MDN: XMLHttpRequest | https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest
+- WHATWG: XMLHttpRequest Living Standard | https://xhr.spec.whatwg.org/
+- MDN: Using the Fetch API | https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+- WHATWG: Fetch Living Standard | https://fetch.spec.whatwg.org/
+- MDN Glossary: AJAX | https://developer.mozilla.org/en-US/docs/Glossary/AJAX
+
+@topic http-rest
+title: Czym jest REST
+level: mid
+tags: REST, Fielding, zasoby, architektura
+summary: REST to styl architektury API opisany przez Roya Fieldinga. Operujesz na zasobach identyfikowanych przez URL, używając standardowych metod HTTP i bezstanowej komunikacji.
+
+::: body
+REST (Representational State Transfer) to **zbiór ograniczeń architektonicznych**, a nie protokół ani standard. Kluczowe założenia:
+
+- **Zasoby (resources)**: wszystko jest zasobem z własnym URL, np. `/offers/42`. URL to rzeczowniki, nie czasowniki (`/offers`, a nie `/getOffers`).
+- **Jednolity interfejs**: standardowe metody HTTP opisują akcję (`GET` czyta, `POST` tworzy...), statusy opisują wynik.
+- **Reprezentacje**: klient dostaje reprezentację zasobu (zwykle JSON), nie sam zasób.
+- **Bezstanowość**: każde zapytanie zawiera komplet informacji potrzebnych do obsługi.
+- **Cacheability**: odpowiedzi deklarują, czy można je cache'ować.
+- **Client-server** i **system warstwowy** (proxy, CDN, load balancer są przezroczyste dla klienta).
+- **HATEOAS**: odpowiedzi zawierają linki do dalszych akcji. W praktyce rzadko stosowane; większość "REST API" to tak naprawdę "RESTful HTTP JSON API".
+
+::: analogy
+REST to biblioteka: każda książka (zasób) ma swoją sygnaturę (URL). Czynności są zawsze te same: wypożycz (GET), oddaj nową (POST), wymień egzemplarz (PUT), wycofaj (DELETE). Nie potrzebujesz osobnego okienka na każdą książkę.
+
+::: qa
+Q: Czym jest REST?
+A: Stylem architektonicznym dla systemów rozproszonych (Roy Fielding, 2000). API REST modeluje dane jako zasoby pod URL-ami, operuje na nich standardowymi metodami HTTP, jest bezstanowe i korzysta z mechanizmów HTTP, takich jak cache i kody statusu.
+Q: Czy każde JSON API po HTTP jest RESTowe?
+A: Nie. Wiele API używa HTTP jak RPC (`POST /getUserData`), ignorując semantykę metod i statusów. Mówi się wtedy o "RESTful" w luźnym sensie. Pełny REST wg Fieldinga zakłada m.in. HATEOAS, rzadko spotykany w praktyce.
+
+::: sources
+- Roy Fielding: REST (Chapter 5 of dissertation) | https://ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm
+- Roy Fielding: Dissertation (PDF) | https://ics.uci.edu/~fielding/pubs/dissertation/fielding_dissertation.pdf
+- MDN Glossary: REST | https://developer.mozilla.org/en-US/docs/Glossary/REST
+
+@topic http-methods
+title: Metody HTTP: GET, POST, PUT, PATCH, DELETE
+level: mid
+tags: GET, POST, PUT, PATCH, DELETE, idempotencja
+summary: Metoda mówi, co chcesz zrobić z zasobem. Ważne cechy to bezpieczeństwo (nie zmienia danych) i idempotentność (powtórzenie daje ten sam efekt).
+
+::: body
+| Metoda | Znaczenie | Safe | Idempotentna | Body |
+|---|---|---|---|---|
+| `GET` | pobierz zasób | tak | tak | nie |
+| `POST` | utwórz / wykonaj akcję | nie | **nie** | tak |
+| `PUT` | zastąp cały zasób (lub utwórz pod znanym URL) | nie | tak | tak |
+| `PATCH` | zmień część zasobu | nie | nie gwarantowana | tak |
+| `DELETE` | usuń zasób | nie | tak | zwykle nie |
+| `HEAD` | jak GET, bez body | tak | tak | nie |
+| `OPTIONS` | jakie metody są dozwolone (CORS preflight) | tak | tak | nie |
+
+- **Safe**: nie zmienia stanu na serwerze (tylko odczyt).
+- **Idempotentna**: wykonanie N razy daje ten sam stan co jeden raz. `DELETE /offers/1` dwa razy: zasób nadal usunięty. `POST /orders` dwa razy: dwa zamówienia.
+
+Dlaczego to ważne: przeglądarki, proxy i biblioteki mogą **ponawiać** idempotentne zapytania. Dla płatności i zamówień przez `POST` stosuje się nagłówek **`Idempotency-Key`**, żeby ponowienie nie utworzyło duplikatu.
+
+::: code http
+GET    /offers          -> list
+GET    /offers/42       -> one offer
+POST   /offers          -> create (201 Created + Location header)
+PUT    /offers/42       -> replace whole offer
+PATCH  /offers/42       -> { "price": 1999 } partial update
+DELETE /offers/42       -> 204 No Content
+
+::: qa
+Q: Czym różni się PUT od PATCH?
+A: `PUT` zastępuje cały zasób wysłaną reprezentacją (brakujące pola mogą zostać wyczyszczone) i jest idempotentny. `PATCH` wysyła tylko zmiany i nie musi być idempotentny (np. "zwiększ licznik o 1").
+Q: Co oznacza idempotentność i które metody ją mają?
+A: Powtórzenie zapytania daje taki sam efekt na serwerze jak jednorazowe wykonanie. Idempotentne: `GET`, `HEAD`, `OPTIONS`, `PUT`, `DELETE`. Nieidempotentne: `POST`, zwykle `PATCH`.
+Q: Czy GET może mieć body?
+A: Specyfikacja nie nadaje mu znaczenia i wiele serwerów, proxy oraz `fetch` w przeglądarce go nie obsługuje. Parametry dla GET przekazuje się w query string.
+
+::: sources
+- MDN: HTTP request methods | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods
+- MDN Glossary: Idempotent | https://developer.mozilla.org/en-US/docs/Glossary/Idempotent
+- MDN Glossary: Safe (HTTP Methods) | https://developer.mozilla.org/en-US/docs/Glossary/Safe/HTTP
+
+@topic http-status
+title: Kody statusu HTTP
+level: mid
+tags: status, 200, 404, 500, 401, 403
+summary: Trzycyfrowy kod mówi, jak zakończyło się zapytanie. Pierwsza cyfra to klasa: 2xx sukces, 3xx przekierowanie, 4xx błąd klienta, 5xx błąd serwera.
+
+::: body
+| Kod | Znaczenie | Kiedy |
+|---|---|---|
+| `200 OK` | sukces | GET, PUT, PATCH z body |
+| `201 Created` | utworzono | POST, z nagłówkiem `Location` |
+| `204 No Content` | sukces bez body | DELETE, PUT bez odpowiedzi |
+| `301` / `308` | trwałe przekierowanie | zmiana URL (SEO) |
+| `302` / `307` | tymczasowe przekierowanie | `307`/`308` zachowują metodę |
+| `304 Not Modified` | użyj wersji z cache | odpowiedź na `If-None-Match` |
+| `400 Bad Request` | błędne zapytanie | zły format danych |
+| `401 Unauthorized` | **brak uwierzytelnienia** | brak lub zły token: "kim jesteś?" |
+| `403 Forbidden` | **brak uprawnień** | wiemy, kim jesteś, ale nie wolno |
+| `404 Not Found` | brak zasobu | |
+| `409 Conflict` | konflikt stanu | np. edycja nieaktualnej wersji |
+| `422 Unprocessable Content` | walidacja nie przeszła | poprawny JSON, złe wartości |
+| `429 Too Many Requests` | rate limiting | z nagłówkiem `Retry-After` |
+| `500 Internal Server Error` | błąd serwera | |
+| `502` / `503` / `504` | problem z bramą / niedostępność / timeout | infrastruktura |
+
+Na froncie: 4xx zwykle pokazujesz użytkownikowi (np. błędy walidacji), 5xx i błędy sieci obsługujesz ogólnym komunikatem i ewentualnym ponowieniem. `401` często wyzwala odświeżenie tokenu lub przekierowanie do logowania.
+
+::: pitfalls
+- Zwracanie `200` z `{ "error": "..." }` w body: łamie cache, monitoring i logikę klienta.
+- Mylenie `401` z `403`.
+
+::: qa
+Q: Różnica między 401 a 403?
+A: `401 Unauthorized` oznacza brak lub nieważne uwierzytelnienie (serwer nie wie, kim jesteś). `403 Forbidden` oznacza, że wiadomo, kim jesteś, ale nie masz uprawnień. Na `401` można spróbować się zalogować lub odświeżyć token; na `403` ponowienie nic nie da.
+Q: Kiedy 201, a kiedy 204?
+A: `201 Created` po utworzeniu zasobu (zwykle `POST`), najlepiej z nagłówkiem `Location`. `204 No Content` gdy operacja się udała, ale nie ma czego zwrócić (np. `DELETE`).
+Q: Co oznacza 304?
+A: Zasób się nie zmienił od wersji, którą klient ma w cache (walidacja przez `ETag`/`If-None-Match` lub `Last-Modified`). Serwer nie wysyła body, oszczędzając transfer.
+
+::: sources
+- MDN: HTTP response status codes | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status
+- HTTP Cats (zapamiętywanie kodów) | https://http.cat/
+
+@topic http-rest-design
+title: Projektowanie endpointów REST
+level: senior
+tags: API design, paginacja, wersjonowanie, filtrowanie
+summary: Dobre REST API jest przewidywalne: rzeczowniki w liczbie mnogiej, zagnieżdżenie dla relacji, query string do filtrowania i paginacji, spójny format błędów.
+
+::: body
+- **Nazwy**: `/offers`, `/offers/42`, `/offers/42/reviews`. Rzeczowniki w liczbie mnogiej, kebab-case.
+- **Filtrowanie, sortowanie**: `/offers?city=rzym&sort=-price&minPrice=1000`.
+- **Paginacja**: offset (`?page=2&limit=20`, proste, ale niestabilne przy zmianach danych) lub **cursor** (`?cursor=abc`, stabilne i wydajne dla infinite scroll).
+- **Wersjonowanie**: w URL (`/v1/offers`) lub nagłówku. Zmiany łamiące kontrakt = nowa wersja.
+- **Spójny format błędów**, np. standard **Problem Details (RFC 9457)**: `{ type, title, status, detail }`.
+- **Akcje, które nie pasują do CRUD**: sub-zasób (`POST /orders/42/cancellation`) zamiast `POST /cancelOrder`.
+- **Kontrakt**: OpenAPI (Swagger) pozwala generować typy TS i klienta, co eliminuje ręczne pisanie typów odpowiedzi.
+
+::: qa
+Q: Offset czy cursor pagination?
+A: Offset (`page`, `limit`) jest prosty i pozwala skoczyć do strony N, ale przy dodawaniu danych elementy się duplikują lub znikają, a duże offsety są wolne w bazie. Cursor wskazuje "od którego elementu" i jest stabilny i wydajny, idealny do infinite scroll, ale nie pozwala skoczyć do dowolnej strony. Wybór zależy od UX.
+Q: Jak front może korzystać z kontraktu API?
+A: Z opisu OpenAPI generuje się typy TypeScript i klienta (np. openapi-typescript, orval). Dzięki temu zmiana w API od razu daje błąd kompilacji na froncie, zamiast błędu w runtime.
+
+::: sources
+- Microsoft: Web API design best practices | https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design
+- RFC 9457: Problem Details for HTTP APIs | https://www.rfc-editor.org/rfc/rfc9457
+- OpenAPI Initiative | https://www.openapis.org/
+
+@topic http-graphql
+title: GraphQL: podstawy
+level: mid
+tags: GraphQL, query, mutation, schema, resolver
+summary: GraphQL to język zapytań do API z jednym endpointem. Klient sam opisuje, jakich pól potrzebuje, a silnie typowany schemat definiuje, co jest dostępne.
+
+::: body
+- **Schema**: typy danych i dostępne operacje, zdefiniowane po stronie serwera (SDL).
+- **Query**: odczyt. **Mutation**: zapis. **Subscription**: dane w czasie rzeczywistym.
+- **Resolvers**: funkcje na serwerze, które pobierają dane dla poszczególnych pól.
+- Zwykle jeden endpoint `POST /graphql`; odpowiedź ma kształt zapytania.
+- Błędy zwracane w polu `errors`, często ze statusem `200`.
+- Klienci: Apollo Client, urql, Relay; generowanie typów TS przez GraphQL Codegen.
+
+::: code graphql
+query OfferPage($id: ID!) {
+  offer(id: $id) {
+    title
+    price
+    hotel { name stars }
+    reviews(first: 3) { rating text }
+  }
+}
+
+mutation Book($offerId: ID!) {
+  createBooking(offerId: $offerId) { id status }
+}
+
+::: qa
+Q: Czym jest GraphQL?
+A: Językiem zapytań i runtime'em dla API. Serwer publikuje silnie typowany schemat, a klient w jednym zapytaniu pobiera dokładnie te pola i relacje, których potrzebuje, zwykle przez jeden endpoint.
+Q: Czym jest problem N+1 w GraphQL?
+A: Resolver pola listy wywołuje osobne zapytanie do bazy dla każdego elementu (1 zapytanie o listę + N zapytań o szczegóły). Rozwiązuje się to batchingiem, np. DataLoader.
+
+::: sources
+- GraphQL: Learn | https://graphql.org/learn/
+- GraphQL: Queries | https://graphql.org/learn/queries/
+
+@topic http-rest-vs-graphql
+title: REST vs GraphQL
+level: mid
+tags: REST, GraphQL, porównanie, overfetching
+summary: REST to wiele endpointów o stałym kształcie, proste cache HTTP. GraphQL to jeden endpoint i elastyczne zapytania, bez overfetchingu, ale z bardziej złożoną infrastrukturą.
+
+::: body
+| | REST | GraphQL |
+|---|---|---|
+| Endpointy | wiele (`/offers`, `/users`) | zwykle jeden (`/graphql`) |
+| Kształt odpowiedzi | ustala serwer | ustala klient |
+| Over/underfetching | częsty (za dużo pól lub kilka requestów) | eliminowany |
+| Cache HTTP / CDN | naturalny (GET + URL) | trudniejszy (POST); cache po stronie klienta (Apollo) lub persisted queries |
+| Typowanie | opcjonalnie (OpenAPI) | wbudowany schemat |
+| Wersjonowanie | `/v1`, `/v2` | ewolucja schematu, deprecacja pól |
+| Upload plików, statusy | proste | wymaga konwencji |
+| Ryzyka | wiele round-tripów | złożone zapytania obciążające serwer, N+1, trudniejszy rate limiting |
+
+**Kiedy REST**: proste CRUD, publiczne API, mocne wykorzystanie cache CDN, mały zespół.
+**Kiedy GraphQL**: wiele klientów (web, mobile) z różnymi potrzebami, złożone relacje danych, szybka ewolucja UI.
+
+Alternatywy: **BFF** (Backend for Frontend), **tRPC** (typowane RPC w monorepo TS).
+
+::: qa
+Q: Jakie są główne różnice między REST a GraphQL?
+A: REST udostępnia wiele zasobów pod różnymi URL-ami o stałym kształcie odpowiedzi i dobrze współpracuje z cache HTTP. GraphQL ma jeden endpoint i schemat, a klient sam wybiera pola, co eliminuje over- i underfetching kosztem bardziej złożonego cache, zabezpieczeń (limity złożoności) i infrastruktury.
+Q: Czym są overfetching i underfetching?
+A: Overfetching: endpoint zwraca więcej danych, niż potrzebujesz. Underfetching: jeden endpoint nie wystarcza i musisz wykonać kilka zapytań (waterfall). GraphQL rozwiązuje oba, pozwalając pobrać dokładnie potrzebne dane w jednym zapytaniu.
+Q: Co wybrałbyś dla nowego projektu i dlaczego?
+A: Zależy od kontekstu. Dla prostego CRUD z jednym klientem REST (plus OpenAPI dla typów): mniej infrastruktury, cache CDN. Dla wielu klientów i złożonego grafu danych GraphQL. Konsekwencje długofalowe: GraphQL wymaga inwestycji w narzędzia i monitoring zapytań, REST może wymagać BFF przy rosnącej liczbie ekranów.
+
+::: sources
+- GraphQL: Learn | https://graphql.org/learn/
+- MDN: HTTP Overview | https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview
+
+@topic http-realtime
+title: Server-Sent Events, WebSocket i polling
+level: mid
+tags: SSE, EventSource, WebSocket, long polling, real-time, streaming
+summary: SSE to jednokierunkowy strumień zdarzeń z serwera do przeglądarki przez zwykły HTTP. WebSocket to dwukierunkowy kanał. Polling to cykliczne odpytywanie serwera.
+
+::: body
+| | Polling / long polling | Server-Sent Events (SSE) | WebSocket |
+|---|---|---|---|
+| Kierunek | klient pyta | **serwer → klient** | **dwukierunkowy** |
+| Protokół | HTTP | HTTP (`text/event-stream`) | `ws://` / `wss://` (upgrade z HTTP) |
+| API w przeglądarce | `fetch` w pętli | `EventSource` | `WebSocket` |
+| Automatyczne wznawianie | ręcznie | **wbudowane** (`retry`, `Last-Event-ID`) | ręcznie |
+| Dane | dowolne | tekst (zwykle JSON w `data:`) | tekst i binarne |
+| Proxy, CDN, auth przez cookies | bezproblemowe | bezproblemowe (zwykły HTTP) | czasem wymaga konfiguracji |
+
+**Kiedy co:**
+
+- **SSE**: powiadomienia, statusy zamówienia, kursy i ceny na żywo, postęp długiego zadania, **strumieniowanie odpowiedzi LLM** (typowe w aplikacjach AI).
+- **WebSocket**: czat, gry, współdzielona edycja, wszystko, gdzie klient też często wysyła dane.
+- **Polling**: rzadkie zmiany, najprostsza infrastruktura. **Long polling**: serwer trzyma zapytanie otwarte, aż pojawią się dane.
+
+Uwagi o SSE: przy HTTP/1.1 przeglądarka ma limit ok. 6 połączeń na domenę (dotyczy też otwartych strumieni SSE); przy HTTP/2 problem znika dzięki multipleksingowi. `EventSource` nie pozwala ustawić własnych nagłówków (np. `Authorization`), dlatego używa się cookies albo odczytu strumienia przez `fetch`.
+
+::: code js
+// Client: Server-Sent Events
+const events = new EventSource('/api/bookings/42/status');
+events.addEventListener('status', (e) => updateStatus(JSON.parse(e.data)));
+events.onerror = () => console.warn('Connection lost, the browser will retry');
+// events.close() when no longer needed
+
+// Server (Node.js/Express): stream events
+app.get('/api/bookings/:id/status', (req, res) => {
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+  const timer = setInterval(() => {
+    res.write(`event: status\ndata: ${JSON.stringify({ state: 'confirmed' })}\n\n`);
+  }, 5000);
+  req.on('close', () => clearInterval(timer));
+});
+
+// WebSocket: two-way
+const ws = new WebSocket('wss://chat.example.com');
+ws.onmessage = (e) => addMessage(JSON.parse(e.data));
+ws.onopen = () => ws.send(JSON.stringify({ type: 'join', room: 'kreta' }));
+
+::: qa
+Q: Czym są Server-Sent Events?
+A: Standardem HTML, w którym serwer utrzymuje otwartą odpowiedź HTTP typu `text/event-stream` i wysyła do przeglądarki kolejne zdarzenia. Komunikacja jest jednokierunkowa (serwer → klient), a obiekt `EventSource` automatycznie wznawia połączenie. Używa się ich do powiadomień, statusów i strumieniowania odpowiedzi.
+Q: SSE czy WebSocket?
+A: SSE, gdy dane płyną głównie z serwera do klienta: prostsze, działa na zwykłym HTTP (cache, proxy, cookies), ma automatyczne wznawianie. WebSocket, gdy potrzebna jest częsta, dwukierunkowa komunikacja o niskim opóźnieniu lub dane binarne (czat, gry, edycja zespołowa). Konsekwencja długofalowa: WebSocket wymaga zwykle osobnej infrastruktury (sticky sessions, skalowanie połączeń).
+Q: Czym jest long polling?
+A: Klient wysyła zapytanie, a serwer trzyma je otwarte, dopóki nie pojawią się nowe dane (lub nie minie timeout); po odpowiedzi klient od razu wysyła następne. Daje efekt "prawie czasu rzeczywistego" bez SSE i WebSocket, kosztem większej liczby zapytań.
+
+::: sources
+- MDN: Using server-sent events | https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
+- WHATWG HTML Living Standard: Server-sent events | https://html.spec.whatwg.org/multipage/server-sent-events.html
+- MDN: The WebSocket API | https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- RFC 6455: The WebSocket Protocol | https://www.rfc-editor.org/rfc/rfc6455
+- javascript.info: Server Sent Events | https://javascript.info/server-sent-events
+
+@topic http-cors
+title: CORS
+level: mid
+tags: CORS, same-origin, preflight, bezpieczeństwo
+summary: Przeglądarka domyślnie blokuje odczyt odpowiedzi z innego originu (same-origin policy). CORS to mechanizm nagłówków, którymi serwer zezwala na takie zapytania.
+
+::: body
+- **Origin** = protokół + domena + port. `https://app.pl` i `https://api.app.pl` to różne originy.
+- **Same-origin policy**: skrypt może wysłać zapytanie cross-origin, ale **nie odczyta odpowiedzi**, jeśli serwer na to nie pozwoli.
+- Serwer pozwala nagłówkiem `Access-Control-Allow-Origin: https://app.pl`.
+- **Preflight**: dla "niestandardowych" zapytań (np. `PUT`, `DELETE`, `Content-Type: application/json`, własne nagłówki) przeglądarka najpierw wysyła `OPTIONS`, pytając o zgodę.
+- Cookies cross-origin wymagają `credentials: 'include'` po stronie klienta i `Access-Control-Allow-Credentials: true` (bez `*` w Allow-Origin) po stronie serwera.
+
+**CORS konfiguruje się na serwerze.** Na froncie nie da się go "naprawić"; w dev można użyć proxy (Vite `server.proxy`), żeby zapytania były same-origin.
+
+::: code http
+OPTIONS /api/offers HTTP/1.1
+Origin: https://app.example.pl
+Access-Control-Request-Method: PUT
+Access-Control-Request-Headers: content-type
+
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: https://app.example.pl
+Access-Control-Allow-Methods: GET, POST, PUT
+Access-Control-Allow-Headers: content-type
+Access-Control-Max-Age: 600
+
+::: qa
+Q: Czym jest CORS i kto go wymusza?
+A: Cross-Origin Resource Sharing: mechanizm, w którym serwer nagłówkami `Access-Control-*` zezwala stronom z innych originów na odczyt odpowiedzi. Wymusza go przeglądarka; curl czy serwer-serwer nie podlegają CORS.
+Q: Czym jest preflight request?
+A: Automatyczne zapytanie `OPTIONS` wysyłane przed "niestandardowym" zapytaniem cross-origin (inne metody niż GET/POST/HEAD, niestandardowe nagłówki, JSON), aby sprawdzić, czy serwer na nie pozwala.
+Q: Czy CORS chroni serwer przed atakami?
+A: Nie jest to ochrona serwera. CORS chroni użytkownika, blokując złośliwej stronie odczyt danych z innego originu. Serwer i tak musi mieć autoryzację oraz ochronę przed CSRF.
+
+::: sources
+- MDN: Cross-Origin Resource Sharing (CORS) | https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS
+- MDN: Same-origin policy | https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy
+
+@topic http-caching
+title: Cache HTTP: Cache-Control, ETag
+level: senior
+tags: cache, Cache-Control, ETag, CDN, stale-while-revalidate
+summary: Nagłówki cache decydują, czy przeglądarka i CDN mogą użyć zapisanej odpowiedzi. Dobrze ustawiony cache to najtańsza optymalizacja wydajności.
+
+::: body
+- **`Cache-Control: max-age=31536000, immutable`**: dla plików z hashem w nazwie (`app.3f9a1c.js`). Po zmianie treści zmienia się nazwa, więc można cache'ować "na zawsze".
+- **`Cache-Control: no-cache`**: można zapisać, ale **trzeba zwalidować** z serwerem przed użyciem (typowo dla HTML).
+- **`no-store`**: nie zapisuj wcale (dane wrażliwe).
+- **`private` / `public`**: tylko przeglądarka / także CDN i proxy.
+- **`s-maxage`**: czas życia w CDN.
+- **`stale-while-revalidate=60`**: podaj starą wersję od razu i odśwież w tle.
+- **Walidacja**: serwer wysyła `ETag` (hash wersji). Przeglądarka pyta `If-None-Match: "abc"`, serwer odpowiada `304 Not Modified` bez body.
+
+Typowa strategia: HTML `no-cache`, statyczne assety z hashem `immutable` na rok, API krótko lub wcale, w zależności od danych.
+
+::: qa
+Q: Jaka jest różnica między no-cache a no-store?
+A: `no-cache` pozwala zapisać odpowiedź, ale przed każdym użyciem trzeba ją zwalidować z serwerem (może wrócić `304`). `no-store` zabrania zapisywania w ogóle.
+Q: Jak cache'ować pliki JS i CSS po buildzie?
+A: Bundler dodaje hash treści do nazwy pliku, więc można ustawić `Cache-Control: public, max-age=31536000, immutable`. HTML, który do nich linkuje, cache'ujemy krótko lub z walidacją, żeby po deployu pobrał nowe nazwy.
+
+::: sources
+- MDN: HTTP caching | https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching
+- MDN: Cache-Control | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control
+- web.dev: Love your cache | https://web.dev/articles/love-your-cache
+
+@quiz
+Q: Która metoda HTTP NIE jest idempotentna?
+- PUT
+- DELETE
++ POST
+- GET
+E: Dwa identyczne `POST /orders` utworzą dwa zamówienia.
+T: http-methods
+
+Q: Użytkownik jest zalogowany, ale nie ma uprawnień do zasobu. Jaki status?
+- 401
++ 403
+- 404
+- 400
+E: 403 Forbidden: tożsamość znana, brak uprawnień. 401 to brak uwierzytelnienia.
+T: http-status
+
+Q: Po poprawnym `DELETE /offers/42` bez treści odpowiedzi serwer zwraca zwykle:
+- 200 OK z pustym JSON
++ 204 No Content
+- 201 Created
+- 304 Not Modified
+E: 204 oznacza sukces bez body.
+T: http-status
+
+Q: Główna zaleta GraphQL względem REST to:
+- Lepszy cache HTTP w CDN
++ Klient pobiera dokładnie potrzebne pola w jednym zapytaniu
+- Brak potrzeby schematu
+- Brak potrzeby serwera
+E: GraphQL eliminuje over- i underfetching. Cache HTTP jest za to prostszy w REST.
+T: http-rest-vs-graphql
+
+Q: Gdzie naprawia się błąd CORS?
+- W kodzie fetch po stronie frontu
++ W konfiguracji serwera (nagłówki Access-Control-*)
+- W ustawieniach przeglądarki użytkownika
+- W pliku tsconfig
+E: To serwer decyduje, jakie originy mogą czytać odpowiedzi.
+T: http-cors
+
+Q: Czym różni się PATCH od PUT?
++ PATCH zmienia część zasobu, PUT zastępuje cały zasób
+- PATCH usuwa zasób
+- PUT nie ma body
+- Nie ma różnicy
+E: PUT to pełna reprezentacja, PATCH to częściowa zmiana.
+T: http-methods
+
+Q: Jakiego API użyjesz, by serwer jednostronnie wysyłał do przeglądarki powiadomienia przez zwykły HTTP?
++ Server-Sent Events (EventSource)
+- WebSocket
+- XMLHttpRequest synchroniczny
+- Service Worker Cache API
+E: SSE to jednokierunkowy strumień `text/event-stream` z automatycznym wznawianiem.
+T: http-realtime
+
+Q: Czego fetch NIE robi, w przeciwieństwie do intuicji wielu osób?
++ Nie odrzuca Promise przy statusach 4xx i 5xx
+- Nie obsługuje metody POST
+- Nie działa z JSON
+- Nie pozwala anulować zapytania
+E: Odrzuca tylko przy błędzie sieci lub przerwaniu; sprawdzaj `response.ok`.
+T: http-xhr-fetch

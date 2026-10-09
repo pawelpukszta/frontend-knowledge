@@ -1,0 +1,759 @@
+@cl-category testing
+name: Testy i jakość
+desc: Strategia testów, testy przeglądarek i urządzeń, dostępności, wydajności oraz monitoring błędów na produkcji.
+sources: Testing Library: Guiding Principles | https://testing-library.com/docs/guiding-principles ; Playwright: Best Practices | https://playwright.dev/docs/best-practices
+
+@cl-group Strategia testów
+sources: Kent C. Dodds: The Testing Trophy | https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications
+
+[unit-tests] high
+T: Testy jednostkowe
+D: Logika domenowa, funkcje pomocnicze, hooki i reducery mają szybkie, izolowane testy (Vitest, Jest) uruchamiane lokalnie w trybie watch i w CI przy każdym pushu.
+W: Błąd w wyliczaniu ceny, rabatu czy liczby nocy kosztuje realne pieniądze i zaufanie klientów; test jednostkowy łapie go w milisekundach, zanim kod trafi do code review.
+W: Testy dokumentują przypadki brzegowe (zmiana czasu, rok przestępny, dziecko za pół ceny) lepiej niż komentarz i chronią logikę przy refaktoryzacji.
+W: To najtańsze i najszybsze testy: tysiące przypadków w kilka sekund, więc programiści naprawdę je uruchamiają.
+V: `npx vitest run` lokalnie i jako wymagany krok CI; czerwony wynik blokuje merge (branch protection).
+```ts src/pricing/calculate-total.test.ts
+import { describe, expect, test } from 'vitest';
+import { calculateTotal } from './calculate-total';
+
+describe('calculateTotal', () => {
+  test.each([
+    // adults, children, nights, expected total in PLN (350 PLN per person per night)
+    [2, 0, 7, 4900],
+    [2, 1, 7, 6125], // a child pays 50%
+    [1, 0, 0, 0],    // zero nights means no charge
+  ])('%i adults, %i children, %i nights -> %i PLN', (adults, children, nights, expected) => {
+    expect(calculateTotal({ adults, children, nights, pricePerNight: 350 })).toBe(expected);
+  });
+
+  test('rejects a negative number of guests', () => {
+    expect(() => calculateTotal({ adults: -1, children: 0, nights: 3, pricePerNight: 350 })).toThrow(RangeError);
+  });
+});
+```
+X: Testowanie szczegółów implementacji (prywatnych funkcji, liczby wywołań `setState`) zamiast wyniku.
+X: Testy zależne od bieżącej daty lub strefy czasowej maszyny zamiast `vi.setSystemTime` i jawnej strefy.
+
+[integration-testing] high
+T: Testy integracyjne kluczowych procesów
+D: Testy wielu jednostek razem: komponent renderowany z prawdziwymi hookami, routerem i stanem, a sieć zastąpiona na granicy przez MSW; po stronie serwera trasa API z prawdziwą (testową) bazą danych. Na froncie dają najlepszy stosunek pewności do kosztu.
+W: Większość błędów powstaje na stykach: komponent dostaje inny kształt danych, cache TanStack Query nie unieważnia się po mutacji, formularz nie obsługuje odpowiedzi 422.
+W: Testy pisane z perspektywy użytkownika (role, etykiety, teksty) przeżywają refaktoryzację; zamiana Redux na Zustand nie wymaga ich przepisywania.
+W: Są wielokrotnie szybsze i stabilniejsze niż E2E, więc mogą pokryć także stany ładowania, pustego wyniku i błędu API, które w E2E trudno wywołać.
+V: Każda kluczowa ścieżka (wyszukiwanie, filtrowanie, koszyk, formularz rezerwacji) ma testy integracyjne dla sukcesu, pustego wyniku i błędu; uruchamiane w CI razem z testami jednostkowymi.
+```tsx src/features/search/search-page.test.tsx
+import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { renderWithProviders } from '@/test/render-with-providers'; // QueryClient, router, i18n
+import { SearchPage } from './search-page';
+
+const server = setupServer(
+  http.get('/api/offers', ({ request }) => {
+    const destination = new URL(request.url).searchParams.get('destination');
+    return HttpResponse.json([{ id: '1', title: `Hotel Lindos, ${destination}`, price: 3499 }]);
+  }),
+);
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+test('shows offers for the chosen destination', async () => {
+  const user = userEvent.setup();
+  renderWithProviders(<SearchPage />);
+  await user.type(screen.getByRole('combobox', { name: 'Dokąd jedziesz?' }), 'Rodos');
+  await user.click(screen.getByRole('button', { name: 'Szukaj' }));
+  expect(await screen.findByRole('heading', { name: /Hotel Lindos, Rodos/ })).toBeInTheDocument();
+});
+```
+X: Test integracyjny, który mockuje wszystkie moduły poza testowanym komponentem; to w praktyce test jednostkowy z gorszą czytelnością.
+
+[e2e-testing] high
+T: Testy end-to-end
+D: Playwright (lub Cypress) sprawdza krytyczne ścieżki użytkownika (wyszukiwanie, rezerwacja, płatność) w prawdziwej przeglądarce, na środowisku zbliżonym do produkcji, w CI przed każdym wdrożeniem.
+W: Tylko E2E sprawdza całość naraz: routing, SSR i hydrację, cookies, przekierowania oraz integrację z bramką płatności w trybie testowym.
+W: Awaria ścieżki rezerwacji to bezpośrednio utracony przychód; kilkanaście dobrze dobranych scenariuszy daje wiarygodny sygnał "można wdrażać".
+W: E2E są wolne i podatne na niestabilność, dlatego warto mieć ich niewiele, na najważniejszych ścieżkach, z lokatorami opartymi na rolach i bez sztywnych `waitForTimeout`.
+V: Raport HTML Playwright i trace z nieudanych testów jako artefakty pipeline'u; wdrożenie wymaga zielonego zestawu E2E.
+```ts e2e/booking.spec.ts
+import { test, expect } from '@playwright/test';
+
+test('guest can book an offer and reach the payment step', async ({ page }) => {
+  await page.goto('/wakacje/grecja');
+  await page.getByRole('link', { name: /Hotel Lindos Bay/ }).click();
+
+  await page.getByLabel('Data wyjazdu').fill('2026-07-15');
+  await page.getByRole('button', { name: 'Rezerwuj' }).click();
+
+  await page.getByLabel('Imię i nazwisko').fill('Anna Nowak');
+  await page.getByLabel('E-mail').fill('anna.nowak@example.com');
+  await page.getByRole('button', { name: 'Przejdź do płatności' }).click();
+
+  // Web-first assertions retry automatically, no manual sleeps needed
+  await expect(page).toHaveURL(/\/platnosc/);
+  await expect(page.getByRole('heading', { name: 'Płatność' })).toBeVisible();
+});
+```
+X: Lokatory CSS typu `.btn-primary > span:nth-child(2)`, które psują się przy każdej zmianie stylów.
+X: Testy zależne od siebie nawzajem lub od danych produkcyjnych; każdy test powinien sam przygotować swoje dane.
+
+[contract-testing] medium
+T: Testy kontraktowe API
+D: Kontrakty konsumenckie (Pact) lub wspólny schemat OpenAPI z generowanymi typami wykrywają niezgodność frontu i backendu przed wdrożeniem, a nie na produkcji.
+W: Zmiana nazwy pola `price` na `totalPrice` przechodzi testy backendu i testy frontu z mockami, a psuje stronę u użytkowników; kontrakt wyłapuje to w CI.
+W: Front i backend mogą wdrażać się niezależnie: `can-i-deploy` w Pact Broker sprawdza, czy konkretne wersje obu stron są zgodne.
+W: Mocki (np. handlery MSW) budowane z tego samego kontraktu przestają rozjeżdżać się z rzeczywistym API.
+V: Testy konsumenta publikują kontrakt do brokera, a pipeline dostawcy go weryfikuje; przy OpenAPI: generowanie typów (`npx openapi-typescript`) w CI i `tsc --noEmit` bez błędów.
+```ts src/api/offers.pact.test.ts
+import path from 'node:path';
+import { expect, test } from 'vitest';
+import { Pact, MatchersV3, SpecificationVersion } from '@pact-foundation/pact';
+import { fetchOffer } from './offers-client';
+
+const { like, decimal, string } = MatchersV3;
+const provider = new Pact({
+  consumer: 'travel-web',
+  provider: 'offers-api',
+  dir: path.resolve(process.cwd(), 'pacts'),
+  spec: SpecificationVersion.SPECIFICATION_VERSION_V4,
+});
+
+test('fetches a single offer', async () => {
+  await provider
+    .addInteraction()
+    .given('offer 123 exists')
+    .uponReceiving('a request for offer 123')
+    .withRequest('GET', '/api/offers/123')
+    .willRespondWith(200, (builder) => {
+      builder.jsonBody({ id: string('123'), title: like('Hotel Lindos'), price: decimal(3499.99) });
+    })
+    .executeTest(async (mockServer) => {
+      const offer = await fetchOffer('123', { baseUrl: mockServer.url });
+      expect(offer.price).toBe(3499.99);
+    });
+});
+```
+X: Kontrakt opisujący całą odpowiedź API zamiast pól, których front faktycznie używa; każda zmiana po stronie backendu niepotrzebnie go łamie.
+S: Pact JS: Consumer tests | https://docs.pact.io/implementation_guides/javascript/docs/consumer
+
+[mock-best-practices] medium
+T: Rozsądne mockowanie
+D: Mockuj granice systemu (sieć, czas, losowość, API przeglądarki), a nie własne moduły i szczegóły implementacji. Nadmiar mocków daje testy, które przechodzą przy zepsutej aplikacji.
+W: Mock własnego hooka `useOffers` sprawdza tylko, że mock zwraca to, co mu kazano; błąd w hooku i w mapowaniu danych z API pozostaje niewykryty.
+W: Asercje `toHaveBeenCalledWith` na wewnętrznych funkcjach pękają przy każdej refaktoryzacji, choć zachowanie się nie zmieniło; zespół przestaje ufać testom.
+W: Mockowanie na poziomie sieci (MSW) pozwala użyć tych samych handlerów w testach, Storybooku i lokalnym developmencie.
+V: Code review testów: każdy `vi.mock` lub `jest.mock` własnego modułu wymaga uzasadnienia; wyszukaj w repozytorium `vi.mock('./` i `vi.mock('@/`.
+```tsx Źle
+// Mocks our own hook: the test passes even if useOffers or the API mapping is broken
+vi.mock('./use-offers', () => ({
+  useOffers: () => ({ data: [{ id: '1', title: 'Hotel Lindos' }], isLoading: false }),
+}));
+```
+```tsx Dobrze
+// Mock only the boundaries: the network (MSW) and the clock
+server.use(
+  http.get('/api/offers', () => HttpResponse.json([{ id: '1', title: 'Hotel Lindos', price: 3499 }])),
+);
+// Fake only Date, so Testing Library's async utils keep working
+vi.useFakeTimers({ toFake: ['Date'] });
+vi.setSystemTime(new Date('2026-06-30T22:30:00+02:00')); // last-minute deadline edge case
+
+renderWithProviders(<OfferList />);
+expect(await screen.findByText('Hotel Lindos')).toBeInTheDocument();
+expect(screen.getByText('Ostatnia chwila')).toBeInTheDocument();
+```
+X: Pełne `vi.useFakeTimers()` razem z `findBy*`, które przez to nigdy się nie rozwiązują.
+X: Brak `onUnhandledRequest: 'error'` w MSW, przez co niezamockowane zapytania przechodzą po cichu.
+
+[test-coverage] medium
+T: Progi pokrycia testami
+D: Minimalne pokrycie (np. 70-80% linii dla logiki domenowej) egzekwowane w CI zapobiega cichemu spadkowi jakości. Pokrycie to wskaźnik pomocniczy, a nie cel sam w sobie.
+W: Bez progu pokrycie spada niezauważenie, bo nowy kod trafia do repozytorium bez testów "tylko na chwilę".
+W: Raport pokazuje nieprzetestowane gałęzie, np. obsługę odrzuconej płatności, czyli konkretne miejsca do uzupełnienia.
+W: 100% pokrycia nie oznacza dobrych testów: linia wykonana bez żadnej asercji też się liczy, dlatego progi warto łączyć z testami mutacyjnymi.
+V: `npx vitest run --coverage` kończy się błędem poniżej progu; raport (np. komentarz w PR) pokazuje pokrycie zmienionych plików.
+```ts vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    coverage: {
+      provider: 'v8',
+      // Without include, files never imported by tests do not lower the score
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.stories.tsx', 'src/**/*.d.ts'],
+      reporter: ['text', 'html', 'json-summary'],
+      thresholds: {
+        lines: 80, functions: 80, branches: 70, statements: 80,
+        // Stricter gate for money-related logic
+        'src/pricing/**': { lines: 95, branches: 90 },
+      },
+    },
+  },
+});
+```
+X: Pisanie testów bez asercji tylko po to, by podbić procent.
+X: Jeden globalny próg 90% dla całego projektu, łącznie z kodem UI bez logiki; zespół zaczyna wykluczać pliki, żeby przejść CI.
+S: Vitest: Coverage config | https://vitest.dev/config/coverage
+
+[mutation-testing] medium
+T: Testy mutacyjne krytycznej logiki
+D: Stryker wprowadza drobne zmiany w kodzie (mutanty, np. `>` na `>=` albo usunięcie warunku) i sprawdza, czy testy je wykryją. Pokazuje, czy testy naprawdę sprawdzają zachowanie, a nie tylko wykonują linie.
+W: Wysokie pokrycie bywa złudne: test, który wywołuje `calculateDiscount` bez sensownej asercji, daje 100% linii i zero ochrony; wynik mutacyjny (mutation score) to ujawnia.
+W: Mutanty, które przeżyły, wskazują konkretny brakujący przypadek, np. brak testu dla granicy "rabat od 4 osób".
+W: Pełny przebieg jest kosztowny (testy uruchamiane setki razy), dlatego zawęża się go do krytycznych modułów i używa trybu przyrostowego.
+V: Raport HTML Strykera z mutation score dla wybranych modułów (np. wyliczania cen); próg `break` przerywa nocny job CI.
+```json stryker.config.json
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner", "@stryker-mutator/typescript-checker"],
+  "checkers": ["typescript"],
+  "tsconfigFile": "tsconfig.json",
+  "mutate": ["src/pricing/**/*.ts", "!src/pricing/**/*.test.ts"],
+  "incremental": true,
+  "reporters": ["html", "clear-text", "progress"],
+  "thresholds": { "high": 85, "low": 70, "break": 60 }
+}
+```
+X: Uruchamianie Strykera na całym monorepo w każdym PR; przebieg trwa godzinami i szybko zostaje wyłączony.
+S: Stryker Mutator | https://stryker-mutator.io/
+
+@cl-group Przeglądarki, urządzenia i specjalistyczne testy
+sources: web.dev: Baseline | https://web.dev/baseline
+
+[cross-browser-testing] high
+T: Testy we wszystkich głównych przeglądarkach
+D: Chrome, Firefox, Safari (także na iOS, gdzie w praktyce wszystkie przeglądarki używają silnika WebKit) i Edge. Playwright uruchamia te same testy w Chromium, Firefox i WebKit; prawdziwe Safari i nietypowe konfiguracje sprawdza się w chmurze urządzeń.
+W: Silniki różnią się w szczegółach: obsługa nowszych API CSS i JS, pól formularzy, przewijania i fokusu; błąd widoczny tylko w Safari dotyka wszystkich użytkowników iPhone'ów.
+W: Baseline (web.dev) mówi, które funkcje działają we wszystkich głównych silnikach; funkcje spoza Baseline wymagają testu i fallbacku.
+W: WebKit w Playwright to nie jest dokładnie Safari, ale tanim kosztem, w każdym PR, łapie większość różnic silnika.
+V: Macierz przeglądarek jako projekty Playwright w CI; przed wydaniem przegląd w prawdziwym Safari na macOS i iOS lub w BrowserStack albo Sauce Labs.
+```ts playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './e2e',
+  retries: process.env.CI ? 2 : 0,
+  use: { baseURL: 'http://localhost:3000', trace: 'on-first-retry' },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    { name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge' } },
+    // Mobile viewport, touch and user agent emulation on the real engines
+    { name: 'mobile-safari', use: { ...devices['iPhone 15'] } },
+    { name: 'mobile-chrome', use: { ...devices['Pixel 7'] } },
+  ],
+  webServer: { command: 'npm run start', url: 'http://localhost:3000', reuseExistingServer: !process.env.CI },
+});
+```
+X: Testowanie wyłącznie w Chrome, bo "wszyscy go używają".
+X: Używanie nowej funkcji CSS lub JS bez sprawdzenia jej statusu Baseline i bez `@supports` lub fallbacku.
+
+[mobile-testing] high
+T: Testy na prawdziwych urządzeniach mobilnych
+D: Emulacja w DevTools nie oddaje wydajności słabszego procesora, klawiatury ekranowej, zachowania paska adresu ani Safari na iOS. Testuj na kilku realnych telefonach, w tym na starszym Androidzie ze średniej półki.
+W: Tani Android ma kilkukrotnie słabszy procesor niż laptop programisty; INP i czas hydracji, które w emulacji wyglądają dobrze, na telefonie przekraczają progi Core Web Vitals.
+W: Tylko na urządzeniu widać, że klawiatura zasłania przycisk "Rezerwuj", pole telefonu otwiera złą klawiaturę albo iOS powiększa stronę przy fokusie na polu z fontem mniejszym niż 16 px.
+W: Ocena Core Web Vitals w Google opiera się na danych od prawdziwych użytkowników (CrUX), w dużej części mobilnych, a nie na pomiarach z laptopa.
+V: Zdalne debugowanie: `chrome://inspect` dla Androida i Web Inspector w Safari dla iPhone'a; modele, których zespół nie ma, w chmurze urządzeń (BrowserStack, LambdaTest).
+```bash Lokalny serwer na prawdziwym telefonie
+# Android over USB: forward the phone's localhost:3000 to the dev machine
+adb devices
+adb reverse tcp:3000 tcp:3000
+# Open http://localhost:3000 in Chrome on the phone,
+# then inspect the tab from chrome://inspect on the desktop
+
+# iPhone on the same Wi-Fi: expose the dev server on the local network
+npx next dev --hostname 0.0.0.0
+# Open http://<laptop-ip>:3000 in Safari and debug via the Develop menu on a Mac
+```
+X: Testowanie tylko na flagowym telefonie zespołu.
+X: Uznanie trybu responsywnego w DevTools z throttlingiem CPU za wystarczający test mobilny.
+
+[accessibility-testing] high
+T: Automatyczne testy dostępności
+D: axe-core w testach komponentów i E2E (`@axe-core/playwright`, vitest-axe lub jest-axe) oraz lint `eslint-plugin-jsx-a11y` wyłapują część błędów automatycznie. To uzupełnienie, a nie zastępstwo testów ręcznych z klawiaturą i czytnikiem ekranu.
+W: Automaty wykrywają typowe błędy (brak etykiet, za niski kontrast, błędne atrybuty ARIA, brak `alt`) w każdym PR, zanim trafią na produkcję i do audytu.
+W: Narzędzia wykrywają tylko część problemów WCAG; kolejności fokusu, sensu tekstów alternatywnych i działania z czytnikiem ekranu nie sprawdzą.
+W: European Accessibility Act obowiązuje od 28 czerwca 2025 r.; regresja dostępności w sklepie lub systemie rezerwacji to ryzyko prawne, a nie tylko gorszy UX.
+V: Krok a11y w CI (axe w Playwright na kluczowych stronach i stanach, np. z otwartym modalem); okresowo ręczny test klawiaturą oraz z NVDA lub VoiceOver.
+```ts e2e/a11y.spec.ts
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+
+for (const path of ['/', '/wakacje/grecja', '/rezerwacja/123']) {
+  test(`no detectable WCAG A/AA violations on ${path}`, async ({ page }) => {
+    await page.goto(path);
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .exclude('#third-party-chat') // widget outside our control, tracked separately
+      .analyze();
+    expect(results.violations).toEqual([]);
+  });
+}
+```
+X: Skanowanie tylko stanu początkowego strony, bez otwartych menu, modali i komunikatów błędów walidacji.
+X: Masowe wyłączanie reguł axe, żeby CI było zielone.
+S: Playwright: Accessibility testing | https://playwright.dev/docs/accessibility-testing
+
+[visual-regression] medium
+T: Testy regresji wizualnej
+D: Zrzuty ekranu porównywane z zatwierdzonymi wzorcami (Playwright `toHaveScreenshot`, Chromatic, Percy) wychwytują niezamierzone zmiany wyglądu, których nie zauważą testy funkcjonalne.
+W: Zmiana jednego tokenu lub globalnego stylu potrafi rozjechać kilkadziesiąt ekranów; test funkcjonalny przejdzie, bo przycisk nadal istnieje, choć jest przykryty albo niewidoczny.
+W: Recenzent w PR widzi różnicę obraz w obraz, zamiast domyślać się skutków zmiany w CSS.
+W: Zrzuty zależą od systemu, fontów i przeglądarki, dlatego wzorce generuje się w tym samym środowisku co CI (np. w oficjalnym obrazie Dockera Playwright).
+V: Raport różnic w PR (raport HTML Playwright lub Chromatic); wzorce aktualizuje się świadomie przez `npx playwright test --update-snapshots`, a zmiany obrazów przechodzą review.
+```ts e2e/visual.spec.ts
+import { test, expect } from '@playwright/test';
+
+test('offer grid looks unchanged', async ({ page }) => {
+  await page.goto('/wakacje/grecja');
+  await expect(page).toHaveScreenshot('offers-grid.png', {
+    fullPage: true,
+    animations: 'disabled',
+    // Hide content that changes on every run
+    mask: [page.getByTestId('live-price'), page.getByTestId('promo-countdown')],
+    maxDiffPixelRatio: 0.01,
+  });
+});
+```
+X: Wzorce generowane na macOS programisty, a porównywane w CI na Linuksie.
+X: Automatyczne akceptowanie wszystkich różnic, bo "to pewnie antyaliasing".
+S: Playwright: Visual comparisons | https://playwright.dev/docs/test-snapshots
+
+[performance-budget] medium
+T: Budżety wydajności w CI
+D: Limity (rozmiar JS, LCP, CLS, liczba zapytań) sprawdzane automatycznie w każdym PR (Lighthouse CI, size-limit); przekroczenie blokuje merge.
+W: Wydajność psuje się po trochu: każda biblioteka dodaje kilkadziesiąt KB i nikt nie czuje się odpowiedzialny; budżet zamienia to w jawną decyzję w PR.
+W: Rozmiar JS bezpośrednio wpływa na czas parsowania i wykonania na słabych telefonach, a więc na INP i LCP.
+W: Lighthouse w CI daje dane laboratoryjne; budżety warto ustawić z zapasem względem progów Core Web Vitals (LCP 2,5 s, CLS 0,1) i potwierdzać danymi od prawdziwych użytkowników (RUM).
+V: Konfiguracja budżetów w repozytorium i wynik jako wymagany status check w PR; przed dodaniem zależności uruchom `npx size-limit` lokalnie.
+```yaml .github/workflows/perf-budget.yml
+name: Performance budget
+on: pull_request
+jobs:
+  budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: npm ci && npm run build
+      # Fails when bundles exceed the limits in .size-limit.json
+      - run: npx size-limit
+      # Runs Lighthouse on the URLs and checks assertions from lighthouserc.json
+      - run: npx @lhci/cli autorun
+```
+```json lighthouserc.json
+{
+  "ci": {
+    "collect": {
+      "startServerCommand": "npm run start",
+      "url": ["http://localhost:3000/", "http://localhost:3000/wakacje/grecja"],
+      "numberOfRuns": 3
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.9 }],
+        "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+        "total-blocking-time": ["warn", { "maxNumericValue": 200 }]
+      }
+    }
+  }
+}
+```
+X: Jednorazowy przebieg Lighthouse jako twardy próg; wyniki wahają się między uruchomieniami, więc potrzebne są co najmniej 3 przebiegi.
+S: GitHub: Lighthouse CI | https://github.com/GoogleChrome/lighthouse-ci
+
+@cl-group Monitoring
+sources: Sentry: JavaScript | https://docs.sentry.io/platforms/javascript/
+
+[error-monitoring] high
+T: Monitoring błędów na produkcji
+D: Nieobsłużone wyjątki i odrzucone Promise są zbierane, grupowane i alarmowane (Sentry, Datadog), z source mapami, wersją wydania i środowiskiem, bez wysyłania zbędnych danych osobowych.
+W: Użytkownicy rzadko zgłaszają błędy; po prostu odchodzą, np. do konkurencyjnego biura podróży. Monitoring pokazuje problem, zanim zrobią to recenzje.
+W: Source mapy zamieniają `a.b is not a function` w zminifikowanym chunku na konkretną linię w `BookingForm.tsx`.
+W: Wersja wydania (`release`) łączy błąd z konkretnym wdrożeniem, więc od razu widać, który deploy wprowadził błąd i co wycofać.
+V: Wywołaj testowy błąd na stagingu (np. przycisk z `throw new Error('Sentry test')`) i sprawdź, czy pojawia się w narzędziu z czytelnym stack trace, wersją i bez danych osobowych.
+```ts instrumentation-client.ts
+import * as Sentry from '@sentry/nextjs';
+
+Sentry.init({
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  environment: process.env.NEXT_PUBLIC_APP_ENV, // production | staging
+  release: process.env.NEXT_PUBLIC_RELEASE,     // e.g. the git commit SHA set in CI
+  tracesSampleRate: 0.1,
+  sendDefaultPii: false,
+  beforeSend(event) {
+    // Strip e-mail addresses that may leak into error messages
+    if (event.message) event.message = event.message.replace(/\S+@\S+/g, '[email]');
+    return event;
+  },
+});
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+```
+```ts next.config.ts
+import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs/config';
+
+const nextConfig: NextConfig = {};
+
+export default withSentryConfig(nextConfig, {
+  org: 'example-travel',
+  project: 'web',
+  authToken: process.env.SENTRY_AUTH_TOKEN, // CI secret, uploads source maps during the build
+  widenClientFileUpload: true,
+  silent: !process.env.CI,
+});
+```
+X: Publiczne serwowanie source map na produkcji, choć wystarczy wysłać je do narzędzia monitorującego.
+X: Alerty na każde pojedyncze zdarzenie; zespół szybko zaczyna je ignorować. Lepiej alarmować o nowych problemach i nagłych skokach.
+S: Sentry: Manual setup for Next.js | https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+
+@cl-category privacy
+name: Prywatność
+desc: Zgody, minimalizacja danych, polityka prywatności i prawa użytkowników (RODO/GDPR).
+sources: EUR-Lex: RODO (GDPR) | https://eur-lex.europa.eu/eli/reg/2016/679/oj ; UODO: Urząd Ochrony Danych Osobowych | https://uodo.gov.pl/
+
+@cl-group Zgody i dane osobowe
+sources: European Data Protection Board: Guidelines on consent | https://www.edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-052020-consent-under-regulation-2016679_en
+
+[cookie-consent] high
+T: Zgoda na cookies przed ich ustawieniem
+D: Niezbędne cookies działają bez zgody, ale analityczne i marketingowe (oraz skrypty, które je ustawiają) dopiero po świadomej, dobrowolnej zgodzie. Odmowa musi być równie łatwa jak akceptacja, a zgodę trzeba móc w każdej chwili wycofać.
+W: Wymóg wynika z dyrektywy ePrivacy (w Polsce z Prawa komunikacji elektronicznej) i RODO; kary za naruszenie RODO sięgają 20 mln euro lub 4% światowego rocznego obrotu.
+W: Organy ochrony danych (raport grupy roboczej EDPB ds. banerów cookie z 2023 r.) wskazują jako naruszenia m.in. brak przycisku "Odrzuć" na pierwszej warstwie, domyślnie zaznaczone zgody i ukrywanie odmowy kolorem lub kontrastem.
+W: Baner, który tylko informuje, a skrypty i tak ładuje od razu, nie spełnia wymogów; liczy się to, co faktycznie trafia do przeglądarki przed kliknięciem.
+W: Google wymaga w EOG Consent Mode v2 (parametry `ad_user_data` i `ad_personalization`), aby korzystać z funkcji reklamowych, więc poprawna implementacja zgód to także warunek działania kampanii.
+V: Czysta sesja (okno incognito): Application → Cookies i panel Network przed kliknięciem w baner, po odmowie i po wycofaniu zgody; przed zgodą nie może być cookies `_ga` ani zapytań do domen reklamowych.
+```js consent.js
+// 1. Before any tag: deny everything by default (Consent Mode v2)
+window.dataLayer = window.dataLayer || [];
+function gtag() { dataLayer.push(arguments); }
+gtag('consent', 'default', {
+  ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+  analytics_storage: 'denied', wait_for_update: 500,
+});
+
+// 2. Called by the banner buttons ("Akceptuj", "Odrzuć", "Zapisz wybór")
+export function applyConsent({ analytics, marketing }) {
+  const v = (on) => (on ? 'granted' : 'denied');
+  gtag('consent', 'update', {
+    analytics_storage: v(analytics),
+    ad_storage: v(marketing), ad_user_data: v(marketing), ad_personalization: v(marketing),
+  });
+  // Load the analytics script only after an explicit opt-in
+  if (analytics && !document.getElementById('gtag-js')) {
+    document.head.append(Object.assign(document.createElement('script'), {
+      id: 'gtag-js', async: true, src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX',
+    }));
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXX');
+  }
+  // Consent Mode does not store the choice: persist it and re-apply it on every page
+  localStorage.setItem('consent', JSON.stringify({ analytics, marketing, at: Date.now() }));
+}
+```
+X: Przycisk "Odrzuć" schowany w drugiej warstwie lub w formie ledwie widocznego linku.
+X: Brak linku "Ustawienia cookies" w stopce, przez co nie da się zmienić ani wycofać decyzji.
+X: Wycofanie zgody bez usunięcia już ustawionych cookies analitycznych.
+S: Google: Set up consent mode on websites | https://developers.google.com/tag-platform/security/guides/consent
+
+[privacy-policy] high
+T: Polityka prywatności w stopce
+D: Polityka prywatności opisuje, kto jest administratorem, jakie dane i w jakim celu są zbierane, na jakiej podstawie prawnej, komu są przekazywane (także poza EOG), jak długo przechowywane i jakie prawa ma użytkownik. Link jest w stopce każdej strony i przy każdym formularzu zbierającym dane.
+W: Obowiązek informacyjny z art. 13 RODO trzeba spełnić w momencie zbierania danych, więc sam link w stopce nie wystarcza przy formularzu rezerwacji czy zapisu na newsletter.
+W: Informacje mają być zwięzłe, przejrzyste i napisane jasnym językiem (art. 12 RODO); prawniczy elaborat skopiowany z innego serwisu zwykle nie pasuje do narzędzi faktycznie używanych w Twoim.
+W: Nieaktualna polityka (np. bez nowego narzędzia analitycznego czy dostawcy czatu) to łatwy do wykazania zarzut przy skardze do UODO.
+V: Sprawdź stopkę na kilku typach stron i formularze (krótka informacja i link przy przycisku wysyłki); porównaj listę odbiorców danych z polityki z zewnętrznymi domenami w panelu Network.
+```html
+<footer>
+  <nav aria-label="Informacje prawne">
+    <a href="/polityka-prywatnosci">Polityka prywatności</a>
+    <a href="/regulamin">Regulamin</a>
+    <button type="button" data-open-consent-settings>Ustawienia cookies</button>
+  </nav>
+</footer>
+
+<!-- Short notice right where data is collected (layered information) -->
+<form action="/api/newsletter" method="post">
+  <label for="nl-email">E-mail</label>
+  <input id="nl-email" name="email" type="email" autocomplete="email" required />
+  <p class="form-note">
+    Administratorem danych jest Example Travel sp. z o.o. Adres e-mail wykorzystamy wyłącznie
+    do wysyłki newslettera; zgodę możesz wycofać w każdej chwili.
+    <a href="/polityka-prywatnosci#newsletter">Więcej o przetwarzaniu danych</a>
+  </p>
+  <button>Zapisz się</button>
+</form>
+```
+X: Polityka prywatności dostępna tylko jako PDF do pobrania lub tylko po zalogowaniu.
+X: Jedna polityka bez daty aktualizacji, nieruszana od lat mimo zmian w używanych usługach.
+
+[data-minimisation] medium
+T: Minimalizacja danych
+D: Zbieraj tylko dane niezbędne do konkretnego celu (art. 5 ust. 1 lit. c RODO). Każde pole formularza i każdy parametr wysyłany do analityki powinien mieć uzasadnienie, a pola opcjonalne muszą być wyraźnie oznaczone.
+W: Danych, których nie masz, nie da się wykraść; wyciek niepotrzebnie zbieranych numerów PESEL czy dat urodzenia oznacza zgłoszenie do UODO i zawiadamianie klientów.
+W: Każde zbędne pole wydłuża wypełnianie formularza i obniża konwersję, szczególnie na telefonie.
+W: Dane osobowe w adresach URL (`?email=...`) i zdarzeniach analitycznych trafiają do logów, historii przeglądarki i narzędzi firm trzecich; Google Analytics wprost zabrania wysyłania danych identyfikujących osobę.
+V: Przegląd formularzy (dla każdego pola: cel i podstawa prawna), zapytań do analityki w panelu Network oraz logów serwera pod kątem e-maili i numerów telefonów.
+```tsx Formularz zapytania o ofertę
+// Bad: PESEL, birth date and home address are not needed to send an offer
+// <input name="pesel" /> <input name="birthDate" /> <input name="address" />
+
+// Good: only what the inquiry needs; the phone number is clearly optional
+<form action={sendInquiry}>
+  <label htmlFor="name">Imię</label>
+  <input id="name" name="name" autoComplete="given-name" required />
+  <label htmlFor="email">E-mail</label>
+  <input id="email" name="email" type="email" autoComplete="email" required />
+  <label htmlFor="phone">Telefon (opcjonalnie, jeśli wolisz kontakt telefoniczny)</label>
+  <input id="phone" name="phone" type="tel" autoComplete="tel" />
+  <button>Wyślij zapytanie</button>
+</form>
+```
+```ts Zdarzenia analityczne
+// Bad: personal data in analytics events
+track('booking_completed', { email: user.email, phone: user.phone });
+
+// Good: non-identifying, aggregated properties
+track('booking_completed', { destination: 'GR', nights: 7, priceBucket: '3000-4000' });
+```
+X: Zbieranie danych "na zapas", bo kiedyś mogą się przydać marketingowi.
+X: Wysyłanie formularza metodą GET, przez co dane lądują w URL-u i logach.
+
+[right-to-erasure] medium
+T: Mechanizm usunięcia danych
+D: Użytkownik może łatwo zażądać usunięcia konta i danych (art. 17 RODO), np. przyciskiem w ustawieniach konta, a dane są faktycznie usuwane lub anonimizowane także w systemach powiązanych.
+W: Na żądanie trzeba odpowiedzieć bez zbędnej zwłoki, najpóźniej w ciągu miesiąca (art. 12 ust. 3 RODO); ręczna obsługa maili nie skaluje się i łatwo o przeoczenie.
+W: Prawo do usunięcia nie jest absolutne: faktury i dane rozliczeniowe trzeba przechowywać przez okres wymagany przepisami podatkowymi, więc usuwasz resztę, a te dane ograniczasz do celu archiwalnego.
+W: Usunięcie musi objąć kopie: listę newslettera, CRM, narzędzia analityczne i dostawców, którym przekazano dane.
+V: Przejdź ścieżkę usunięcia konta jako użytkownik, a potem sprawdź bazę, listę mailingową i CRM; ścieżka nie powinna wymagać telefonu na infolinię.
+```ts app/api/account/route.ts
+import { NextResponse } from 'next/server';
+import { auth, hasRecentLogin } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { newsletter, crm } from '@/lib/integrations';
+
+export async function DELETE() {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Require a recent login so a stolen session cannot wipe the account
+  if (!hasRecentLogin(session)) {
+    return NextResponse.json({ error: 'Reauthentication required' }, { status: 403 });
+  }
+  const userId = session.user.id;
+  await db.$transaction([
+    // Invoices stay in the billing system; bookings lose the link to the person
+    db.booking.updateMany({ where: { userId }, data: { userId: null, guestName: null, guestEmail: null } }),
+    db.user.delete({ where: { id: userId } }),
+  ]);
+  await Promise.all([newsletter.unsubscribe(userId), crm.erase(userId)]);
+  return new NextResponse(null, { status: 204 });
+}
+```
+X: "Usunięcie" konta, które tylko ustawia flagę `isActive = false`, a dane zostają na zawsze.
+X: Zapomnienie o kopiach zapasowych i eksportach; trzeba mieć opisaną zasadę ich wygasania.
+
+[third-party-cookies] medium
+T: Bez cookies firm trzecich
+D: Cookies śledzące między serwisami wymagają zgody, Safari blokuje je domyślnie, a Firefox izoluje per witryna (Total Cookie Protection). Zastępuj je analityką first-party, danymi zbieranymi przez własną domenę i osadzeniami w trybie zwiększonej prywatności.
+W: Safari i Firefox domyślnie odcinają śledzenie przez cookies firm trzecich, więc remarketing i analityka oparte na nich i tak tracą dużą część danych.
+W: Chrome nadal domyślnie je dopuszcza (w 2025 r. Google zrezygnował z planu ich wyłączenia i wycofał większość API Privacy Sandbox), ale użytkownik może je zablokować, a w trybie incognito są blokowane; nie da się na nich polegać.
+W: Każdy skrypt firmy trzeciej (piksel, widget czatu, odtwarzacz) to także dodatkowe zapytania, wolniejsze ładowanie i ryzyko przekazania danych poza EOG.
+V: Application → Cookies: cookies z domen innych niż własna; w panelu Network filtr `-domain:example.pl` pokazuje wszystkie zapytania do zewnętrznych hostów.
+```html Osadzenie wideo
+<!-- Privacy-enhanced mode: no tracking cookies before the user plays the video -->
+<iframe
+  src="https://www.youtube-nocookie.com/embed/VIDEO_ID"
+  title="Wideo: Hotel Lindos Bay"
+  loading="lazy"
+  allowfullscreen
+></iframe>
+```
+```ts src/lib/track.ts
+// First-party, cookieless events sent to our own domain and stored aggregated
+export function track(name: string, props: Record<string, string | number> = {}) {
+  const body = JSON.stringify({ name, props, path: location.pathname });
+  navigator.sendBeacon('/api/events', new Blob([body], { type: 'application/json' }));
+}
+```
+X: Analityka "bez cookies" oparta na fingerprintingu; odczyt cech urządzenia też podlega przepisom o zgodzie.
+X: Ładowanie piksela reklamowego lub widgetu czatu przed zgodą, bo "to tylko jeden skrypt".
+
+@cl-category i18n
+name: Internacjonalizacja
+desc: Formatowanie liczb i dat, liczba mnoga, wersje językowe i projektowanie pod tłumaczenia.
+sources: MDN: Intl | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl ; W3C: Internationalization techniques | https://www.w3.org/International/techniques/authoring-html
+
+@cl-group Formatowanie i tłumaczenia
+sources: Unicode CLDR: Language Plural Rules | https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html
+
+[currency-formatting] medium
+T: Intl do formatowania walut, liczb i dat
+D: `Intl.NumberFormat` (np. `{ style: 'currency', currency: 'PLN' }`) i `Intl.DateTimeFormat` znają separatory, kolejność, symbole walut i nazwy miesięcy dla każdego języka. Ręczne sklejanie `price + ' zł'` czy `toFixed(2)` prowadzi do błędów.
+W: Ta sama kwota wygląda różnie: `12 499,99 zł` po polsku, `12.499,99 €` po niemiecku, `€12,499.99` po angielsku; pomylenie przecinka z kropką potrafi zmienić odczytaną cenę tysiąckrotnie.
+W: Polskie reguły CLDR nie grupują liczb czterocyfrowych (`2499 zł`, ale `12 499 zł`), a separatorem jest twarda spacja; ręczny formatter prawie zawsze robi to źle albo łamie cenę na dwie linie.
+W: `Intl.DateTimeFormat` z jawną strefą `timeZone: 'Europe/Warsaw'` nie przesuwa daty o dzień, gdy serwer renderuje w UTC, a użytkownik jest w innej strefie; brak strefy to też częsta przyczyna błędów hydracji.
+V: Przejrzyj ceny i daty w każdej wersji językowej; dodaj test jednostkowy formatterów dla `pl-PL`, `de-DE` i `en-GB` (w wynikach są twarde spacje U+00A0).
+```ts src/lib/format.ts
+const pln = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' });
+pln.format(2499.99);  // "2499,99 zł"   (Polish does not group 4-digit numbers)
+pln.format(12499.99); // "12 499,99 zł" (non-breaking spaces)
+
+new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(12499.99); // "12.499,99 €"
+new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'EUR' }).format(12499.99); // "€12,499.99"
+
+// Create formatters once and reuse them; constructing them on every render is costly
+export const formatDeparture = new Intl.DateTimeFormat('pl-PL', {
+  weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Warsaw',
+}).format;
+formatDeparture(new Date('2026-07-15T08:00:00Z')); // "środa, 15 lipca"
+
+// Keep amounts in minor units (grosze) to avoid floating point errors
+export const formatPrice = (grosze: number) => pln.format(grosze / 100);
+```
+X: `toLocaleString()` bez podanego locale: wynik zależy od ustawień przeglądarki i różni się między SSR a klientem.
+X: Przechowywanie cen jako sformatowanych tekstów zamiast liczby (najlepiej w groszach) i kodu waluty.
+
+[pluralization] medium
+T: Liczba mnoga przez Intl.PluralRules lub ICU
+D: Polski ma kilka form (1 oferta, 2 oferty, 5 ofert, 22 oferty, 1,5 oferty), więc `n === 1 ? ... : ...` nie wystarczy. `Intl.PluralRules` lub komunikaty ICU MessageFormat wybierają właściwą kategorię CLDR: `one`, `few`, `many` albo `other`.
+W: Angielski ma dwie formy, polski cztery kategorie, arabski sześć; logika pisana pod angielski psuje się przy każdym kolejnym języku.
+W: Reguła nie brzmi "2-4": 12-14 to `many` (12 ofert), a 22-24 znów `few` (22 oferty); ręczne warunki prawie zawsze mają błąd na tych granicach.
+W: Formy zapisane w plikach tłumaczeń (ICU) pozwalają tłumaczom poprawić tekst bez zmian w kodzie.
+V: Sprawdź komunikaty z liczbami 0, 1, 2, 5, 12, 22, 25 i 1,5; najlepiej w teście jednostkowym.
+```ts src/lib/plural.ts
+const rules = new Intl.PluralRules('pl-PL');
+const forms = { one: 'oferta', few: 'oferty', many: 'ofert', other: 'oferty' } as const;
+const num = new Intl.NumberFormat('pl-PL');
+
+export const offersLabel = (n: number) =>
+  `${num.format(n)} ${forms[rules.select(n) as keyof typeof forms]}`;
+
+offersLabel(1);   // "1 oferta"   (one)
+offersLabel(3);   // "3 oferty"   (few)
+offersLabel(12);  // "12 ofert"   (many)
+offersLabel(22);  // "22 oferty"  (few)
+offersLabel(0);   // "0 ofert"    (many)
+offersLabel(1.5); // "1,5 oferty" (other)
+```
+```json messages/pl.json
+{
+  "search.results": "{count, plural, =0 {Nie znaleźliśmy ofert} one {Znaleźliśmy # ofertę} few {Znaleźliśmy # oferty} many {Znaleźliśmy # ofert} other {Znaleźliśmy # oferty}}"
+}
+```
+X: Klucze tłumaczeń w stylu `offers_one` i `offers_other` przeniesione z angielskiego, bez form `few` i `many`.
+X: Sklejanie zdań z kawałków (`'Znaleźliśmy ' + n + ' ' + word`), których tłumacz nie może przestawić.
+S: MDN: Intl.PluralRules | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/PluralRules
+
+[text-expansion] medium
+T: UI odporny na wydłużenie tekstu
+D: Tłumaczenia bywają o ok. 30% dłuższe od angielskiego, a krótkie etykiety nawet dwukrotnie. Potrzebne są elastyczne układy, brak stałych szerokości i wysokości elementów z tekstem, właściwości logiczne CSS i testy z pseudolokalizacją.
+W: Niemieckie słowa złożone, np. "Reiserücktrittsversicherung", nie mieszczą się w przycisku o stałej szerokości i albo wychodzą poza niego, albo są ucinane.
+W: Ucięty tekst w przycisku to nie kosmetyka: użytkownik nie wie, co kliknie, a tekst wychodzący poza kontener zasłania inne elementy.
+W: Właściwości logiczne (`padding-inline`, `margin-inline-start`) działają też dla języków zapisywanych od prawej do lewej (arabski, hebrajski) bez osobnego arkusza stylów.
+V: Pseudolokalizacja lub test z najdłuższą wersją językową (często niemiecką lub fińską); dodatkowo powiększenie tekstu do 200% w przeglądarce.
+```css
+/* Bad: .btn-book { width: 120px; height: 40px; white-space: nowrap; overflow: hidden; } */
+.btn-book {
+  min-inline-size: 7.5rem;   /* grows with the label instead of clipping it */
+  padding-block: 0.5rem;
+  padding-inline: 1rem;
+}
+.card-title {
+  overflow-wrap: anywhere;   /* long compound words do not overflow */
+  hyphens: auto;             /* needs a correct lang attribute on <html> */
+  text-wrap: balance;
+}
+.icon-arrow { margin-inline-start: 0.5rem; } /* flips automatically in RTL */
+.filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+```
+```ts scripts/pseudo-locale.ts
+// Accented characters reveal hard-coded strings,
+// ~40% padding reveals layouts that break with longer translations
+const map: Record<string, string> = { a: 'á', e: 'é', i: 'í', o: 'ö', u: 'ü', c: 'ç', n: 'ñ', s: 'š', z: 'ž' };
+
+export function pseudo(text: string): string {
+  // Keep simple placeholders like {name} untouched
+  const parts = text.split(/(\{[^}]*\})/);
+  const body = parts.map((p, i) => (i % 2 ? p : p.replace(/[a-z]/g, (ch) => map[ch] ?? ch))).join('');
+  return `[${body}${'~'.repeat(Math.ceil(text.length * 0.4))}]`;
+}
+
+pseudo('Book now'); // "[Böök ñöw~~~~]"
+```
+X: Projekt w Figmie tylko z angielskimi tekstami, bez sprawdzenia najdłuższej wersji językowej.
+X: `text-overflow: ellipsis` na kluczowych etykietach przycisków i nagłówków.
+
+[locale-images] low
+T: Obrazy neutralne kulturowo
+D: Domyślnie ikony i grafiki bez znaczeń regionalnych (gesty, lokalne symbole, flagi zamiast nazw języków, tekst wtopiony w obraz), a warianty lokalne tylko tam, gdzie mają znaczenie, np. zdjęcia, waluta, wzory dokumentów.
+W: Gesty takie jak "OK" czy uniesiony kciuk bywają w niektórych kulturach obraźliwe, a lokalne symbole (np. amerykańska skrzynka pocztowa) nie są wszędzie czytelne.
+W: Tekst wpisany w grafikę (baner "Grecja do -30%") trzeba osobno przygotować dla każdego języka; nie przeczyta go czytnik ekranu ani wyszukiwarka i nie da się go przetłumaczyć.
+W: Flaga oznacza państwo, nie język: po hiszpańsku mówi się też w Meksyku, po angielsku nie tylko w Wielkiej Brytanii; w przełączniku lepiej użyć nazwy języka w tym języku ("Deutsch", "Español").
+W: Ikony kierunkowe (strzałki, "wstecz") w językach zapisywanych od prawej do lewej muszą być odwrócone.
+V: Przegląd grafik i ikon przy dodawaniu nowego rynku; wyszukaj obrazy z tekstem (np. banery w CMS) i sprawdź ikony kierunkowe z `dir="rtl"`.
+```html
+<!-- Text in HTML, not baked into the image: translatable and readable by screen readers -->
+<section class="promo">
+  <img src="/img/santorini.avif" alt="" width="1200" height="600" />
+  <h2 class="promo__title">Grecja do -30%</h2>
+</section>
+
+<!-- Language switcher: language names in their own language, not flags -->
+<nav aria-label="Język">
+  <a href="/en/" hreflang="en" lang="en">English</a>
+  <a href="/de/" hreflang="de" lang="de">Deutsch</a>
+</nav>
+```
+```css
+/* Mirror directional icons in right-to-left languages */
+.icon-chevron:dir(rtl) { transform: scaleX(-1); }
+```
+X: Zrzuty ekranu interfejsu z polskimi napisami w wersji angielskiej serwisu.
+
+[hreflang] medium
+T: Tagi hreflang dla wersji językowych
+D: `<link rel="alternate" hreflang="pl-PL" href="...">` dla każdej wersji językowej, z wzajemnymi odwołaniami, odwołaniem do samej siebie i `x-default`, wskazuje wyszukiwarkom właściwą wersję dla użytkownika.
+W: Bez hreflang Google może pokazać polskiemu użytkownikowi wersję angielską albo potraktować bardzo podobne wersje (np. `de-DE` i `de-AT`) jak duplikaty.
+W: Odwołania muszą być dwustronne: jeśli strona A wskazuje B, a B nie wskazuje A, adnotacje mogą zostać zignorowane.
+W: `x-default` wskazuje stronę dla użytkowników spoza obsługiwanych języków, np. stronę wyboru języka lub wersję angielską.
+W: Kody to ISO 639-1 dla języka i opcjonalnie ISO 3166-1 alpha-2 dla regionu (`en-GB`, a nie `en-UK`); błędny kod jest pomijany.
+V: Crawler z raportem hreflang (np. Screaming Frog): brak błędów odwołań zwrotnych, kodów i adresów nieindeksowalnych; canonical każdej wersji wskazuje na nią samą.
+```html
+<!-- The same set on every language version, including a self-reference -->
+<link rel="alternate" hreflang="pl-PL" href="https://example.com/pl/wakacje/grecja" />
+<link rel="alternate" hreflang="de-DE" href="https://example.com/de/urlaub/griechenland" />
+<link rel="alternate" hreflang="en-GB" href="https://example.com/en/holidays/greece" />
+<link rel="alternate" hreflang="x-default" href="https://example.com/en/holidays/greece" />
+```
+```tsx app/[locale]/[...slug]/page.tsx
+import type { Metadata } from 'next';
+
+type Props = { params: Promise<{ locale: string; slug: string[] }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale, slug } = await params;
+  // e.g. { 'pl-PL': '/pl/wakacje/grecja', 'de-DE': '/de/urlaub/griechenland', 'en-GB': '/en/holidays/greece' }
+  const paths: Record<string, string> = await getLocalizedPaths(locale, slug);
+  return {
+    // Relative paths resolve against metadataBase set in the root layout
+    alternates: {
+      canonical: `/${locale}/${slug.join('/')}`,
+      languages: { ...paths, 'x-default': paths['en-GB'] },
+    },
+  };
+}
+```
+X: Canonical wersji niemieckiej wskazujący na wersję polską; sprzeczny z hreflang i usuwający wersję z wyników.
+X: Automatyczne przekierowanie po IP lub `Accept-Language`, które uniemożliwia Googlebotowi dotarcie do innych wersji.
+S: Google: Localized versions of your pages | https://developers.google.com/search/docs/specialty/international/localized-versions ; Next.js: generateMetadata | https://nextjs.org/docs/app/api-reference/functions/generate-metadata

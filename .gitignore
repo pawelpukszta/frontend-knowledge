@@ -1,0 +1,30 @@
+# AI tooling, agent config and AI-facing docs
+.claude/
+.agents/
+.cursor/
+.windsurf/
+.codex/
+.gemini/
+.github/copilot-instructions.md
+skills-lock.json
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+GEMINI.md
+plans/
+checklist/STYLE.md
+build/validate_slice.py
+
+# Build artifacts
+FE_Knowledge.zip
+dist/
+build/data.json
+node_modules/
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

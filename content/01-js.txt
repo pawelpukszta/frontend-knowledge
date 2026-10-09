@@ -1,0 +1,1166 @@
+@category js
+name: Core JavaScript
+short: JS
+hue: scripting
+desc: Fundamenty języka i ES6+: referencje, domknięcia, this, Promise, async/await, nowoczesna składnia.
+
+@topic js-primitives-vs-references
+title: Typy proste vs referencyjne
+level: mid
+tags: typy, referencje, pamięć, mutacja
+summary: Typy proste (string, number, boolean...) są kopiowane przez wartość. Obiekty, tablice i funkcje są przekazywane przez referencję, czyli "adres" do tego samego miejsca w pamięci.
+
+::: body
+JavaScript ma **7 typów prostych (primitives)**: `string`, `number`, `bigint`, `boolean`, `undefined`, `null`, `symbol`. Wszystko inne to **obiekt** (w tym tablice, funkcje, `Date`, `Map`).
+
+- **Typ prosty**: zmienna trzyma samą wartość. Przypisanie `b = a` tworzy niezależną kopię. Prymitywy są niemutowalne: `str.toUpperCase()` zwraca nowy string.
+- **Typ referencyjny**: zmienna trzyma referencję do obiektu. `b = a` kopiuje referencję, więc obie zmienne wskazują **ten sam** obiekt. Zmiana przez `b` jest widoczna przez `a`.
+- **Porównanie**: `===` dla obiektów sprawdza, czy to ta sama referencja, a nie czy zawartość jest taka sama.
+
+Dlaczego to ważne w React: React porównuje props i state przez `Object.is`. Jeśli zmutujesz obiekt w stanie, referencja się nie zmieni i React nie zauważy zmiany. Dlatego aktualizujemy stan niemutowalnie (tworzymy nowy obiekt).
+
+::: analogy
+Typ prosty to kartka z zapisaną liczbą: kopiujesz kartkę i masz dwie niezależne. Obiekt to adres domu zapisany na kartce: skopiowanie kartki nie buduje drugiego domu, tylko daje dwa adresy tego samego budynku.
+
+::: code js Kopia wartości vs kopia referencji
+let a = 10;
+let b = a;
+b = 20;
+console.log(a); // 10 - primitives are copied by value
+
+const user = { name: 'Ala' };
+const admin = user;          // copies the reference, not the object
+admin.name = 'Ola';
+console.log(user.name);      // 'Ola' - same object in memory
+
+console.log({ x: 1 } === { x: 1 }); // false - two different references
+
+// Functions receive a copy of the reference
+function rename(obj) { obj.name = 'Ewa'; }   // mutates the caller's object
+function replace(obj) { obj = { name: 'X' }; } // rebinds local variable only
+
+::: pitfalls
+- Mutowanie stanu w React (`state.items.push(x)`) zamiast tworzenia nowej tablicy (`[...state.items, x]`).
+- Przekonanie, że `const` oznacza niemutowalność. `const` blokuje tylko ponowne przypisanie zmiennej; obiekt nadal można zmieniać.
+- Porównywanie obiektów przez `===` w celu sprawdzenia równości zawartości.
+
+::: qa
+Q: Czym różnią się typy proste od referencyjnych?
+A: Typy proste są przechowywane i kopiowane jako wartość, są niemutowalne. Obiekty są przekazywane przez referencję: przypisanie lub przekazanie do funkcji kopiuje referencję, więc mutacja jest widoczna we wszystkich miejscach, które wskazują na ten obiekt.
+Q: Czy JavaScript przekazuje argumenty przez referencję?
+A: Formalnie zawsze **przez wartość**, ale dla obiektów tą wartością jest referencja ("call by sharing"). Dlatego możesz zmutować obiekt w funkcji, ale przypisanie nowego obiektu do parametru nie zmieni zmiennej na zewnątrz.
+Q: Dlaczego mutowanie stanu w React jest błędem?
+A: React wykrywa zmiany przez porównanie referencji (`Object.is`). Mutacja zostawia tę samą referencję, więc React może pominąć re-render, a `memo`, `useMemo` i `useEffect` nie wykryją zmiany.
+Q: Jakie typy danych ma JavaScript?
+A: Siedem typów prostych: `string`, `number`, `bigint`, `boolean`, `undefined`, `null`, `symbol`, oraz typ `object`. Tablice, funkcje, `Date`, `Map` to obiekty (tablica nie jest osobnym typem). Pułapki `typeof`: `typeof null === 'object'` (historyczny błąd), `typeof []` to `'object'` (użyj `Array.isArray`), `typeof function(){}` to `'function'`.
+
+::: sources
+- MDN: JavaScript data types and data structures | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures
+- javascript.info: Object references and copying | https://javascript.info/object-copy
+- React: Updating Objects in State | https://react.dev/learn/updating-objects-in-state
+- ECMAScript Language Specification: Data Types and Values | https://tc39.es/ecma262/#sec-ecmascript-data-types-and-values
+
+@topic js-copying
+title: Kopiowanie obiektów: shallow vs deep
+level: mid
+tags: spread, structuredClone, kopiowanie, immutability
+summary: Spread i Object.assign robią płytką kopię (tylko pierwszy poziom). Do głębokiej kopii używaj structuredClone().
+
+::: body
+- **Płytka kopia (shallow copy)**: `{ ...obj }`, `[...arr]`, `Object.assign({}, obj)`, `arr.slice()`. Kopiuje tylko pierwszy poziom; zagnieżdżone obiekty nadal są współdzielone.
+- **Głęboka kopia (deep copy)**: `structuredClone(obj)` (natywne, w przeglądarkach i Node 17+). Obsługuje `Date`, `Map`, `Set`, cykle. Nie kopiuje funkcji, klas (traci prototyp) ani elementów DOM.
+- **`JSON.parse(JSON.stringify(obj))`**: stary trik. Gubi `undefined`, funkcje, `Date` zamienia na string, nie obsługuje `Map`, `Set` ani cykli.
+
+W praktyce w React najczęściej robisz **płytką kopię tylko ścieżki, którą zmieniasz** (structural sharing). To tańsze niż głęboka kopia całego stanu i właśnie tak działa Immer w Redux Toolkit.
+
+::: code js
+const state = { user: { name: 'Ala', tags: ['admin'] }, theme: 'dark' };
+
+const shallow = { ...state };
+shallow.user.name = 'Ola';
+console.log(state.user.name); // 'Ola' - nested object is shared!
+
+const deep = structuredClone(state);
+deep.user.name = 'Ewa';
+console.log(state.user.name); // 'Ola' - fully independent copy
+
+// Immutable update of a nested path (structural sharing)
+const next = { ...state, user: { ...state.user, name: 'Iga' } };
+
+::: pitfalls
+- Myślenie, że spread kopiuje głęboko.
+- Używanie `JSON.parse(JSON.stringify())` na danych z datami lub `undefined`.
+- Głębokie kopiowanie całego stanu przy każdej zmianie: niepotrzebny koszt i utrata referencji, które `memo` mógłby wykorzystać.
+
+::: qa
+Q: Jak zrobić głęboką kopię obiektu w nowoczesnym JS?
+A: `structuredClone(obj)`. Obsługuje zagnieżdżenia, `Date`, `Map`, `Set` i referencje cykliczne. Nie skopiuje funkcji ani instancji klas z prototypem. Alternatywą jest biblioteka (np. lodash `cloneDeep`).
+Q: Co to jest structural sharing?
+A: Przy niemutowalnej aktualizacji tworzysz nowe obiekty tylko na ścieżce zmiany, a niezmienione gałęzie współdzielisz. Dzięki temu porównanie referencji szybko mówi, co się zmieniło. Tak działają Redux, Immer i React state.
+
+::: sources
+- MDN: structuredClone() | https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone
+- MDN: Spread syntax | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax
+- javascript.info: Object references and copying | https://javascript.info/object-copy
+
+@topic js-equality
+title: == vs === vs Object.is
+level: mid
+tags: porównania, koercja
+summary: === porównuje bez konwersji typów, == najpierw konwertuje (koercja). Object.is to === z poprawkami dla NaN i -0.
+
+::: body
+- **`===` (strict equality)**: bez konwersji typów. Używaj domyślnie.
+- **`==` (loose equality)**: konwertuje typy przed porównaniem, co daje nieintuicyjne wyniki (`'' == 0` to `true`). Jedyny popularny, akceptowany wyjątek: `x == null` łapie jednocześnie `null` i `undefined`.
+- **`Object.is(a, b)`**: jak `===`, ale `Object.is(NaN, NaN)` to `true`, a `Object.is(0, -0)` to `false`. Tego algorytmu używa React do porównywania stanu i zależności hooków.
+
+::: code js
+0 == '0';          // true (coercion)
+0 === '0';         // false
+null == undefined; // true
+NaN === NaN;       // false
+Object.is(NaN, NaN); // true
+Object.is(0, -0);    // false
+
+::: qa
+Q: Jakiego porównania używa React w useState i tablicy zależności?
+A: `Object.is`. Dla obiektów oznacza to porównanie referencji, dlatego nowy obiekt tworzony przy każdym renderze zawsze będzie "inny".
+Q: Kiedy == jest akceptowalne?
+A: Praktycznie tylko `value == null`, jako skrót na sprawdzenie `null` lub `undefined`. Dziś często zastępuje się to operatorem `??` lub jawnym porównaniem.
+
+::: sources
+- MDN: Equality comparisons and sameness | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Equality_comparisons_and_sameness
+
+@topic js-scope-closures
+title: Scope i domknięcia (closures)
+level: mid
+tags: closure, scope, lexical scope
+summary: Domknięcie to funkcja, która "pamięta" zmienne z miejsca, w którym została zdefiniowana, nawet gdy jest wywołana gdzie indziej.
+
+::: body
+**Scope (zasięg)** określa, gdzie zmienna jest widoczna. JS ma zasięg **leksykalny**: decyduje miejsce zapisania kodu, a nie miejsce wywołania.
+
+- `var`: zasięg funkcji.
+- `let` / `const`: zasięg bloku `{ }`.
+
+**Closure (domknięcie)**: funkcja wewnętrzna zachowuje dostęp do zmiennych funkcji zewnętrznej po jej zakończeniu. Każde wywołanie funkcji zewnętrznej tworzy nowe, niezależne domknięcie.
+
+Zastosowania: prywatne zmienne, fabryki funkcji, `debounce`, memoizacja, event handlery, hooki w React (każdy render ma własne domknięcie z własnymi wartościami props i state).
+
+::: analogy
+Funkcja to podróżnik z plecakiem. Wychodząc z domu (funkcji zewnętrznej), pakuje do plecaka zmienne, których potrzebuje, i ma je przy sobie, gdziekolwiek pójdzie.
+
+::: code js
+function createCounter() {
+  let count = 0; // private, only reachable through the closure
+  return {
+    increment: () => ++count,
+    get: () => count,
+  };
+}
+const c = createCounter();
+c.increment();
+c.get(); // 1
+
+// Classic interview trap: var vs let in loops
+for (var i = 0; i < 3; i++) setTimeout(() => console.log(i)); // 3, 3, 3
+for (let j = 0; j < 3; j++) setTimeout(() => console.log(j)); // 0, 1, 2
+
+::: pitfalls
+- **Stale closure w React**: `setInterval` w `useEffect` z pustą tablicą zależności "widzi" wartość stanu z pierwszego renderu. Rozwiązanie: updater `setCount(c => c + 1)` lub poprawne zależności.
+- Wycieki pamięci: domknięcie trzyma referencje do dużych obiektów, np. w nieusuniętych listenerach.
+
+::: qa
+Q: Czym jest closure? Podaj praktyczny przykład.
+A: To funkcja razem z dostępem do zmiennych z zasięgu, w którym powstała. Przykład: `debounce` przechowuje `timeoutId` w domknięciu; fabryka `createCounter` ukrywa prywatny licznik.
+Q: Dlaczego pętla z var i setTimeout wypisuje 3, 3, 3?
+A: `var` ma zasięg funkcji, więc wszystkie callbacki współdzielą jedną zmienną `i`, która po pętli ma wartość 3. `let` tworzy nowe wiązanie dla każdej iteracji.
+Q: Co to jest stale closure w React?
+A: Callback (np. w `useEffect` lub `setInterval`) zamknął wartości z wcześniejszego renderu i nie widzi nowych. Naprawiasz to przez poprawne zależności, funkcję aktualizującą `setState(prev => ...)` lub `useRef`.
+
+::: sources
+- MDN: Closures | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Closures
+- javascript.info: Variable scope, closure | https://javascript.info/closure
+
+@topic js-iife
+title: IIFE i wzorzec modułu
+level: mid
+tags: IIFE, module pattern, scope, historia
+summary: IIFE (Immediately Invoked Function Expression) to funkcja wywołana od razu po zdefiniowaniu. Tworzyła prywatny zasięg w czasach przed let/const i modułami ES; dziś spotkasz ją głównie w starszym kodzie i bundlach.
+
+::: body
+Składnia: funkcja w nawiasach (żeby parser potraktował ją jako wyrażenie, a nie deklarację) i od razu wywołana `()`.
+
+Po co była potrzebna:
+
+- `var` ma zasięg funkcji, a kod ze wszystkich skryptów trafiał do jednego globalnego zasięgu. IIFE izolowało zmienne i zapobiegało kolizjom.
+- **Module pattern**: IIFE zwraca obiekt z publicznym API, a reszta zostaje prywatna w domknięciu (jQuery, stare biblioteki).
+- Naprawa pętli `var` z callbackami (każda iteracja w osobnym zasięgu).
+
+Dziś to samo dają **moduły ES** (każdy plik ma własny zasięg), **`let`/`const`** (zasięg bloku) i klasy z polami `#private`. IIFE nadal widać w: wynikach bundlerów (format `iife` w Rollup/esbuild), snippetach analityki, skryptach wklejanych na strony oraz jako **async IIFE** do użycia `await` tam, gdzie nie ma top-level await.
+
+::: code js
+(function () {
+  var secret = 42;      // not visible outside
+  console.log(secret);
+})();
+
+// Module pattern: private state + public API
+const cart = (function () {
+  const items = [];
+  return {
+    add: (item) => items.push(item),
+    count: () => items.length,
+  };
+})();
+cart.add({ id: 1 });
+cart.count(); // 1
+// cart.items -> undefined
+
+// Async IIFE (e.g. in a CommonJS script without top-level await)
+(async () => {
+  const res = await fetch('/api/offers');
+  console.log(await res.json());
+})();
+
+::: qa
+Q: Czym jest IIFE i do czego służy?
+A: Immediately Invoked Function Expression: wyrażenie funkcyjne wywołane od razu po definicji, np. `(function () { ... })()`. Tworzy prywatny zasięg, dzięki czemu zmienne nie trafiają do globalnego zasięgu. Było podstawą wzorca modułu przed ES Modules; dziś służy głównie do async IIFE i w kodzie generowanym przez bundlery.
+Q: Dlaczego funkcję w IIFE owija się w nawiasy?
+A: `function () {}()` na początku instrukcji parser traktuje jako deklarację funkcji (która wymaga nazwy), więc wywołanie jest błędem składni. Nawiasy zamieniają ją w wyrażenie, które można od razu wywołać.
+
+::: sources
+- MDN Glossary: IIFE | https://developer.mozilla.org/en-US/docs/Glossary/IIFE
+- Ben Alman: Immediately-Invoked Function Expression (IIFE) | https://benalman.com/news/2010/11/immediately-invoked-function-expression/
+- javascript.info: The old "var" (IIFE) | https://javascript.info/var
+
+@topic js-hoisting-tdz
+title: Hoisting i Temporal Dead Zone
+level: mid
+tags: hoisting, var, let, const, TDZ
+summary: Deklaracje są "podnoszone" na początek zasięgu. var dostaje wartość undefined, a let/const są w Temporal Dead Zone aż do linii deklaracji.
+
+::: body
+Zanim kod się wykona, silnik rejestruje deklaracje w danym zasięgu. To nazywamy **hoistingiem**.
+
+- **`function` declaration**: podnoszona w całości, można ją wywołać przed deklaracją.
+- **`var`**: deklaracja podniesiona, wartość `undefined` do momentu przypisania.
+- **`let` / `const` / `class`**: też podniesione, ale do linii deklaracji są w **TDZ (Temporal Dead Zone)**. Dostęp rzuca `ReferenceError`.
+- **Function expression / arrow function** przypisana do `const`: zachowuje się jak `const`.
+
+::: code js
+sayHi();             // works - function declarations are hoisted
+function sayHi() {}
+
+console.log(a);      // undefined
+var a = 1;
+
+console.log(b);      // ReferenceError: Cannot access 'b' before initialization
+let b = 2;
+
+::: qa
+Q: Czym jest hoisting?
+A: Rejestrowanie deklaracji na początku ich zasięgu przed wykonaniem kodu. Funkcje są dostępne od razu, `var` ma wartość `undefined`, a `let`/`const` są w TDZ do linii deklaracji.
+Q: Co to jest Temporal Dead Zone?
+A: Okres od początku bloku do linii deklaracji `let`/`const`/`class`, w którym zmienna istnieje, ale odwołanie do niej rzuca `ReferenceError`. Chroni przed używaniem niezainicjalizowanych zmiennych.
+Q: Czym różnią się var, let i const?
+A: `var` ma zasięg funkcji, jest podnoszony z wartością `undefined`, można go deklarować ponownie, a na najwyższym poziomie skryptu tworzy właściwość `window`. `let` i `const` mają zasięg bloku, są w TDZ do deklaracji i nie pozwalają na ponowną deklarację w tym samym zasięgu. `const` dodatkowo blokuje ponowne przypisanie (ale nie mutację obiektu). Domyślnie `const`, `let` gdy wartość się zmienia, `var` wcale.
+Q: Co wypisze ten kod?
+A:
+```js
+function test() {
+  console.log(a);     // ?
+  console.log(foo()); // ?
+  var a = 1;
+  function foo() { return 2; }
+}
+test();
+```
+Wypisze `undefined`, a potem `2`. Deklaracja `var a` jest podniesiona na początek funkcji, ale przypisanie `= 1` zostaje na miejscu, więc w chwili logowania `a` ma wartość `undefined`. Deklaracja funkcji `foo` jest podniesiona w całości, więc można ją wywołać przed jej zapisem w kodzie.
+
+::: sources
+- MDN: Hoisting | https://developer.mozilla.org/en-US/docs/Glossary/Hoisting
+- MDN: let (Temporal Dead Zone) | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let
+
+@topic js-this
+title: this, arrow functions, call/apply/bind
+level: mid
+tags: this, arrow function, bind
+summary: Wartość this zależy od sposobu wywołania funkcji. Arrow function nie ma własnego this: bierze je z otaczającego zasięgu.
+
+::: body
+Reguły dla zwykłej funkcji (od najwyższego priorytetu):
+
+1. `new Fn()`: `this` to nowy obiekt.
+2. `fn.call(obj)` / `fn.apply(obj)` / `fn.bind(obj)`: `this` to `obj`.
+3. `obj.fn()`: `this` to `obj` (obiekt przed kropką).
+4. Samo `fn()`: `undefined` w strict mode (moduły ES są zawsze strict), w przeciwnym razie obiekt globalny.
+
+**Arrow function** nie ma własnego `this`, `arguments` ani nie może być konstruktorem. `this` jest brane leksykalnie z miejsca definicji. Dlatego arrow functions świetnie nadają się na callbacki, ale nie na metody obiektu, które potrzebują `this`.
+
+- `call(thisArg, a, b)`: wywołuje z argumentami po przecinku.
+- `apply(thisArg, [a, b])`: wywołuje z tablicą argumentów.
+- `bind(thisArg)`: zwraca nową funkcję na stałe powiązaną z `thisArg`.
+
+::: code js
+const user = {
+  name: 'Ala',
+  regular() { return this.name; },
+  arrow: () => this?.name, // lexical this from module scope: undefined
+};
+user.regular();       // 'Ala'
+const fn = user.regular;
+fn();                 // TypeError/undefined - lost context
+
+const bound = user.regular.bind(user);
+bound();              // 'Ala'
+
+::: qa
+Q: Od czego zależy wartość this?
+A: Od sposobu wywołania: `new`, jawne `call/apply/bind`, wywołanie jako metoda obiektu albo samodzielne wywołanie. Arrow function ignoruje te reguły i dziedziczy `this` z otaczającego zasięgu.
+Q: Różnica między call, apply i bind?
+A: `call` i `apply` wywołują funkcję od razu z podanym `this` (argumenty jako lista lub tablica). `bind` nie wywołuje, tylko zwraca nową funkcję z trwale ustawionym `this`.
+Q: Co wypisze ten kod?
+A:
+```js
+var myObject = {
+  foo: 'bar',
+  func: function () {
+    var self = this;
+    console.log('outer func: this.foo = ' + this.foo);
+    console.log('outer func: self.foo = ' + self.foo);
+    (function () {
+      console.log('inner func: this.foo = ' + this.foo);
+      console.log('inner func: self.foo = ' + self.foo);
+    })();
+  },
+};
+myObject.func();
+```
+`outer func: this.foo = bar`, `outer func: self.foo = bar`, `inner func: this.foo = undefined`, `inner func: self.foo = bar`. W metodzie `this` to `myObject`. Wewnętrzna IIFE jest wywołana samodzielnie, więc jej `this` to obiekt globalny (tryb nieścisły, `foo` nie istnieje, stąd `undefined`) albo `undefined` w strict mode (wtedy odczyt `this.foo` rzuci `TypeError`). `self` działa dzięki domknięciu. Nowoczesne rozwiązanie: arrow function zamiast IIFE, która przejmuje `this` z metody.
+
+::: sources
+- MDN: this | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/this
+- MDN: Arrow function expressions | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Arrow_functions
+
+@topic js-arrow-vs-regular
+title: Funkcja strzałkowa vs zwykła funkcja
+level: mid
+tags: arrow function, function, this, arguments, new
+summary: Arrow function to krótsza składnia, ale też inna semantyka: nie ma własnego this, arguments ani prototype i nie można jej wywołać przez new.
+
+::: body
+| | Zwykła funkcja (`function`) | Funkcja strzałkowa (`=>`) |
+|---|---|---|
+| `this` | zależy od sposobu wywołania | brany leksykalnie z otoczenia, nie da się go zmienić (`call`/`bind` go nie zmienią) |
+| `arguments` | tak | nie (użyj rest `...args`) |
+| Konstruktor (`new`) | tak | nie, rzuca `TypeError` |
+| `prototype` | tak | nie |
+| Hoisting | deklaracja podnoszona w całości | zachowuje się jak zmienna (`const`), więc brak dostępu przed definicją |
+| Generator (`function*`) | tak | nie |
+| Niejawny `return` | nie | tak, dla jednego wyrażenia: `x => x * 2` |
+
+Kiedy co:
+
+- **Arrow**: callbacki (`map`, `then`, `setTimeout`), event handlery w komponentach React, krótkie funkcje pomocnicze. Rozwiązuje klasyczny problem utraty `this` w callbacku.
+- **Zwykła funkcja**: metody obiektów i klas, które używają `this`, konstruktory, generatory, funkcje, które chcesz wywołać przed ich definicją.
+
+Zwrócenie literału obiektu z arrow wymaga nawiasów: `() => ({ id: 1 })`.
+
+::: code js
+const counter = {
+  count: 0,
+  startRegular() {
+    setTimeout(function () {
+      console.log(this.count); // undefined: `this` is not the counter here
+    }, 0);
+  },
+  startArrow() {
+    setTimeout(() => {
+      console.log(this.count); // 0: arrow takes `this` from startArrow
+    }, 0);
+  },
+  arrowMethod: () => this?.count, // bad: `this` comes from the module scope
+};
+
+const make = () => ({ id: 1 });   // parentheses needed to return an object
+const Foo = () => {};
+// new Foo();                    // TypeError: Foo is not a constructor
+
+::: qa
+Q: Jakie są różnice między funkcją strzałkową a zwykłą?
+A: Arrow nie ma własnego `this` (bierze je z miejsca definicji i nie da się go zmienić przez `call`/`apply`/`bind`), nie ma `arguments` ani `prototype`, nie może być konstruktorem ani generatorem i nie jest podnoszona jak deklaracja funkcji. Ma krótszą składnię z niejawnym `return`.
+Q: Dlaczego nie używać arrow function jako metody obiektu?
+A: Bo `this` w arrow nie wskazuje na obiekt, tylko na otaczający zasięg (w module: `undefined`). Metoda, która korzysta z `this`, powinna być zwykłą funkcją lub metodą w skróconej składni `method() {}`.
+
+::: sources
+- MDN: Arrow function expressions | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Arrow_functions
+- javascript.info: Arrow functions revisited | https://javascript.info/arrow-functions
+- ECMAScript Language Specification: Arrow Function Definitions | https://tc39.es/ecma262/#sec-arrow-function-definitions
+
+@topic js-prototypes
+title: Prototypy i klasy
+level: mid
+tags: prototype, class, dziedziczenie
+summary: Dziedziczenie w JS opiera się na łańcuchu prototypów. Słowo class to wygodniejsza składnia na te same mechanizmy.
+
+::: body
+Każdy obiekt ma ukryte łącze `[[Prototype]]` do innego obiektu. Gdy właściwości nie ma na obiekcie, silnik szuka jej w prototypie, potem w prototypie prototypu, aż do `null`. To jest **prototype chain**.
+
+`class` (ES6) to "cukier składniowy": metody klasy lądują na `ClassName.prototype`, a `extends` ustawia łańcuch prototypów. Nowsze elementy klas: pola prywatne `#field`, pola statyczne, bloki `static { }`.
+
+W nowoczesnym React klasy spotkasz głównie w starszym kodzie (class components) i w Error Boundaries.
+
+::: code js
+class Animal {
+  #sound; // truly private field
+  constructor(sound) { this.#sound = sound; }
+  speak() { return this.#sound; }
+}
+class Dog extends Animal {
+  constructor() { super('Hau'); }
+}
+const d = new Dog();
+d.speak();                                         // 'Hau'
+Object.getPrototypeOf(d) === Dog.prototype;        // true
+Object.getPrototypeOf(Dog.prototype) === Animal.prototype; // true
+
+::: qa
+Q: Czym jest łańcuch prototypów?
+A: Mechanizm wyszukiwania właściwości: jeśli obiekt nie ma danej właściwości, JS szuka jej w jego prototypie i dalej w górę, aż do `Object.prototype` i `null`.
+Q: Czy class w JS to "prawdziwe" klasy jak w Javie?
+A: Nie. To składnia na prototypy. Pod spodem nadal działa dziedziczenie prototypowe, choć klasy dodają m.in. pola prywatne `#` i obowiązkowe `new`.
+Q: Czy JavaScript wspiera dziedziczenie? Jeśli tak, to jak?
+A: Tak, przez dziedziczenie prototypowe: obiekt deleguje wyszukiwanie brakujących właściwości do swojego prototypu (`Object.create(proto)`, `Object.setPrototypeOf`). Składnia `class ... extends` z ES2015 to wygodniejszy zapis tego samego mechanizmu, z `super()` do wywołania konstruktora i metod rodzica. W praktyce frontowej częściej wybiera się kompozycję niż głębokie hierarchie klas.
+
+::: sources
+- MDN: Inheritance and the prototype chain | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Inheritance_and_the_prototype_chain
+- MDN: Classes | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes
+
+@topic js-extending-builtins
+title: Rozszerzanie wbudowanych obiektów i polyfille
+level: senior
+tags: prototype pollution, monkey patching, polyfill, Array.prototype, SmooshGate
+summary: Dopisywanie metod do Array.prototype czy Object.prototype jest uznawane za złą praktykę: grozi konfliktami z bibliotekami i przyszłymi standardami. Jedynym akceptowanym wyjątkiem są polyfille zgodne ze specyfikacją.
+
+::: body
+**Monkey patching** wbudowanych prototypów (`Array.prototype.last = ...`) zmienia zachowanie obiektów w całej aplikacji, także w kodzie bibliotek.
+
+Wady:
+
+- **Konflikty**: dwie biblioteki mogą dodać metodę o tej samej nazwie z innym działaniem.
+- **Kolizja z przyszłym standardem**: słynny przypadek **SmooshGate** (2018): biblioteka MooTools dodała własne `Array.prototype.flatten`, przez co TC39 musiało nazwać standardową metodę `flat`, żeby nie zepsuć istniejących stron. Podobny problem dotyczył `Array.prototype.contains` (stąd `includes`) i `groupBy` (stąd statyczne `Object.groupBy`).
+- **Niespodzianki w iteracji**: wyliczalne właściwości dodane do prototypu pojawiają się w `for...in`.
+- Trudniejsze debugowanie i testy.
+
+Zalety (w wąskim zakresie):
+
+- **Polyfill**: implementacja standardowej funkcji dla starszych środowisk, dodawana tylko wtedy, gdy jej brakuje (`if (!Array.prototype.at)`), zgodna ze specyfikacją. W praktyce używa się gotowych: `core-js`, automatycznie przez Babel (`preset-env` + `useBuiltIns`).
+
+Bezpieczne alternatywy: funkcje pomocnicze (`last(arr)`), własna klasa dziedzicząca (`class Money extends Number`), moduły.
+
+Pokrewne zagrożenie: **prototype pollution**, czyli podatność, w której atakujący przez dane wejściowe (np. `{"__proto__": {"isAdmin": true}}` przy naiwnym deep merge) modyfikuje `Object.prototype`. Ochrona: `Object.create(null)`, `Map`, walidacja kluczy, aktualne biblioteki.
+
+::: code js
+// Bad: global modification
+Array.prototype.last = function () { return this[this.length - 1]; };
+
+// Acceptable: spec-compliant polyfill guarded by feature detection
+if (!Array.prototype.at) {
+  Object.defineProperty(Array.prototype, 'at', {
+    value: function (i) {
+      const n = Math.trunc(i) || 0;
+      return this[n < 0 ? this.length + n : n];
+    },
+    writable: true, configurable: true, enumerable: false, // not visible in for...in
+  });
+}
+
+// Better for app code: a plain helper
+export const last = (arr) => arr.at(-1);
+
+::: qa
+Q: Jakie są wady i zalety rozszerzania wbudowanych obiektów JS?
+A: Wady: globalna zmiana zachowania, konflikty z bibliotekami i przyszłymi standardami (SmooshGate: `flatten` → `flat`), dodatkowe klucze w `for...in`, trudniejsze debugowanie. Zaleta: możliwość dodania polyfilla, czyli zgodnej ze specyfikacją implementacji brakującej funkcji w starszych środowiskach, zawsze po sprawdzeniu, czy jej nie ma. W kodzie aplikacji lepsze są funkcje pomocnicze.
+Q: Czym jest polyfill i czym różni się od transpilacji?
+A: Polyfill dodaje brakujące API w runtime (np. `Array.prototype.at`, `Promise.withResolvers`). Transpilacja (Babel, TypeScript, SWC) przepisuje nową składnię na starszą w czasie buildu (np. optional chaining). Składni nie da się dodać polyfillem, a API nie da się przetranspilować.
+Q: Czym jest prototype pollution?
+A: Podatnością, w której niezaufane dane zmieniają `Object.prototype` (np. klucz `__proto__` w naiwnym łączeniu obiektów), przez co wszystkie obiekty dziedziczą wstrzyknięte właściwości. Chronią przed nią walidacja kluczy, `Object.create(null)` lub `Map` oraz aktualne biblioteki.
+
+::: sources
+- javascript.info: Native prototypes | https://javascript.info/native-prototypes
+- Chrome for Developers: #SmooshGate FAQ | https://developer.chrome.com/blog/smooshgate
+- MDN Glossary: Polyfill | https://developer.mozilla.org/en-US/docs/Glossary/Polyfill
+- MDN: Prototype pollution | https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/Prototype_pollution
+- core-js | https://github.com/zloirock/core-js
+
+@topic js-sync-async
+title: Kod synchroniczny vs asynchroniczny i callback hell
+level: mid
+tags: synchroniczny, asynchroniczny, callback, callback hell, non-blocking
+summary: Kod synchroniczny wykonuje się linia po linii i blokuje wątek do końca operacji. Asynchroniczny zleca operację (sieć, timer, plik) i dostaje wynik później, więc nie blokuje. Zagnieżdżone callbacki prowadzą do callback hell, który rozwiązują Promise i async/await.
+
+::: body
+JavaScript ma **jeden wątek wykonania**. Gdyby czekał synchronicznie na odpowiedź z serwera, strona "zamarzłaby": żadnych kliknięć ani renderowania.
+
+- **Synchroniczny**: kolejne instrukcje czekają na zakończenie poprzednich. Przykłady: obliczenia, `JSON.parse`, pętle, `localStorage`.
+- **Asynchroniczny**: operacja jest delegowana do przeglądarki lub systemu (Web APIs, libuv), a JS wykonuje dalszy kod. Wynik wraca przez callback, Promise lub zdarzenie, kiedy stos wywołań jest pusty (event loop).
+- Uwaga: asynchroniczność w JS to **współbieżność**, nie równoległość. Twój kod JS dalej działa w jednym wątku; równolegle pracuje przeglądarka (sieć, timery). Prawdziwą równoległość dla JS dają Web Workers.
+
+**Ewolucja stylów asynchronicznych:**
+
+1. **Callbacki**: funkcja przekazana do wywołania po zakończeniu operacji (konwencja Node.js: `(err, result) => {}`).
+2. **Promise** (ES2015): obiekt z przyszłym wynikiem, łańcuchowanie `.then()`, jeden `.catch()` na błędy.
+3. **async/await** (ES2017): kod asynchroniczny zapisany jak synchroniczny, błędy przez `try/catch`.
+
+**Callback hell ("piramida zagłady")**: głęboko zagnieżdżone callbacki, w których każda operacja zależy od poprzedniej. Problemy: słaba czytelność, obsługa błędów powtarzana na każdym poziomie, trudne równoległe wykonanie i anulowanie. Rozwiązania: Promise i async/await, wydzielanie nazwanych funkcji, modularyzacja, `util.promisify` w Node.js.
+
+::: code js
+// Callback hell
+getUser(id, (err, user) => {
+  if (err) return handle(err);
+  getBookings(user.id, (err, bookings) => {
+    if (err) return handle(err);
+    getOffer(bookings[0].offerId, (err, offer) => {
+      if (err) return handle(err);
+      render(user, offer);
+    });
+  });
+});
+
+// Same flow with async/await: flat, one error handler
+async function showFirstBooking(id) {
+  try {
+    const user = await getUser(id);
+    const bookings = await getBookings(user.id);
+    const offer = await getOffer(bookings[0].offerId);
+    render(user, offer);
+  } catch (err) {
+    handle(err);
+  }
+}
+
+// Order of execution
+console.log('A');
+setTimeout(() => console.log('C'), 0); // async: runs later
+console.log('B');                      // A, B, C
+
+::: pitfalls
+- Myślenie, że `setTimeout(fn, 0)` wykona się "natychmiast". Wykona się dopiero po bieżącym kodzie i mikrozadaniach.
+- Mieszanie callbacków i Promise w jednym przepływie: błędy "uciekają" poza `catch`.
+- Ciężkie obliczenia synchroniczne na wątku głównym: blokują UI niezależnie od tego, ile `async` dopiszesz.
+
+::: qa
+Q: Jaka jest różnica między kodem synchronicznym a asynchronicznym?
+A: Synchroniczny wykonuje się sekwencyjnie i blokuje wątek, dopóki operacja się nie skończy. Asynchroniczny zleca operację (np. request, timer) środowisku i kontynuuje wykonanie; wynik obsługuje później callback, Promise lub `await`, gdy event loop zwolni stos. W JS to współbieżność na jednym wątku, a nie równoległe wykonywanie Twojego kodu.
+Q: Czym jest callback hell i jak go uniknąć?
+A: To głębokie zagnieżdżenie callbacków przy sekwencji zależnych operacji asynchronicznych, co daje nieczytelny kod i powtarzaną obsługę błędów. Unika się go przez Promise (łańcuch `.then`) i async/await, wydzielanie nazwanych funkcji oraz `Promise.all` dla operacji niezależnych.
+Q: Czy async/await sprawia, że kod działa równolegle?
+A: Nie. `await` tylko wstrzymuje bieżącą funkcję do rozstrzygnięcia Promise, nie tworzy nowego wątku. Niezależne operacje trzeba wystartować razem (`Promise.all`), a obliczenia CPU przenieść do Web Workera.
+
+::: sources
+- MDN: Introducing asynchronous JavaScript | https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Async_JS/Introducing
+- javascript.info: Introduction: callbacks | https://javascript.info/callbacks
+- Node.js: JavaScript Asynchronous Programming and Callbacks | https://nodejs.org/en/learn/asynchronous-work/javascript-asynchronous-programming-and-callbacks
+- MDN: Using promises | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises
+
+@topic js-promises
+title: Promise: podstawy i stany
+level: mid
+tags: promise, async, then, catch
+summary: Promise to obiekt reprezentujący przyszły wynik operacji asynchronicznej. Ma trzy stany: pending, fulfilled, rejected.
+
+::: body
+- **pending**: operacja trwa.
+- **fulfilled**: zakończona sukcesem, ma wartość.
+- **rejected**: zakończona błędem, ma powód (zwykle `Error`).
+
+Stan `fulfilled` lub `rejected` nazywamy **settled** i nie może się już zmienić.
+
+`.then()` zwraca **nowy Promise**, dzięki czemu można łańcuchować operacje. `.catch()` łapie błąd z dowolnego wcześniejszego kroku, `.finally()` wykonuje się zawsze.
+
+Callbacki `then/catch` trafiają do kolejki **mikrozadań (microtasks)**, więc wykonują się po bieżącym kodzie synchronicznym, ale przed `setTimeout`.
+
+::: code js
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+fetch('/api/user')
+  .then((res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`); // fetch does not reject on 4xx/5xx
+    return res.json();
+  })
+  .then((user) => console.log(user))
+  .catch((err) => console.error(err))
+  .finally(() => console.log('done'));
+
+::: pitfalls
+- Zapominanie o `return` w `.then()`: kolejny krok dostaje `undefined`.
+- Założenie, że `fetch` odrzuca Promise przy 404/500. Nie odrzuca: odrzuca tylko przy błędzie sieci lub przerwaniu. Sprawdzaj `res.ok`.
+- Brak obsługi odrzucenia: "Unhandled promise rejection".
+
+::: qa
+Q: Jakie stany ma Promise?
+A: `pending`, `fulfilled` i `rejected`. Po przejściu w `fulfilled` lub `rejected` (settled) stan jest ostateczny.
+Q: Czy fetch rzuca błąd przy statusie 404?
+A: Nie. Promise z `fetch` jest spełniony przy każdej odpowiedzi HTTP. Trzeba sprawdzić `response.ok` lub `response.status`. Odrzucenie następuje tylko przy błędzie sieci, CORS lub `abort()`.
+
+::: sources
+- MDN: Promise | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+- MDN: Using promises | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises
+- javascript.info: Promises, async/await | https://javascript.info/async
+
+@topic js-promise-methods
+title: Promise.all, allSettled, race, any
+level: mid
+tags: promise, all, allSettled, race, any, równoległość
+summary: Cztery kombinatory do równoległych operacji. Różnią się tym, kiedy kończą i jak traktują błędy.
+
+::: body
+| Metoda | Kończy się, gdy | Błąd |
+|---|---|---|
+| `Promise.all` | wszystkie się spełnią | odrzuca przy **pierwszym** błędzie (fail-fast) |
+| `Promise.allSettled` | wszystkie się zakończą (sukces lub błąd) | nigdy nie odrzuca, zwraca statusy |
+| `Promise.race` | **pierwszy** się zakończy (sukces lub błąd) | przejmuje wynik pierwszego |
+| `Promise.any` | **pierwszy** się spełni | odrzuca `AggregateError`, gdy wszystkie zawiodą |
+
+Kiedy co:
+
+- **`all`**: dane są zależne od siebie, bez jednego nie ma sensu renderować (np. użytkownik + uprawnienia).
+- **`allSettled`**: niezależne widgety na dashboardzie; pokaż to, co się udało, a dla reszty błąd.
+- **`race`**: timeout dla requestu.
+- **`any`**: najszybsze z kilku lustrzanych źródeł (CDN fallback).
+
+Nowsze: `Promise.withResolvers()` (ES2024) zwraca `{ promise, resolve, reject }`; `Promise.try()` (ES2025) opakowuje funkcję sync lub async w Promise.
+
+::: code js
+const results = await Promise.allSettled([
+  fetch('/api/offers'),
+  fetch('/api/weather'),
+]);
+results.forEach((r) => {
+  if (r.status === 'fulfilled') console.log(r.value);
+  else console.warn(r.reason);
+});
+
+// Timeout with race
+const timeout = (ms) =>
+  new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms));
+const data = await Promise.race([fetch('/api/slow'), timeout(3000)]);
+
+::: pitfalls
+- `await` w pętli `for` dla niezależnych requestów: wykonują się po kolei zamiast równolegle. Użyj `Promise.all`.
+- `Promise.race` z timeoutem nie anuluje oryginalnego requestu. Do anulowania użyj `AbortController` lub `AbortSignal.timeout(ms)`.
+
+::: qa
+Q: Czym różni się Promise.all od Promise.allSettled?
+A: `all` odrzuca od razu przy pierwszym błędzie i zwraca tablicę wartości. `allSettled` zawsze czeka na wszystkie i zwraca obiekty `{ status: 'fulfilled', value }` lub `{ status: 'rejected', reason }`. Pierwszy dla zależnych danych, drugi gdy częściowy sukces jest akceptowalny.
+Q: Różnica między race i any?
+A: `race` kończy się na pierwszym **zakończonym** Promise, także odrzuconym. `any` czeka na pierwszy **spełniony** i ignoruje błędy, dopóki wszystkie nie zawiodą (wtedy `AggregateError`).
+Q: Jak równolegle pobrać 3 niezależne zasoby?
+A: Wystartować wszystkie od razu i poczekać przez `Promise.all([a(), b(), c()])` (lub `allSettled`), zamiast trzech kolejnych `await`.
+
+::: sources
+- MDN: Promise.allSettled() | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled
+- MDN: Promise.all() | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/all
+- MDN: Promise.any() | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/any
+- MDN: Promise.race() | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/race
+- javascript.info: Promise API | https://javascript.info/promise-api
+
+@topic js-async-await
+title: async/await, błędy i anulowanie
+level: mid
+tags: async, await, try catch, AbortController
+summary: async/await to czytelniejsza składnia na Promise. Błędy łapiesz przez try/catch, a requesty anulujesz przez AbortController.
+
+::: body
+- Funkcja `async` **zawsze zwraca Promise**.
+- `await` wstrzymuje tylko tę funkcję (nie cały wątek) do rozstrzygnięcia Promise. Reszta programu działa dalej.
+- Błąd z odrzuconego Promise jest rzucany w miejscu `await`, więc łapiesz go `try/catch`.
+- **`AbortController`** pozwala przerwać `fetch` (np. przy odmontowaniu komponentu lub nowym wyszukiwaniu). `AbortSignal.timeout(ms)` tworzy sygnał z timeoutem.
+- **Top-level await** działa w modułach ES.
+
+::: code ts
+async function loadOffers(query: string, signal?: AbortSignal) {
+  try {
+    const res = await fetch(`/api/offers?q=${encodeURIComponent(query)}`, { signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return null; // cancelled
+    throw err;
+  }
+}
+
+// In React: cancel the previous request when the query changes
+useEffect(() => {
+  const controller = new AbortController();
+  loadOffers(query, controller.signal).then(setOffers);
+  return () => controller.abort();
+}, [query]);
+
+::: pitfalls
+- Sekwencyjne `await` dla niezależnych zadań (waterfall). Startuj je razem i czekaj przez `Promise.all`.
+- `forEach(async ...)` nie czeka na wyniki. Użyj `for...of` (sekwencyjnie) lub `Promise.all(arr.map(...))` (równolegle).
+- Race condition w wyszukiwarce: starszy request wraca później i nadpisuje nowszy wynik. Rozwiązanie: `AbortController` lub TanStack Query.
+
+::: qa
+Q: Co zwraca funkcja async?
+A: Zawsze Promise. `return x` daje Promise spełniony wartością `x`, a `throw` daje Promise odrzucony.
+Q: Czy await blokuje wątek główny?
+A: Nie. Wstrzymuje tylko bieżącą funkcję async; jej dalsza część wraca jako mikrozadanie po rozstrzygnięciu Promise. Event loop w tym czasie obsługuje inne zadania.
+Q: Jak anulować request fetch?
+A: Przekazać `signal` z `AbortController` i wywołać `controller.abort()`. Promise odrzuci się z `AbortError`. W React robi się to w funkcji cleanup `useEffect`.
+
+::: sources
+- MDN: async function | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function
+- MDN: AbortController | https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+- javascript.info: Async/await | https://javascript.info/async-await
+
+@topic js-es6-syntax
+title: Nowoczesna składnia: destrukturyzacja, spread/rest, ?. i ??
+level: mid
+tags: ES6, destructuring, spread, rest, optional chaining, nullish
+summary: Zestaw składni, który na co dzień skraca kod: rozpakowywanie obiektów, kopiowanie przez spread, bezpieczny dostęp ?. i domyślne wartości ??.
+
+::: body
+- **Destrukturyzacja**: `const { name, age = 18 } = user;`, `const [first, ...rest] = arr;`. Działa też w parametrach funkcji (typowe dla props w React).
+- **Spread `...`**: rozkłada tablicę/obiekt (kopie, łączenie). **Rest `...`**: zbiera pozostałe elementy w parametrach lub destrukturyzacji.
+- **Optional chaining `?.`**: `user?.address?.city` zwraca `undefined` zamiast rzucać błąd. Działa też dla wywołań `fn?.()` i indeksów `arr?.[0]`.
+- **Nullish coalescing `??`**: wartość domyślna tylko dla `null`/`undefined`. W odróżnieniu od `||` nie nadpisuje `0`, `''` ani `false`.
+- **Operatory przypisania logicznego**: `a ??= b`, `a ||= b`, `a &&= b`.
+- **Template literals**, **shorthand properties** `{ name }`, **computed keys** `{ [key]: value }`, **default parameters**.
+
+::: code js
+function Price({ amount = 0, currency = 'PLN', ...rest }) {
+  return `${amount} ${currency}`;
+}
+
+const discount = offer.discount || 10; // 0 becomes 10 - bug!
+const safe = offer.discount ?? 10;     // 0 stays 0
+
+const city = user?.address?.city ?? 'Brak miasta';
+settings.theme ??= 'light';
+
+::: qa
+Q: Czym różni się ?? od ||?
+A: `||` zwraca prawą stronę dla każdej wartości falsy (`0`, `''`, `false`, `NaN`, `null`, `undefined`). `??` tylko dla `null` i `undefined`. Dla liczb i pustych stringów `??` jest zwykle poprawnym wyborem.
+Q: Spread vs rest?
+A: Ta sama składnia `...`, odwrotne działanie. Spread rozkłada kolekcję na elementy (np. w wywołaniu lub literale), rest zbiera elementy w tablicę/obiekt (w parametrach lub destrukturyzacji).
+
+::: sources
+- MDN: Destructuring | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring
+- MDN: Optional chaining (?.) | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining
+- MDN: Nullish coalescing operator (??) | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing
+
+@topic js-collections
+title: Map, Set, WeakMap, WeakSet
+level: mid
+tags: Map, Set, WeakMap, kolekcje
+summary: Map to słownik z dowolnymi kluczami, Set to zbiór unikalnych wartości. Wersje Weak nie blokują garbage collectora.
+
+::: body
+- **`Map`**: klucze dowolnego typu (także obiekty), zachowuje kolejność wstawiania, ma `size`, jest szybszy przy częstym dodawaniu i usuwaniu. Lepszy od zwykłego obiektu jako słownik.
+- **`Set`**: unikalne wartości. Szybkie `has()`. Typowy trik: `[...new Set(arr)]` usuwa duplikaty. ES2025 dodał metody zbiorów: `union`, `intersection`, `difference`, `symmetricDifference`, `isSubsetOf`.
+- **`WeakMap` / `WeakSet`**: klucze muszą być obiektami i są trzymane "słabo": gdy obiekt nie ma innych referencji, GC może go usunąć razem z wpisem. Nie da się ich iterować. Zastosowanie: cache lub metadane przypięte do obiektów/elementów DOM bez wycieków pamięci.
+
+::: code js
+const visits = new Map();
+visits.set(userObj, 3);             // object as a key
+visits.get(userObj);                // 3
+
+const tags = new Set(['react', 'ts', 'react']);
+tags.size;                          // 2
+
+const a = new Set([1, 2, 3]);
+a.intersection(new Set([2, 3, 4])); // Set {2, 3} (ES2025)
+
+const cache = new WeakMap();        // entries disappear with their keys
+function getMeta(el) {
+  if (!cache.has(el)) cache.set(el, computeMeta(el));
+  return cache.get(el);
+}
+
+::: qa
+Q: Kiedy Map zamiast zwykłego obiektu?
+A: Gdy klucze nie są stringami, gdy często dodajesz/usuwasz wpisy, gdy potrzebujesz `size` i gwarantowanej kolejności, oraz gdy klucze pochodzą od użytkownika (brak ryzyka kolizji z `__proto__`).
+Q: Do czego służy WeakMap?
+A: Do przechowywania danych powiązanych z obiektem bez blokowania jego usunięcia z pamięci. Gdy obiekt przestaje być używany, wpis znika automatycznie.
+
+::: sources
+- MDN: Map | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+- MDN: Set | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set
+- MDN: WeakMap | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap
+
+@topic js-array-methods
+title: Metody tablic: map, filter, reduce i niemutujące wersje
+level: mid
+tags: array, map, filter, reduce, toSorted, groupBy
+summary: Metody funkcyjne tablic to podstawa pracy z danymi w React. Nowe metody toSorted, toReversed, toSpliced i with nie mutują oryginału.
+
+::: body
+- **Nie mutują**: `map`, `filter`, `reduce`, `slice`, `concat`, `flat`, `flatMap`, `find`, `findLast`, `some`, `every`, `at`.
+- **Mutują**: `push`, `pop`, `splice`, `sort`, `reverse`, `fill`. Uważaj w stanie React.
+- **ES2023, bezpieczne dla stanu**: `toSorted()`, `toReversed()`, `toSpliced()`, `with(index, value)` zwracają nową tablicę.
+- **ES2024**: `Object.groupBy(items, fn)` i `Map.groupBy` grupują elementy.
+
+::: code js
+const offers = [
+  { city: 'Rzym', price: 2400 },
+  { city: 'Ateny', price: 1900 },
+  { city: 'Rzym', price: 3100 },
+];
+
+const cheapFirst = offers.toSorted((a, b) => a.price - b.price); // original untouched
+const total = offers.reduce((sum, o) => sum + o.price, 0);
+const byCity = Object.groupBy(offers, (o) => o.city);
+// { Rzym: [...], Ateny: [...] }
+
+const updated = offers.with(1, { ...offers[1], price: 1799 });
+
+::: pitfalls
+- `arr.sort()` na tablicy ze stanu: mutuje stan. Użyj `toSorted()` lub `[...arr].sort()`.
+- `sort()` bez komparatora sortuje leksykograficznie: `[10, 9, 1].sort()` daje `[1, 10, 9]`.
+
+::: qa
+Q: Które metody tablic mutują oryginał?
+A: M.in. `push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, `fill`, `copyWithin`. Odpowiedniki niemutujące: `toSorted`, `toReversed`, `toSpliced`, `with`.
+Q: Do czego służy reduce?
+A: Do "zwinięcia" tablicy do jednej wartości: sumy, obiektu, mapy. Przyjmuje akumulator i wartość początkową. Przy prostych przypadkach często czytelniejsze są `map`/`filter` lub `Object.groupBy`.
+Q: Jak wyczyścić tablicę?
+A: `arr.length = 0` lub `arr.splice(0)` czyści tablicę **w miejscu**, więc zmiana jest widoczna we wszystkich referencjach do niej. `arr = []` tworzy **nową** tablicę i podmienia tylko tę zmienną (wymaga `let`); inne referencje nadal wskazują starą zawartość. W stanie React zawsze ustawiasz nową tablicę: `setItems([])`, bo mutacja nie zostanie wykryta.
+
+::: sources
+- MDN: Array | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array
+- MDN: Array.prototype.toSorted() | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toSorted
+- MDN: Object.groupBy() | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/groupBy
+
+@topic js-iteration
+title: Iterowanie: for, for...of, for...in, forEach, Object.entries
+level: mid
+tags: for...of, for...in, forEach, Object.keys, Object.entries, pętle
+summary: for...of iteruje po wartościach obiektów iterowalnych (tablice, stringi, Map, Set). for...in iteruje po kluczach obiektu, także odziedziczonych. Dla obiektów najczytelniej użyć Object.entries z for...of.
+
+::: body
+| Konstrukcja | Po czym iteruje | break / continue | Uwagi |
+|---|---|---|---|
+| `for (let i = 0; ...)` | indeksy | tak | pełna kontrola, najszybsza w gorących pętlach |
+| `for...of` | **wartości** iterowalnych: Array, String, Map, Set, NodeList, generatory | tak | działa z `await` (`for await...of`) |
+| `for...in` | **klucze** (stringi) wyliczalnych właściwości, także z łańcucha prototypów | tak | do tablic się nie nadaje (kolejność, klucze jako stringi, dodatkowe właściwości) |
+| `arr.forEach(fn)` | elementy tablicy | **nie** (tylko przez wyjątek) | nie czeka na `async` callbacki, zwraca `undefined` |
+| `map` / `filter` / `reduce` | elementy tablicy | nie | zwracają nową wartość, preferowane do transformacji |
+| `Object.keys / values / entries` | własne, wyliczalne właściwości obiektu | (w połączeniu z `for...of`) | bez dziedziczonych kluczy |
+
+Praktyczne zasady:
+
+- Tablica: `for...of` (gdy potrzebujesz `break` lub `await`), `map`/`filter`/`reduce` (gdy tworzysz nową wartość), `forEach` dla prostych efektów ubocznych.
+- Obiekt: `for (const [key, value] of Object.entries(obj))`.
+- Indeks razem z wartością: `for (const [i, v] of arr.entries())`.
+- Map: `for (const [k, v] of map)`.
+
+::: code js
+const offer = { city: 'Rzym', nights: 7 };
+
+for (const [key, value] of Object.entries(offer)) {
+  console.log(key, value);            // city Rzym, nights 7
+}
+
+const prices = [1900, 2400, 3100];
+for (const [i, price] of prices.entries()) {
+  if (price > 3000) break;            // break works in for...of
+  console.log(i, price);
+}
+
+for (const i in prices) console.log(typeof i); // 'string' - keys, not numbers
+
+// forEach does not wait for async callbacks
+prices.forEach(async (p) => { await save(p); }); // fire-and-forget
+for (const p of prices) await save(p);           // sequential, awaited
+
+::: pitfalls
+- `for...in` na tablicy: klucze są stringami, mogą pojawić się dodatkowe właściwości (np. dodane do `Array.prototype`).
+- `forEach` z `async`: pętla nie czeka na zakończenie operacji.
+- Modyfikowanie tablicy w trakcie iteracji po niej.
+
+::: qa
+Q: Jakie konstrukcje służą do iteracji po tablicach i obiektach?
+A: Po tablicach: klasyczne `for`, `for...of`, `forEach` oraz `map`/`filter`/`reduce`. Po obiektach: `for...in` (także klucze dziedziczone, zwykle z `hasOwn`) albo lepiej `Object.keys`/`values`/`entries` w połączeniu z `for...of`, które zwracają tylko własne, wyliczalne właściwości.
+Q: Czym różni się for...of od for...in?
+A: `for...of` iteruje po wartościach obiektu iterowalnego (tablica, string, Map, Set). `for...in` iteruje po nazwach wyliczalnych właściwości obiektu (jako stringi), łącznie z odziedziczonymi. Do tablic używaj `for...of`, do obiektów `Object.entries`.
+Q: Czy można przerwać forEach?
+A: Nie przez `break` ani `return` (return kończy tylko bieżący callback). Trzeba użyć `for...of`, `some`/`every` albo rzucić wyjątek, co jest złą praktyką.
+
+::: sources
+- MDN: Loops and iteration | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Loops_and_iteration
+- MDN: for...of | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of
+- MDN: for...in | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...in
+- javascript.info: Object.keys, values, entries | https://javascript.info/keys-values-entries
+
+@topic js-iterators-generators
+title: Iteratory i generatory
+level: senior
+tags: iterator, generator, for...of, lazy
+summary: Iterator to obiekt z metodą next(). Generator (function*) to najprostszy sposób, żeby taki iterator stworzyć i generować wartości leniwie.
+
+::: body
+- **Protokół iteracji**: obiekt jest iterowalny, jeśli ma metodę `[Symbol.iterator]()`, zwracającą iterator z `next()` → `{ value, done }`. Z tego korzystają `for...of`, spread, destrukturyzacja, `Array.from`.
+- **Generator** `function*` może się "zatrzymać" na `yield` i wznowić przy następnym `next()`. Wartości liczone są **leniwie**, więc da się opisać nawet nieskończone sekwencje.
+- **Async generators** (`async function*` + `for await...of`) świetnie nadają się do stronicowanego API i strumieni.
+- **Iterator helpers (ES2025)**: `iterator.map()`, `.filter()`, `.take()`, `.drop()`, `.toArray()` działają leniwie na iteratorach.
+
+::: code js
+function* ids() {
+  let id = 1;
+  while (true) yield id++; // infinite, but lazy
+}
+const gen = ids();
+gen.next().value; // 1
+gen.next().value; // 2
+
+// Paginated API as an async generator
+async function* fetchAllPages(url) {
+  while (url) {
+    const res = await fetch(url).then((r) => r.json());
+    yield* res.items;
+    url = res.nextPage;
+  }
+}
+for await (const item of fetchAllPages('/api/offers')) console.log(item);
+
+::: qa
+Q: Co sprawia, że obiekt jest iterowalny?
+A: Metoda `[Symbol.iterator]`, która zwraca iterator, czyli obiekt z metodą `next()` zwracającą `{ value, done }`. Tablice, stringi, `Map` i `Set` mają ją wbudowaną.
+Q: Gdzie w praktyce użyjesz generatora?
+A: Leniwe sekwencje, stronicowane API (async generator), sagi w redux-saga, własne struktury danych iterowalne przez `for...of`.
+
+::: sources
+- javascript.info: Generators | https://javascript.info/generators
+- MDN: Iteration protocols | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols
+
+@topic js-hof-currying
+title: Funkcje wyższego rzędu, currying i kompozycja
+level: mid
+tags: higher-order function, currying, partial application, kompozycja, first-class functions
+summary: Funkcja wyższego rzędu przyjmuje funkcję jako argument lub zwraca funkcję (np. map, filter, debounce). Currying zamienia f(a, b, c) na f(a)(b)(c), co ułatwia częściowe zastosowanie i kompozycję.
+
+::: body
+W JS funkcje są **first-class citizens**: można je przypisać do zmiennej, przekazać jako argument i zwrócić z innej funkcji. Na tym opierają się funkcje wyższego rzędu (**HOF, higher-order functions**).
+
+Przykłady HOF, których używasz codziennie:
+
+- `map`, `filter`, `reduce`, `sort(compareFn)`, `addEventListener(type, handler)`, `setTimeout(fn)`, `Promise.then(fn)`.
+- Fabryki funkcji: `debounce(fn, ms)`, `memoize(fn)`.
+- W React: **Higher-Order Components** (`withAuth(Component)`) to ten sam pomysł na poziomie komponentów; dziś częściej zastępują je custom hooki.
+
+**Currying**: przekształcenie funkcji wieloargumentowej w łańcuch funkcji jednoargumentowych: `add(1, 2)` → `add(1)(2)`. Działa dzięki domknięciom.
+
+**Częściowe zastosowanie (partial application)**: "przyklejenie" części argumentów, by dostać wyspecjalizowaną funkcję, np. `const addVat = multiply(1.23)`. Currying to jeden ze sposobów, `fn.bind(null, a)` to drugi.
+
+Kiedy się przydaje: konfigurowalne funkcje pomocnicze i walidatory, handlery z parametrem (`onClick={select(id)}`), selektory, kompozycja funkcji (`pipe(trim, toLower, slugify)`) w stylu funkcyjnym (Ramda, lodash/fp).
+
+Nie przesadzaj: w typowym kodzie aplikacji głęboki currying pogarsza czytelność i stack trace. Stosuj tam, gdzie realnie tworzysz wyspecjalizowane funkcje.
+
+::: code js
+// Higher-order function: takes a function and returns a new one
+function withLogging(fn) {
+  return (...args) => {
+    console.log('call', fn.name, args);
+    return fn(...args);
+  };
+}
+const loggedSum = withLogging((a, b) => a + b);
+
+// Currying
+const multiply = (a) => (b) => a * b;
+const addVat = multiply(1.23);      // partial application
+addVat(100);                        // 123
+
+// Generic curry helper
+const curry = (fn) =>
+  function curried(...args) {
+    return args.length >= fn.length ? fn(...args) : (...more) => curried(...args, ...more);
+  };
+const price = curry((base, nights, people) => base * nights * people);
+price(200)(7)(2); // 2800
+price(200, 7)(2); // 2800
+
+// Composition
+const pipe = (...fns) => (x) => fns.reduce((acc, f) => f(acc), x);
+const slug = pipe((s) => s.trim(), (s) => s.toLowerCase(), (s) => s.replace(/\s+/g, '-'));
+slug('  Wakacje na Krecie '); // 'wakacje-na-krecie'
+
+::: qa
+Q: Czym jest funkcja wyższego rzędu?
+A: Funkcją, która przyjmuje inną funkcję jako argument lub zwraca funkcję. Przykłady: `map`, `filter`, `reduce`, `addEventListener`, `debounce`, HOC w React. Są możliwe, bo w JS funkcje są wartościami (first-class functions).
+Q: Czym jest currying i kiedy się go używa?
+A: Przekształceniem `f(a, b, c)` w `f(a)(b)(c)`: każda funkcja przyjmuje jeden argument i zwraca kolejną, aż zbierze wszystkie. Ułatwia częściowe zastosowanie (tworzenie wyspecjalizowanych funkcji, np. `addVat = multiply(1.23)`) i kompozycję funkcji. Opiera się na domknięciach.
+Q: Czym różni się currying od partial application?
+A: Currying zawsze rozbija funkcję na łańcuch funkcji jednoargumentowych. Partial application to ustalenie części argumentów, by otrzymać funkcję o mniejszej liczbie parametrów (np. przez `bind` lub curried function). Currying jest jednym ze sposobów realizacji partial application.
+
+::: sources
+- Eloquent JavaScript: Higher-Order Functions | https://eloquentjavascript.net/05_higher_order.html
+- javascript.info: Currying | https://javascript.info/currying-partials
+- MDN Glossary: First-class Function | https://developer.mozilla.org/en-US/docs/Glossary/First-class_Function
+- React (legacy docs): Higher-Order Components | https://legacy.reactjs.org/docs/higher-order-components.html
+
+@topic js-debounce-throttle
+title: Debounce i throttle
+level: mid
+tags: debounce, throttle, performance, events
+summary: Debounce wykonuje funkcję dopiero po chwili ciszy. Throttle wykonuje ją najwyżej raz na określony czas.
+
+::: body
+- **Debounce**: czeka, aż zdarzenia przestaną napływać przez X ms, i dopiero wtedy wywołuje funkcję. Typowo: wyszukiwarka z podpowiedziami, walidacja pola, zapis szkicu.
+- **Throttle**: wywołuje funkcję maksymalnie raz na X ms, niezależnie od liczby zdarzeń. Typowo: `scroll`, `resize`, `mousemove`, śledzenie pozycji.
+
+Oba opierają się na **domknięciu** (przechowują timer lub czas ostatniego wywołania). W React debounce wartości daje hook `useDeferredValue` (inny mechanizm: priorytet renderu, nie czas) lub własny `useDebounce`.
+
+::: analogy
+Debounce to winda: czeka, aż przez kilka sekund nikt nie wejdzie, i dopiero rusza. Throttle to autobus kursujący co 10 minut: odjeżdża regularnie, bez względu na to, ilu ludzi przyszło.
+
+::: code ts
+function debounce<T extends (...args: any[]) => void>(fn: T, ms: number) {
+  let timer: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+function throttle<T extends (...args: any[]) => void>(fn: T, ms: number) {
+  let last = 0;
+  return (...args: Parameters<T>) => {
+    const now = Date.now();
+    if (now - last >= ms) {
+      last = now;
+      fn(...args);
+    }
+  };
+}
+
+const onSearch = debounce((q: string) => fetchSuggestions(q), 300);
+
+::: pitfalls
+- Tworzenie nowej funkcji debounce przy każdym renderze komponentu: timer się resetuje i debounce nie działa. Trzymaj ją w `useMemo`/`useRef` albo debounce'uj wartość, nie funkcję.
+
+::: qa
+Q: Różnica między debounce a throttle?
+A: Debounce opóźnia wywołanie do momentu, aż zdarzenia ucichną (wykonuje się raz na końcu serii). Throttle ogranicza częstotliwość: wykonuje się regularnie, najwyżej raz na interwał.
+Q: Napisz debounce.
+A: Funkcja zwracająca wrapper, który w domknięciu trzyma `timer`: przy każdym wywołaniu robi `clearTimeout(timer)` i ustawia nowy `setTimeout` z oryginalną funkcją.
+
+::: sources
+- MDN Glossary: Debounce | https://developer.mozilla.org/en-US/docs/Glossary/Debounce
+- MDN Glossary: Throttle | https://developer.mozilla.org/en-US/docs/Glossary/Throttle
+
+@quiz
+Q: Co wypisze `const a = {x:1}; const b = a; b.x = 2; console.log(a.x)`?
+- 1
++ 2
+- undefined
+- TypeError
+E: `b = a` kopiuje referencję, więc obie zmienne wskazują ten sam obiekt.
+T: js-primitives-vs-references
+
+Q: Która metoda Promise nigdy nie odrzuca i zwraca status każdej operacji?
+- Promise.all
++ Promise.allSettled
+- Promise.any
+- Promise.race
+E: `allSettled` czeka na wszystkie i zwraca tablicę obiektów `{status, value | reason}`.
+T: js-promise-methods
+
+Q: Wynik `0 ?? 5` to:
++ 0
+- 5
+- null
+- undefined
+E: `??` podstawia wartość domyślną tylko dla `null` i `undefined`. `0 || 5` dałoby 5.
+T: js-es6-syntax
+
+Q: Co zrobi `structuredClone` z polem będącym funkcją?
+- Skopiuje referencję do funkcji
+- Pominie pole bez błędu
++ Rzuci DataCloneError
+- Zamieni funkcję na string
+E: Funkcji nie da się sklonować algorytmem structured clone, więc wywołanie rzuca `DataCloneError`.
+T: js-copying
+
+Q: Co wypisze `for (var i = 0; i < 3; i++) setTimeout(() => console.log(i))`?
+- 0, 1, 2
++ 3, 3, 3
+- 2, 2, 2
+- undefined x3
+E: `var` ma zasięg funkcji, więc wszystkie callbacki widzą to samo `i`, które po pętli wynosi 3.
+T: js-scope-closures
+
+Q: Które wywołanie NIE mutuje tablicy?
+- arr.sort()
+- arr.reverse()
++ arr.toSorted()
+- arr.splice(0, 1)
+E: `toSorted` (ES2023) zwraca nową, posortowaną tablicę.
+T: js-array-methods
+
+Q: Wpisujesz tekst w wyszukiwarkę i chcesz wysłać request dopiero po 300 ms bez pisania. Czego użyjesz?
++ Debounce
+- Throttle
+- requestAnimationFrame
+- Promise.race
+E: Debounce czeka na "ciszę" po serii zdarzeń.
+T: js-debounce-throttle
+
+Q: Dostęp do zmiennej `let` przed jej deklaracją powoduje:
+- undefined
++ ReferenceError (TDZ)
+- null
+- Działa normalnie dzięki hoistingowi
+E: `let` i `const` są w Temporal Dead Zone do linii deklaracji.
+T: js-hoisting-tdz
+
+Q: Która cecha NIE dotyczy funkcji strzałkowej?
+- Bierze this z otaczającego zasięgu
+- Ma krótszą składnię z niejawnym return
++ Może być wywołana jako konstruktor przez new
+- Nie ma własnego obiektu arguments
+E: Arrow function nie ma `prototype` i `new` rzuca `TypeError`.
+T: js-arrow-vs-regular
+
+Q: `const add = (a) => (b) => a + b; add(2)(3)` to przykład:
+- IIFE
++ Curryingu
+- Rekurencji
+- Hoistingu
+E: Funkcja wieloargumentowa rozbita na łańcuch funkcji jednoargumentowych.
+T: js-hof-currying
+
+Q: Po czym iteruje `for...in` na obiekcie?
+- Po wartościach
++ Po kluczach wyliczalnych właściwości, także odziedziczonych
+- Tylko po własnych kluczach
+- Po parach [klucz, wartość]
+E: Dla własnych kluczy i par użyj `Object.keys` / `Object.entries`.
+T: js-iteration
+
+Q: Co wypisze `function t(){ console.log(a); var a = 1; } t()`?
++ undefined
+- 1
+- ReferenceError
+- null
+E: Deklaracja `var` jest podniesiona, przypisanie nie.
+T: js-hoisting-tdz
+
+Q: Główny powód, dla którego nie dopisuje się metod do `Array.prototype`:
+- Jest to niemożliwe w strict mode
++ Konflikty z bibliotekami i przyszłymi standardami (np. SmooshGate)
+- Spowalnia każdą tablicę 10 razy
+- TypeScript tego nie kompiluje
+E: MooTools i `flatten` wymusiły zmianę nazwy standardowej metody na `flat`.
+T: js-extending-builtins
+
+Q: Czym jest callback hell?
+- Błędem wywołania callbacku dwa razy
++ Głębokim zagnieżdżeniem callbacków przy sekwencji operacji asynchronicznych
+- Wyciekiem pamięci w event loop
+- Nieobsłużonym odrzuceniem Promise
+E: Rozwiązanie: Promise i async/await.
+T: js-sync-async

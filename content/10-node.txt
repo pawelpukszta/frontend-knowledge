@@ -1,0 +1,255 @@
+@category node
+name: Node.js & middleware
+short: Node
+hue: scripting
+desc: Jak działa Node.js, middleware jako pipeline requestu w Express, obsługa błędów, middleware w Next.js oraz menedżery pakietów.
+
+@topic node-basics
+title: Node.js: czym jest i jak działa
+level: mid
+tags: Node.js, V8, libuv, non-blocking I/O, event loop
+summary: Node.js to środowisko uruchomieniowe JavaScriptu poza przeglądarką, zbudowane na V8 i libuv. Obsługuje wiele połączeń jednym wątkiem dzięki nieblokującemu I/O.
+
+::: body
+- **V8**: silnik JS z Chrome, kompiluje JS do kodu maszynowego.
+- **libuv**: biblioteka C obsługująca event loop i asynchroniczne I/O (sieć, pliki, timery) oraz pulę wątków dla operacji, które nie mają nieblokującego API systemu.
+- **Jeden wątek JS**: kod aplikacji wykonuje się w jednym wątku. Operacje I/O nie blokują go; wynik wraca jako callback lub Promise.
+- Świetny do **I/O-bound** (API, proxy, BFF, SSR, real-time). Słabszy do **CPU-bound** (obliczenia blokują wszystkie requesty) - wtedy `worker_threads` lub osobny serwis.
+- Brak DOM i `window`; są za to moduły `fs`, `http`, `path`, `crypto`, `stream`, globalny `fetch`, `process`.
+- Fazy event loop w Node: timers → pending callbacks → poll (I/O) → check (`setImmediate`) → close callbacks; `process.nextTick` i Promise wykonują się między fazami.
+- Wersje **LTS** (parzyste) używa się na produkcji.
+
+W pracy front-endowca Node to: narzędzia (Vite, ESLint, testy), SSR (Next.js), BFF, skrypty.
+
+::: qa
+Q: Jak Node.js obsługuje wiele requestów jednym wątkiem?
+A: Operacje I/O są delegowane do systemu operacyjnego lub puli wątków libuv i nie blokują wątku JS. Gdy się zakończą, callback trafia do kolejki event loop. Wątek JS zajmuje się tylko krótką logiką, więc przez jeden proces może przechodzić tysiące współbieżnych połączeń.
+Q: Kiedy Node.js nie jest dobrym wyborem?
+A: Przy zadaniach CPU-bound (przetwarzanie obrazów, złożone obliczenia) wykonywanych w wątku głównym: blokują obsługę wszystkich requestów. Rozwiązania: `worker_threads`, kolejki zadań i osobne serwisy.
+
+::: sources
+- Node.js: Introduction to Node.js | https://nodejs.org/en/learn/getting-started/introduction-to-nodejs
+- Node.js: The Node.js Event Loop | https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick
+- Node.js: Don't Block the Event Loop | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop
+
+@topic node-middleware
+title: Middleware: funkcja pośrednicząca w pipeline requesta
+level: mid
+tags: middleware, Express, next(), pipeline, req, res
+summary: Middleware to funkcja, która dostaje request i response, może je zmodyfikować, zakończyć odpowiedź albo przekazać sterowanie dalej przez next(). Łańcuch middleware tworzy pipeline obsługi requestu.
+
+::: body
+Sygnatura w Express: `(req, res, next) => { ... }`. Middleware może:
+
+1. Wykonać dowolny kod (logowanie, pomiar czasu).
+2. Zmodyfikować `req` i `res` (np. dodać `req.user`).
+3. **Zakończyć** cykl (`res.status(401).json(...)`).
+4. **Przekazać dalej**: `next()`. Bez `next()` i bez odpowiedzi request "zawiśnie".
+
+**Kolejność ma znaczenie**: middleware wykonują się w kolejności rejestracji (`app.use`). Typowy pipeline: bezpieczeństwo (helmet, CORS) → parsowanie body → logowanie → rate limiting → uwierzytelnienie → routing → 404 → obsługa błędów.
+
+Rodzaje w Express: aplikacyjne (`app.use`), routera (`router.use`), dla konkretnej trasy (`app.get('/x', auth, handler)`), wbudowane (`express.json()`, `express.static`), zewnętrzne (`cors`, `helmet`, `morgan`) i **error-handling** (4 argumenty).
+
+To ten sam wzorzec co "chain of responsibility"; podobne koncepcje znajdziesz w Redux middleware, Koa, Fastify hooks, Next.js proxy/middleware.
+
+::: flow
+Request > helmet + CORS > express.json() > logger > auth > route handler > Response
+
+::: analogy
+Linia kontroli na lotnisku: sprawdzenie biletu, kontrola bezpieczeństwa, paszport. Każde stanowisko może Cię przepuścić dalej (next), cofnąć (odpowiedź z błędem) albo dodać coś do Twojej teczki (req.user). Do samolotu (route handler) docierasz dopiero po przejściu wszystkich.
+
+::: code js
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+
+const app = express();
+
+app.use(helmet());                                  // security headers
+app.use(cors({ origin: 'https://app.example.pl' }));
+app.use(express.json());                            // parses JSON body into req.body
+
+app.use((req, res, next) => {                       // custom logger
+  const start = performance.now();
+  res.on('finish', () => console.log(req.method, req.url, res.statusCode, `${(performance.now() - start).toFixed(1)}ms`));
+  next();                                           // pass control to the next middleware
+});
+
+function requireAuth(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' }); // ends the pipeline
+  req.user = verifyToken(token);                    // enrich the request
+  next();
+}
+
+app.get('/api/bookings', requireAuth, async (req, res) => {
+  res.json(await getBookings(req.user.id));
+});
+
+app.listen(3000);
+
+::: pitfalls
+- Zapomniane `next()` lub brak odpowiedzi: request wisi do timeoutu.
+- Wywołanie `next()` **po** wysłaniu odpowiedzi: błąd "Cannot set headers after they are sent".
+- Zła kolejność: `express.json()` po routach (brak `req.body`), auth po trasach, które miał chronić.
+
+::: qa
+Q: Czym jest middleware w Node.js/Express?
+A: Funkcją `(req, res, next)` wpiętą w pipeline obsługi requestu. Może wykonać kod, zmodyfikować request/response, zakończyć odpowiedź lub przekazać sterowanie dalej przez `next()`. Middleware wykonują się w kolejności rejestracji.
+Q: Co się stanie, gdy middleware nie wywoła next() ani nie wyśle odpowiedzi?
+A: Request zostanie bez odpowiedzi i będzie wisiał, aż klient lub serwer przerwie połączenie po timeoucie.
+Q: Podaj przykłady middleware, które piszesz lub konfigurujesz.
+A: Parsowanie body (`express.json`), CORS, nagłówki bezpieczeństwa (helmet), logowanie i correlation ID, rate limiting, uwierzytelnienie i autoryzacja, kompresja, obsługa 404 i błędów, cache headers.
+
+::: sources
+- Express: Using middleware | https://expressjs.com/en/guide/using-middleware.html
+- Express: Writing middleware | https://expressjs.com/en/guide/writing-middleware.html
+- Node.js: Anatomy of an HTTP Transaction | https://nodejs.org/learn/http/anatomy-of-an-http-transaction
+
+@topic node-express-errors
+title: Obsługa błędów w Express (error middleware)
+level: mid
+tags: error handling, Express 5, async errors, next(err)
+summary: Middleware z czterema argumentami (err, req, res, next) obsługuje błędy. Rejestrujesz go na końcu. W Express 5 odrzucone Promise z async handlerów trafiają do niego automatycznie.
+
+::: body
+- Błąd przekazujesz przez `next(err)` lub `throw` w kodzie synchronicznym.
+- **Express 5**: `async` handler, który rzuci błąd lub zwróci odrzucony Promise, automatycznie wywoła error middleware. W Express 4 trzeba było łapać błędy ręcznie (`try/catch` + `next(err)` lub `express-async-errors`).
+- Error middleware rejestruj **po** wszystkich trasach, razem z handlerem 404.
+- Nie wysyłaj stack trace na produkcji; loguj szczegóły (Sentry, logger), a klientowi zwróć spójny format błędu.
+
+::: code js
+app.get('/api/offers/:id', async (req, res) => {
+  const offer = await findOffer(req.params.id);  // Express 5: rejection goes to the error handler
+  if (!offer) throw new NotFoundError('Offer not found');
+  res.json(offer);
+});
+
+app.use((req, res) => res.status(404).json({ title: 'Not Found', status: 404 })); // 404 handler
+
+// Error handler: 4 arguments, registered last
+app.use((err, req, res, next) => {
+  logger.error({ err, path: req.path });
+  const status = err.status ?? 500;
+  res.status(status).json({
+    title: status === 500 ? 'Internal Server Error' : err.message,
+    status,
+  });
+});
+
+::: qa
+Q: Jak Express rozpoznaje middleware do obsługi błędów?
+A: Po liczbie parametrów: funkcja z czterema argumentami `(err, req, res, next)`. Trafia do niej błąd przekazany przez `next(err)`, rzucony synchronicznie lub (w Express 5) z odrzuconego Promise.
+Q: Co zmienił Express 5 w obsłudze błędów?
+A: Obsługę błędów asynchronicznych: odrzucone Promise z handlerów i middleware są automatycznie przekazywane do error middleware, bez ręcznego `try/catch` i `next(err)`.
+
+::: sources
+- Express: Error handling | https://expressjs.com/en/guide/error-handling.html
+- Express: Migrating to Express 5 | https://expressjs.com/en/guide/migrating-5.html
+
+@topic node-nextjs-proxy
+title: Middleware w Next.js (proxy.ts)
+level: senior
+tags: Next.js, middleware, proxy, edge, redirect, auth
+summary: Next.js pozwala uruchomić kod przed obsłużeniem requestu: przekierowania, rewrite, nagłówki, proste sprawdzenia auth. Od Next.js 16 plik middleware.ts nazywa się proxy.ts.
+
+::: body
+- Plik w katalogu głównym projektu (`proxy.ts`, dawniej `middleware.ts`) eksportuje funkcję, która dostaje `NextRequest` i zwraca `NextResponse` (next, redirect, rewrite, z nagłówkami lub cookies).
+- `config.matcher` ogranicza, dla jakich ścieżek się uruchamia.
+- Zastosowania: przekierowania (np. stare URL-e, język), A/B testy przez rewrite, nagłówki bezpieczeństwa, optymistyczne sprawdzenie sesji (cookie) i przekierowanie do logowania.
+- **Nie** traktuj go jako jedynego zabezpieczenia: autoryzację weryfikuj też tam, gdzie pobierasz dane (Server Components, Route Handlers, Server Actions). Kod powinien być szybki, bo działa przed każdym pasującym requestem.
+
+::: code ts
+// proxy.ts (Next.js 16+; middleware.ts in older versions)
+import { NextResponse, type NextRequest } from 'next/server';
+
+export function proxy(request: NextRequest) {
+  const session = request.cookies.get('session');
+  if (!session && request.nextUrl.pathname.startsWith('/moje-rezerwacje')) {
+    return NextResponse.redirect(new URL('/logowanie', request.url));
+  }
+  const response = NextResponse.next();
+  response.headers.set('x-request-id', crypto.randomUUID());
+  return response;
+}
+
+export const config = { matcher: ['/moje-rezerwacje/:path*'] };
+
+::: qa
+Q: Do czego służy middleware (proxy) w Next.js?
+A: Do uruchomienia logiki przed renderowaniem trasy: przekierowania, rewrite, modyfikacja nagłówków i cookies, szybkie sprawdzenie sesji. Działa dla ścieżek pasujących do `matcher`.
+Q: Czy middleware w Next.js wystarczy do zabezpieczenia danych?
+A: Nie. To dobra pierwsza linia (przekierowanie niezalogowanych), ale autoryzację trzeba sprawdzać także przy dostępie do danych, bo np. Server Actions i Route Handlers mogą być wywołane bezpośrednio, a konfiguracja matchera może pominąć ścieżki.
+
+::: sources
+- Next.js: proxy.js file convention | https://nextjs.org/docs/app/api-reference/file-conventions/proxy
+- Next.js 16 release notes | https://nextjs.org/blog/next-16
+
+@topic node-package-managers
+title: npm, yarn, pnpm, lockfile i semver
+level: mid
+tags: npm, pnpm, yarn, semver, lockfile, monorepo
+summary: Menedżery pakietów instalują zależności według package.json i zapisują dokładne wersje w lockfile. Semver określa, jakie aktualizacje są dozwolone.
+
+::: body
+- **Semver** `MAJOR.MINOR.PATCH`: major = zmiany łamiące, minor = nowe funkcje kompatybilne wstecz, patch = poprawki.
+- `^1.4.2`: pozwala na `1.x.x` (bez zmiany major). `~1.4.2`: pozwala na `1.4.x`. `1.4.2`: dokładnie ta wersja.
+- **Lockfile** (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`): dokładne wersje całego drzewa. Commituj go. W CI używaj `npm ci` / `pnpm install --frozen-lockfile`.
+- `dependencies` (runtime) vs `devDependencies` (build, testy) vs `peerDependencies` (np. biblioteka komponentów wymaga `react` od aplikacji).
+- **pnpm**: globalny magazyn i dowiązania, oszczędza miejsce, ścisła izolacja (brak "phantom dependencies"), świetny dla monorepo (workspaces).
+- **npx** / **pnpm dlx**: uruchomienie paczki bez instalacji globalnej.
+- Bezpieczeństwo: `npm audit`, Dependabot/Renovate, ostrożność przy skryptach `postinstall`.
+
+::: qa
+Q: Co oznacza ^ w wersji zależności?
+A: Dozwolone są aktualizacje kompatybilne według semver: minor i patch, bez zmiany wersji major (np. `^2.3.1` pozwala na `2.9.0`, ale nie `3.0.0`). Dla wersji `0.x` zakres jest węższy.
+Q: Po co commitować lockfile?
+A: Gwarantuje identyczne drzewo zależności na każdej maszynie i w CI, więc build jest powtarzalny, a aktualizacje zależności są świadome i widoczne w code review.
+Q: Czym różni się pnpm od npm?
+A: pnpm trzyma pakiety w jednym globalnym magazynie i linkuje je do projektów (szybciej, mniej miejsca) oraz tworzy ścisłe `node_modules`, w którym kod ma dostęp tylko do zadeklarowanych zależności. Ma też dobre wsparcie monorepo.
+
+::: sources
+- npm: About semantic versioning | https://docs.npmjs.com/about-semantic-versioning
+- pnpm: Motivation | https://pnpm.io/motivation
+- semver.org | https://semver.org/
+
+@quiz
+Q: Co musi zrobić middleware w Express, żeby request trafił do kolejnego middleware?
+- return true
++ Wywołać next()
+- Wywołać res.end()
+- Nic, dzieje się to automatycznie
+E: Bez `next()` lub odpowiedzi request zawiśnie.
+T: node-middleware
+
+Q: Jak Express rozpoznaje error-handling middleware?
+- Po nazwie funkcji errorHandler
++ Po czterech parametrach (err, req, res, next)
+- Po rejestracji przez app.error()
+- Po tym, że jest async
+E: Error middleware ma cztery argumenty i rejestruje się go na końcu.
+T: node-express-errors
+
+Q: `express.json()` zarejestrowane PO trasach spowoduje:
++ Brak sparsowanego req.body w tych trasach
+- Błąd przy starcie serwera
+- Podwójne parsowanie
+- Nic, kolejność nie ma znaczenia
+E: Middleware działają w kolejności rejestracji.
+T: node-middleware
+
+Q: Wersja `^2.3.1` pozwala zainstalować:
+- 3.0.0
++ 2.9.4
+- 1.9.0
+- Tylko 2.3.1
+E: `^` dopuszcza zmiany minor i patch w obrębie tej samej wersji major.
+T: node-package-managers
+
+Q: Do jakich zadań Node.js pasuje najlepiej?
++ I/O-bound: API, proxy, BFF, SSR
+- Długie obliczenia CPU w wątku głównym
+- Renderowanie grafiki 3D
+- Wyłącznie skrypty jednorazowe
+E: Nieblokujące I/O pozwala obsłużyć wiele połączeń jednym wątkiem.
+T: node-basics

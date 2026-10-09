@@ -1,0 +1,413 @@
+@category css
+name: CSS & layout
+short: CSS
+hue: painting
+desc: Kaskada i specyficzność, box model, Flexbox vs Grid, responsywność z container queries, strategie stylowania (CSS Modules, Tailwind, CSS-in-JS).
+
+@topic css-cascade-specificity
+title: Kaskada, specyficzność i @layer
+level: mid
+tags: cascade, specificity, @layer, !important
+summary: Gdy kilka reguł ustawia tę samą właściwość, wygrywa ta z wyższym priorytetem: najpierw pochodzenie i warstwa, potem specyficzność selektora, na końcu kolejność w kodzie.
+
+::: body
+Kolejność rozstrzygania (uproszczona):
+
+1. **Pochodzenie i ważność**: style przeglądarki < style autora < `!important` (odwrotna kolejność dla important).
+2. **Warstwy kaskady `@layer`**: reguły z późniejszej warstwy wygrywają niezależnie od specyficzności; style bez warstwy wygrywają z warstwowymi.
+3. **Specyficzność**: `(id, klasy/atrybuty/pseudoklasy, elementy/pseudoelementy)`. `#nav .item a` = (1,1,1). Inline style jest silniejszy od każdego selektora.
+4. **Kolejność w kodzie**: przy równej specyficzności wygrywa późniejsza reguła.
+
+`:where()` ma specyficzność 0 (świetne dla stylów bazowych), `:is()` i `:not()` przyjmują specyficzność najsilniejszego argumentu.
+
+::: code css
+@layer reset, base, components, utilities;
+
+@layer base {
+  :where(a) { color: var(--link); }       /* specificity 0, easy to override */
+}
+@layer components {
+  .card .title { font-size: 1.25rem; }    /* (0,2,0) */
+}
+@layer utilities {
+  .text-sm { font-size: 0.875rem; }       /* wins: later layer */
+}
+
+::: qa
+Q: Jak liczy się specyficzność selektora?
+A: Jako trójka (ID, klasy/atrybuty/pseudoklasy, elementy/pseudoelementy), porównywana od lewej. `#a .b p` = (1,1,1) wygrywa z `.a .b .c p` = (0,3,1). Selektor uniwersalny i `:where()` nie dodają nic.
+Q: Do czego służy @layer?
+A: Do jawnego ustalenia kolejności grup stylów (reset, baza, komponenty, utility). Reguła z późniejszej warstwy wygrywa bez podbijania specyficzności i bez `!important`, co ułatwia integrację bibliotek i nadpisywanie stylów.
+
+::: sources
+- MDN: Specificity | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Specificity
+- MDN: @layer | https://developer.mozilla.org/en-US/docs/Web/CSS/@layer
+- MDN: Introducing the CSS Cascade | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Cascade
+
+@topic css-selectors
+title: Selektory CSS: atrybutów, pseudoklasy, :has()
+level: mid
+tags: selektory, attribute selector, pseudoklasy, :has, :is, :where, kombinatory
+summary: Selektor wskazuje elementy, do których stosuje się regułę. Selektor atrybutu dopasowuje elementy po obecności lub wartości atrybutu HTML, np. [type="email"] albo [href^="https"].
+
+::: body
+**Selektory atrybutów** (CSS 2.1 i CSS3):
+
+| Selektor | Dopasowuje, gdy atrybut |
+|---|---|
+| `[disabled]` | istnieje |
+| `[type="email"]` | ma dokładnie tę wartość |
+| `[class~="card"]` | zawiera słowo z listy rozdzielonej spacjami |
+| `[lang\|="pl"]` | równa się `pl` lub zaczyna od `pl-` |
+| `[href^="https"]` | zaczyna się od |
+| `[href$=".pdf"]` | kończy się na |
+| `[data-city*="kre"]` | zawiera podciąg |
+| `[data-city="Kreta" i]` | jak wyżej, bez rozróżniania wielkości liter |
+
+Zastosowania: style oparte na stanie wyrażonym atrybutem (`[aria-expanded="true"]`, `[data-state="open"]`, `[aria-invalid="true"]`), typy inputów, ikony przy linkach do PDF. Stylowanie po atrybutach ARIA wymusza przy okazji poprawną dostępność.
+
+**Pozostałe rodzaje selektorów:**
+
+- Typ `button`, klasa `.card`, id `#main`, uniwersalny `*`.
+- **Kombinatory**: potomek `a b`, dziecko `a > b`, następny brat `a + b`, każdy kolejny brat `a ~ b`.
+- **Pseudoklasy** (stan): `:hover`, `:focus-visible`, `:checked`, `:disabled`, `:nth-child(2n)`, `:not()`, `:is()`, `:where()`, **`:has()`** ("selektor rodzica", np. karta, która zawiera zaznaczony checkbox).
+- **Pseudoelementy** (część elementu): `::before`, `::after`, `::placeholder`, `::marker`, `::selection`.
+
+Specyficzność: selektor atrybutu i pseudoklasa liczą się jak klasa (0,1,0).
+
+::: code css
+input[type="email"] { background-image: url(mail.svg); }
+a[href$=".pdf"]::after { content: " (PDF)"; }
+button[aria-expanded="true"] .chevron { rotate: 180deg; }
+[data-status="sold-out"] { opacity: 0.5; }
+
+/* :has() - style the card that contains a checked checkbox */
+.offer-card:has(input[type="checkbox"]:checked) { outline: 2px solid var(--accent); }
+
+/* Form field with an invalid input */
+.field:has(:user-invalid) label { color: var(--error); }
+
+::: qa
+Q: Czym jest selektor atrybutu?
+A: Selektorem, który dopasowuje elementy na podstawie atrybutów HTML: samej obecności (`[disabled]`) lub wartości, także częściowej (`^=` początek, `$=` koniec, `*=` podciąg, `~=` słowo z listy, `|=` prefiks języka). Ma specyficzność klasy. Przydaje się do stylowania stanów wyrażonych atrybutami ARIA lub `data-*`.
+Q: Czym różni się pseudoklasa od pseudoelementu?
+A: Pseudoklasa (`:hover`, `:checked`, `:has()`) opisuje stan lub relację całego elementu. Pseudoelement (`::before`, `::placeholder`) odnosi się do części elementu lub wirtualnego elementu, którego nie ma w DOM. W CSS3 pseudoelementy zapisuje się podwójnym dwukropkiem.
+Q: Co daje :has()?
+A: Pozwala wybrać element na podstawie jego zawartości lub rodzeństwa, np. `.card:has(img)` lub `form:has(:invalid)`. To pierwszy praktyczny "selektor rodzica" w CSS, który eliminuje wiele przypadków przełączania klas z poziomu JS.
+
+::: sources
+- MDN: Attribute selectors | https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Selectors/Attribute_selectors
+- MDN: CSS selectors | https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Selectors
+- MDN: :has() | https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Selectors/:has
+- W3C: Selectors Level 4 | https://www.w3.org/TR/selectors-4/
+
+@topic css-box-model
+title: Box model i box-sizing
+level: mid
+tags: box model, box-sizing, margin collapse
+summary: Każdy element to prostokąt: content, padding, border, margin. box-sizing: border-box sprawia, że width obejmuje padding i border, co upraszcza layout.
+
+::: body
+- `content-box` (domyślne): `width` to tylko treść; padding i border są dodawane.
+- `border-box`: `width` obejmuje content + padding + border. Standard w resetach CSS.
+- **Margin collapsing**: pionowe marginesy sąsiednich bloków łączą się (wygrywa większy). Nie dotyczy elementów flex i grid; dlatego do odstępów lepszy jest `gap`.
+- Elementy `inline` ignorują `width`/`height` i pionowe marginesy; `inline-block` je respektuje.
+
+::: code css
+*, *::before, *::after { box-sizing: border-box; }
+
+.card {
+  width: 300px;
+  padding: 16px;
+  border: 1px solid;
+  /* with border-box the rendered width is 300px, not 334px */
+}
+
+.list { display: flex; flex-direction: column; gap: 12px; } /* no margin collapsing issues */
+
+::: qa
+Q: Czym różni się content-box od border-box?
+A: W `content-box` szerokość dotyczy tylko treści, a padding i border ją powiększają. W `border-box` szerokość obejmuje treść, padding i border, więc element ma dokładnie zadaną szerokość.
+Q: Czym jest margin collapsing?
+A: Łączeniem pionowych marginesów sąsiednich elementów blokowych (lub rodzica i pierwszego dziecka) w jeden, równy większemu z nich. Nie występuje w kontenerach flex i grid.
+
+::: sources
+- MDN: The box model | https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Styling_basics/Box_model
+- MDN: Mastering margin collapsing | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model/Mastering_margin_collapsing
+
+@topic css-hiding
+title: Ukrywanie elementów: display, visibility, opacity, hidden, sr-only
+level: mid
+tags: display none, visibility hidden, opacity, hidden, aria-hidden, sr-only
+summary: display: none usuwa element z layoutu i drzewa dostępności. visibility: hidden ukrywa go, ale zostawia zajęte miejsce. opacity: 0 tylko czyni go przezroczystym: nadal zajmuje miejsce i reaguje na kliknięcia.
+
+::: body
+| Sposób | Zajmuje miejsce | Klikalny / fokusowalny | Czytnik ekranu | Animowalny |
+|---|---|---|---|---|
+| `display: none` | nie | nie | nie | nie (wprost; od niedawna z `transition-behavior: allow-discrete`) |
+| atrybut `hidden` | nie (domyślnie `display: none`) | nie | nie | jak wyżej |
+| `visibility: hidden` | **tak** | nie | nie | tak (przełączenie w trakcie przejścia) |
+| `opacity: 0` | **tak** | **tak** | **tak** (nadal czytany) | tak, płynnie |
+| `content-visibility: hidden` | zależy od rozmiaru | nie | nie | nie; zachowuje stan renderowania |
+| klasa `.sr-only` / `.visually-hidden` | nie (wizualnie) | tak | **tak** | nie dotyczy |
+| `aria-hidden="true"` | tak | tak (!) | nie | nie dotyczy |
+
+W render tree: `display: none` nie trafia do niego w ogóle, `visibility: hidden` trafia (ma layout, nie jest malowany).
+
+Praktyka:
+
+- Ukrycie przed wszystkimi: `hidden` lub `display: none`.
+- Ukrycie tylko wizualnie, np. etykieta dla czytnika ekranu: klasa `.visually-hidden`.
+- Ukrycie tylko przed czytnikiem (ikony dekoracyjne): `aria-hidden="true"`, nigdy na elementach fokusowalnych.
+- Animowane pojawianie się: `opacity` + `visibility`, żeby po ukryciu element nie przechwytywał kliknięć.
+
+::: code css
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Fade that does not leave an invisible click target */
+.toast { opacity: 1; visibility: visible; transition: opacity 0.2s, visibility 0.2s; }
+.toast.is-hidden { opacity: 0; visibility: hidden; }
+
+::: qa
+Q: Jaka jest różnica między display: none a visibility: hidden?
+A: `display: none` usuwa element z layoutu (nie zajmuje miejsca, nie ma go w render tree ani drzewie dostępności). `visibility: hidden` ukrywa element wizualnie, ale zachowuje jego miejsce w układzie; element nie reaguje na kliknięcia i nie jest czytany. Dodatkowo `visibility` można nadpisać w dziecku (`visible`), a `display: none` rodzica ukrywa całe poddrzewo.
+Q: A opacity: 0?
+A: Element jest tylko przezroczysty: zajmuje miejsce, można go kliknąć i sfokusować, czytnik ekranu go odczyta. Dlatego przy animacjach ukrywania łączy się `opacity` z `visibility: hidden` lub usuwa element po animacji.
+Q: Jak ukryć tekst wizualnie, ale zostawić go dla czytników ekranu?
+A: Klasą typu `.visually-hidden` (1 px, `clip-path`, `overflow: hidden`, pozycjonowanie absolutne). `display: none` i `visibility: hidden` ukryłyby go także przed technologiami asystującymi.
+
+::: sources
+- MDN: visibility | https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/visibility
+- MDN: display | https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/display
+- MDN: The hidden global attribute | https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/hidden
+- Scott O'Hara: Inclusively Hidden | https://www.scottohara.me/blog/2017/04/14/inclusively-hidden.html
+
+@topic css-flex-grid
+title: Flexbox vs Grid
+level: mid
+tags: flexbox, grid, layout, subgrid
+summary: Flexbox układa elementy w jednym wymiarze (wiersz lub kolumna) i dopasowuje się do treści. Grid układa w dwóch wymiarach według zdefiniowanej siatki.
+
+::: body
+**Flexbox** (1D, content-first): paski narzędzi, nawigacja, wyrównanie elementów w rzędzie, rozkładanie wolnego miejsca (`flex: 1`), centrowanie.
+
+**Grid** (2D, layout-first): układ strony, galerie, karty w równych kolumnach, obszary nazwane (`grid-template-areas`), nakładanie elementów. **Subgrid** pozwala dzieciom wyrównać się do siatki rodzica (np. równe wysokości sekcji w kartach).
+
+Oba wspierają `gap`. Często łączy się je: Grid na układ, Flexbox wewnątrz komponentów.
+
+::: code css
+/* Responsive card grid without media queries */
+.offers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+/* Toolbar: items in a row, last one pushed to the end */
+.toolbar { display: flex; align-items: center; gap: 8px; }
+.toolbar .spacer { margin-inline-start: auto; }
+
+/* Perfect centering */
+.center { display: grid; place-items: center; }
+
+::: qa
+Q: Kiedy Flexbox, a kiedy Grid?
+A: Flexbox dla układów jednowymiarowych, gdzie rozmiar wynika z treści (nawigacja, przyciski, wyrównanie w wierszu). Grid dla dwuwymiarowych układów o z góry zdefiniowanej strukturze (layout strony, siatka kart, galerie). W praktyce łączy się oba.
+Q: Jak zrobić responsywną siatkę kart bez media queries?
+A: `grid-template-columns: repeat(auto-fill, minmax(260px, 1fr))`. Przeglądarka sama dopasuje liczbę kolumn do szerokości kontenera.
+
+::: sources
+- MDN: Relationship of grid layout to other layout methods | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout/Relationship_of_grid_layout_with_other_layout_methods
+- CSS-Tricks: A Complete Guide to Flexbox | https://css-tricks.com/snippets/css/a-guide-to-flexbox/
+- CSS-Tricks: A Complete Guide to CSS Grid | https://css-tricks.com/snippets/css/complete-guide-grid/
+
+@topic css-responsive
+title: Responsywność: media queries, container queries, jednostki
+level: mid
+tags: responsive, media queries, container queries, clamp, rem
+summary: Media queries reagują na viewport, container queries na rozmiar kontenera komponentu. Płynne jednostki (rem, %, clamp, dvh) zmniejszają liczbę breakpointów.
+
+::: body
+- **Mobile-first**: style bazowe dla małych ekranów, `@media (min-width: ...)` dla większych.
+- **Container queries** (`container-type: inline-size` + `@container`): komponent (np. karta oferty) dopasowuje się do miejsca, w którym go umieszczono, a nie do szerokości okna. Idealne dla design systemów.
+- **Jednostki**: `rem` (względem root font-size, szanuje ustawienia użytkownika), `em`, `%`, `vw/vh`, `dvh/svh` (poprawne na mobile z paskiem przeglądarki), `ch`.
+- **`clamp(min, preferred, max)`**: płynna typografia i odstępy.
+- Media features: `prefers-color-scheme`, `prefers-reduced-motion`, `hover`, `pointer`.
+
+::: code css
+.card-wrapper { container-type: inline-size; }
+
+.card { display: grid; gap: 12px; }
+@container (min-width: 480px) {
+  .card { grid-template-columns: 200px 1fr; } /* image beside text when the slot is wide */
+}
+
+h1 { font-size: clamp(1.75rem, 1.2rem + 2vw, 3rem); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+::: qa
+Q: Czym różnią się container queries od media queries?
+A: Media queries sprawdzają cechy viewportu lub urządzenia. Container queries sprawdzają rozmiar najbliższego kontenera z `container-type`, więc ten sam komponent może mieć inny układ w wąskim sidebarze i w szerokiej sekcji głównej.
+Q: Dlaczego rem zamiast px dla fontów?
+A: `rem` skaluje się z ustawieniem rozmiaru czcionki w przeglądarce użytkownika, co jest ważne dla dostępności. Piksele ignorują to ustawienie.
+
+::: sources
+- MDN: CSS container queries | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment/Container_queries
+- MDN: Using media queries | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_media_queries/Using_media_queries
+- web.dev: Learn Responsive Design | https://web.dev/learn/design
+
+@topic css-preprocessors
+title: Preprocesory CSS: Sass/SCSS, Less i PostCSS
+level: mid
+tags: Sass, SCSS, Less, PostCSS, preprocesor, mixin, @use
+summary: Preprocesor to język kompilowany do zwykłego CSS, który dodaje zmienne, zagnieżdżanie, mixiny, funkcje i moduły. Najpopularniejszy jest Sass (składnia SCSS). PostCSS to z kolei narzędzie do transformacji gotowego CSS wtyczkami.
+
+::: body
+**Sass/SCSS** (standard branżowy, implementacja Dart Sass):
+
+- Zmienne `$color`, zagnieżdżanie z `&`, **mixiny** (`@mixin` / `@include`), **dziedziczenie** `@extend` i placeholdery `%`, funkcje, pętle `@each` / `@for`, warunki `@if`, operacje matematyczne.
+- **System modułów**: `@use` i `@forward` z przestrzeniami nazw. Stare `@import` jest **przestarzałe** (Dart Sass 1.80+) i zostanie usunięte w Dart Sass 3.0.
+- Składnia `.scss` (nadzbiór CSS, klamry) i starsza `.sass` (wcięcia).
+- LibSass i node-sass są wycofane; używa się pakietu `sass` (Dart Sass). Vite i Next.js obsługują go po instalacji paczki.
+
+**Less**: podobne możliwości (zmienne `@color`, mixiny jako klasy); dziś rzadziej wybierany, spotykany w starszych projektach (np. Bootstrap 3, Ant Design).
+
+**PostCSS**: nie jest preprocesorem w tradycyjnym sensie, tylko platformą wtyczek działającą na drzewie CSS: **Autoprefixer** (prefiksy przeglądarek), `postcss-preset-env` (nowe funkcje CSS dla starszych przeglądarek), minifikacja (cssnano), a także Tailwind CSS.
+
+**Czy preprocesor jest dziś potrzebny?** Natywny CSS ma już zmienne (custom properties, działające w runtime i z kaskadą), zagnieżdżanie, `@layer`, `color-mix()`, `calc()`. Sass nadal daje mixiny, pętle, funkcje i moduły w czasie buildu, przydatne w dużych design systemach. Decyzja: nowy projekt z Tailwind lub CSS Modules często nie potrzebuje Sass. Za Sass: dojrzałe narzędzia i generowanie wariantów. Przeciw: dodatkowy krok buildu i zmienne tylko w czasie kompilacji. Długofalowo: im więcej robi natywny CSS, tym mniej kodu zależy od preprocesora.
+
+::: code scss
+// _tokens.scss
+@use 'sass:map';
+$breakpoints: (sm: 640px, md: 768px, lg: 1024px);
+
+@mixin up($bp) {
+  @media (min-width: map.get($breakpoints, $bp)) { @content; }
+}
+
+// card.scss
+@use 'tokens' as t;
+
+.card {
+  padding: 1rem;
+  &__title { font-weight: 600; }          // BEM element: .card__title
+  &:hover { box-shadow: 0 2px 8px rgb(0 0 0 / 10%); }
+  @include t.up(md) { padding: 2rem; }
+}
+
+@each $status, $color in (available: green, sold-out: gray) {
+  .badge--#{$status} { color: $color; }  // generates two classes
+}
+
+::: qa
+Q: Czym są preprocesory CSS?
+A: Językami (np. Sass/SCSS, Less), które rozszerzają CSS o zmienne, zagnieżdżanie, mixiny, funkcje, pętle i moduły, a następnie są kompilowane do zwykłego CSS w czasie budowania. Poprawiają organizację i reużywalność stylów. Przeglądarka dostaje wyłącznie wynikowy CSS.
+Q: Czym różnią się zmienne Sass od zmiennych CSS?
+A: Zmienne Sass (`$color`) istnieją tylko w czasie kompilacji i są podstawiane jako wartości. Custom properties (`--color`) działają w przeglądarce: podlegają kaskadzie i dziedziczeniu, można je zmieniać w media queries, per komponent i z JavaScriptu (np. motyw ciemny).
+Q: Czym jest PostCSS?
+A: Narzędziem, które parsuje CSS do drzewa i przepuszcza je przez wtyczki: Autoprefixer, postcss-preset-env, minifikacja, Tailwind. Działa na CSS po lub zamiast preprocesora; w wielu projektach jest skonfigurowany domyślnie przez bundler.
+
+::: sources
+- Sass: Documentation | https://sass-lang.com/documentation/
+- Sass: @use | https://sass-lang.com/documentation/at-rules/use/
+- Sass: Breaking change: @import and global built-in functions | https://sass-lang.com/documentation/breaking-changes/import/
+- MDN Glossary: CSS preprocessor | https://developer.mozilla.org/en-US/docs/Glossary/CSS_preprocessor
+- PostCSS | https://postcss.org/
+- Less | https://lesscss.org/
+
+@topic css-strategies
+title: Strategie stylowania: CSS Modules, Tailwind, CSS-in-JS, Sass
+level: senior
+tags: Tailwind, CSS Modules, CSS-in-JS, Sass, SCSS, BEM
+summary: Każde podejście inaczej rozwiązuje zasięg nazw, reużywalność i wydajność. Wybór zależy od zespołu, design systemu i architektury renderowania (np. Server Components).
+
+::: body
+| Podejście | Plusy | Minusy |
+|---|---|---|
+| **CSS Modules** | lokalny zasięg klas, zwykły CSS, zero runtime | osobne pliki, dzielenie tokenów przez zmienne CSS |
+| **Tailwind CSS** | szybki development, spójność z tokenami, mały CSS (tylko użyte klasy) | "gęste" className, krzywa nauki, potrzeba konwencji (`cva`, `tailwind-merge`) |
+| **Runtime CSS-in-JS** (styled-components, Emotion) | style obok komponentu, dynamiczne wartości | koszt w runtime, problemy z Server Components i streamingiem |
+| **Zero-runtime CSS-in-JS** (vanilla-extract, Panda, StyleX) | typowane style, brak kosztu runtime | krok buildu, mniejszy ekosystem |
+| **Sass/SCSS** | zmienne, mixiny, zagnieżdżanie, dojrzałe | natywny CSS ma już zmienne i zagnieżdżanie; globalny zasięg (BEM) |
+
+Nowoczesny natywny CSS: zmienne (custom properties), **nesting**, `@layer`, `:has()`, container queries, `color-mix()`. Wiele powodów używania preprocesorów zniknęło.
+
+::: qa
+Q: Jakie podejście do stylowania wybrałbyś do nowej aplikacji Next.js?
+A: Zależy od zespołu i design systemu. Tailwind lub CSS Modules dobrze działają z Server Components (brak runtime). Tailwind: szybkie iteracje i spójne tokeny kosztem czytelności klas. CSS Modules: zwykły CSS i lokalny zasięg, ale więcej plików. Runtime CSS-in-JS odradzam w RSC ze względu na koszt i ograniczenia. Długofalowo liczy się spójność tokenów niezależnie od narzędzia.
+Q: Dlaczego runtime CSS-in-JS traci popularność?
+A: Generuje style w trakcie renderu (koszt CPU, gorszy INP), wymaga dodatkowej konfiguracji przy SSR i słabo współpracuje z React Server Components i streamingiem. Alternatywy zero-runtime i Tailwind dają podobne DX bez tych kosztów.
+
+::: sources
+- Tailwind CSS: Styling with utility classes | https://tailwindcss.com/docs/styling-with-utility-classes
+- GitHub: CSS Modules | https://github.com/css-modules/css-modules
+- Sass: Documentation | https://sass-lang.com/documentation/
+- MDN: CSS nesting | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_nesting
+
+@quiz
+Q: Który selektor ma wyższą specyficzność?
++ #menu a
+- .nav .item .link
+- div ul li a
+- :where(#menu) a
+E: (1,0,1) wygrywa z (0,3,0). `:where()` ma specyficzność 0.
+T: css-cascade-specificity
+
+Q: Przy `box-sizing: border-box`, width: 200px, padding: 20px, border: 5px, rzeczywista szerokość to:
++ 200px
+- 250px
+- 240px
+- 210px
+E: W border-box padding i border są wliczone w width.
+T: css-box-model
+
+Q: Komponent karty ma zmieniać układ zależnie od szerokości miejsca, w którym go wstawiono. Użyjesz:
+- Media queries
++ Container queries
+- Flexbox wrap
+- vw
+E: Container queries reagują na rozmiar kontenera, nie viewportu.
+T: css-responsive
+
+Q: Który układ jest dwuwymiarowy (wiersze i kolumny jednocześnie)?
+- Flexbox
++ Grid
+- Float
+- inline-block
+E: Grid definiuje siatkę w dwóch wymiarach, Flexbox działa w jednym.
+T: css-flex-grid
+
+Q: Który selektor dopasuje linki kończące się na .pdf?
+- a[href^=".pdf"]
++ a[href$=".pdf"]
+- a[href*=".pdf"i]
+- a:has(.pdf)
+E: `$=` oznacza "kończy się na", `^=` "zaczyna się od".
+T: css-selectors
+
+Q: Element z `visibility: hidden`:
+- Nie zajmuje miejsca w layoucie
++ Zajmuje miejsce, ale jest niewidoczny i nieklikalny
+- Jest odczytywany przez czytniki ekranu
+- Jest usuwany z DOM
+E: `display: none` zwalnia miejsce, `visibility: hidden` je zachowuje.
+T: css-hiding
+
+Q: Zmienne Sass ($color) w odróżnieniu od custom properties (--color):
++ Istnieją tylko w czasie kompilacji
+- Działają w runtime i podlegają kaskadzie
+- Można je zmieniać z JavaScriptu
+- Są szybsze w przeglądarce
+E: Po kompilacji zostają tylko wartości; custom properties żyją w przeglądarce.
+T: css-preprocessors

@@ -1,0 +1,426 @@
+@category state
+name: Zarządzanie stanem
+short: Stan
+hue: painting
+desc: Flux i jednokierunkowy przepływ danych, Redux Toolkit, Context API i jego granice, Zustand, Jotai, server state z TanStack Query.
+
+@topic state-flux
+title: Wzorzec Flux: action → dispatcher → store → view
+level: mid
+tags: Flux, unidirectional, action, dispatcher, store
+summary: Flux to architektura od Facebooka, w której dane płyną w jedną stronę: widok wysyła akcję, dispatcher przekazuje ją do store'ów, store aktualizuje stan, a widok się odświeża.
+
+::: body
+Flux powstał jako odpowiedź na problem MVC z dwukierunkowym wiązaniem: gdy wiele modeli i widoków aktualizuje się nawzajem, trudno przewidzieć, co spowodowało zmianę. Flux wprowadza **jeden kierunek przepływu**:
+
+1. **Action**: prosty obiekt opisujący, *co się stało*, np. `{ type: 'cart/itemAdded', payload: offer }`.
+2. **Dispatcher**: jeden centralny "rozdzielacz", który przekazuje każdą akcję do wszystkich zarejestrowanych store'ów.
+3. **Store**: przechowuje stan i logikę jego zmiany. Reaguje na akcje i emituje zdarzenie "zmieniłem się". Stanu nie zmienia się z zewnątrz.
+4. **View**: komponenty React czytają stan ze store'a i renderują UI. Interakcja użytkownika tworzy nową akcję i cykl się powtarza.
+
+Korzyści: przewidywalność, łatwe debugowanie (każda zmiana ma swoją akcję), możliwość logowania i odtwarzania akcji. Sama biblioteka `flux` jest dziś zarchiwizowana, ale idea żyje w **Redux** (jeden store, reducery zamiast dispatchera) i w `useReducer`.
+
+::: flow
+Action > Dispatcher > Store > View > (interakcja użytkownika) > Action
+
+::: analogy
+Restauracja: gość (View) składa zamówienie (Action) u kelnera (Dispatcher), który przekazuje je do kuchni (Store). Kuchnia przygotowuje danie (nowy stan) i podaje je na stół. Gość nie wchodzi do kuchni i nie gotuje sam.
+
+::: code js
+// Minimal Flux-like flow with useReducer
+function cartReducer(state, action) {
+  switch (action.type) {
+    case 'cart/itemAdded':
+      return { ...state, items: [...state.items, action.payload] };
+    case 'cart/cleared':
+      return { ...state, items: [] };
+    default:
+      return state;
+  }
+}
+
+function Cart() {
+  const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  return (
+    <button onClick={() => dispatch({ type: 'cart/itemAdded', payload: { id: 1 } })}>
+      Dodaj ({state.items.length})
+    </button>
+  );
+}
+
+::: qa
+Q: Opisz przepływ danych we Flux.
+A: Jednokierunkowy: View wywołuje Action (obiekt opisujący zdarzenie) → Dispatcher przekazuje ją do Store'ów → Store aktualizuje swój stan i powiadamia o zmianie → View pobiera nowy stan i się renderuje. Stan nigdy nie jest zmieniany bezpośrednio przez widok.
+Q: Czym różni się Redux od klasycznego Flux?
+A: Redux ma jeden store zamiast wielu, nie ma osobnego dispatchera (rolę przejmuje `store.dispatch`), a logika zmian to czyste funkcje (reducery), które zwracają nowy stan zamiast go mutować.
+Q: Jakie problemy rozwiązuje jednokierunkowy przepływ danych?
+A: Eliminuje kaskadowe, trudne do śledzenia aktualizacje z dwukierunkowego wiązania. Każda zmiana ma jedno źródło (akcję), więc łatwiej debugować, testować i odtwarzać stan (time-travel debugging).
+
+::: sources
+- Flux: In-Depth Overview (archiwum Facebook) | https://facebookarchive.github.io/flux/docs/in-depth-overview
+- Flux: repozytorium (archived) | https://github.com/facebookarchive/flux
+- Redux: Fundamentals, Part 1 | https://redux.js.org/tutorials/fundamentals/part-1-overview
+
+@topic state-unidirectional
+title: Przepływ danych w React: props w dół, zdarzenia w górę
+level: mid
+tags: props, lifting state up, single source of truth, Thinking in React
+summary: W React dane płyną z rodzica do dziecka przez props, a dziecko informuje rodzica o zmianach przez callbacki. Wspólny stan "podnosisz" do najbliższego wspólnego przodka.
+
+::: body
+- **Props down**: rodzic przekazuje dane dzieciom. Dziecko nie modyfikuje props.
+- **Events up**: dziecko wywołuje funkcję przekazaną w props (`onChange`, `onSelect`), a rodzic aktualizuje swój stan.
+- **Lifting state up**: gdy dwa komponenty potrzebują tego samego stanu, przenosisz go do najbliższego wspólnego rodzica.
+- **Single source of truth**: każda informacja ma jedno miejsce przechowywania. Wartości wyliczalne liczysz w trakcie renderu, zamiast trzymać je w osobnym stanie.
+- **Prop drilling**: przekazywanie props przez wiele poziomów komponentów, które same ich nie używają. Rozwiązania: kompozycja (`children`), Context, zewnętrzny store.
+
+::: code tsx
+function SearchPage() {
+  const [query, setQuery] = useState('');           // single source of truth
+  const results = offers.filter((o) => o.city.includes(query)); // derived, not stored
+  return (
+    <>
+      <SearchInput value={query} onChange={setQuery} /> {/* events up */}
+      <ResultList items={results} />                    {/* props down */}
+    </>
+  );
+}
+
+::: qa
+Q: Co to jest lifting state up?
+A: Przeniesienie stanu do najbliższego wspólnego rodzica komponentów, które go potrzebują. Rodzic przekazuje wartość w props, a funkcję zmiany jako callback.
+Q: Czym jest prop drilling i jak go unikać?
+A: Przekazywanie props przez wiele warstw komponentów, które ich nie używają. Najpierw kompozycja (przekazywanie gotowych elementów przez `children`), potem Context dla danych rzadko zmieniających się, a dla złożonego, często zmienianego stanu zewnętrzny store.
+
+::: sources
+- React: Thinking in React | https://react.dev/learn/thinking-in-react
+- React: Sharing State Between Components | https://react.dev/learn/sharing-state-between-components
+- React: Choosing the State Structure | https://react.dev/learn/choosing-the-state-structure
+
+@topic state-redux
+title: Redux i Redux Toolkit
+level: mid
+tags: Redux, RTK, reducer, slice, RTK Query
+summary: Redux to jeden globalny store zmieniany wyłącznie przez akcje i czyste reducery. Redux Toolkit (RTK) to oficjalny, zalecany sposób pisania Reduxa bez boilerplate'u.
+
+::: body
+Trzy zasady Reduxa:
+
+1. **Jedno źródło prawdy**: cały stan globalny w jednym store.
+2. **Stan tylko do odczytu**: zmiana wyłącznie przez `dispatch(action)`.
+3. **Zmiany przez czyste funkcje**: `reducer(state, action) => newState`.
+
+**Redux Toolkit** (RTK):
+
+- `configureStore`: store z DevTools i middleware.
+- `createSlice`: reducery + action creators w jednym. Pod spodem **Immer**, więc możesz pisać "mutujący" kod, który w rzeczywistości tworzy nowy stan.
+- `createAsyncThunk`: logika asynchroniczna.
+- **RTK Query**: pobieranie i cache danych z API (alternatywa dla TanStack Query).
+
+Kiedy Redux: duża aplikacja, wiele niezależnych części UI współdzieli złożony stan klienta, potrzebne są DevTools, middleware, time-travel, jasne konwencje dla dużego zespołu. Koszt: więcej ceremonii niż Zustand.
+
+::: code ts
+import { configureStore, createSlice, type PayloadAction } from '@reduxjs/toolkit';
+
+const cartSlice = createSlice({
+  name: 'cart',
+  initialState: { items: [] as { id: string; price: number }[] },
+  reducers: {
+    itemAdded(state, action: PayloadAction<{ id: string; price: number }>) {
+      state.items.push(action.payload); // Immer turns this into an immutable update
+    },
+    cleared(state) { state.items = []; },
+  },
+});
+
+export const { itemAdded, cleared } = cartSlice.actions;
+export const store = configureStore({ reducer: { cart: cartSlice.reducer } });
+export type RootState = ReturnType<typeof store.getState>;
+
+// Component: useSelector(state => state.cart.items), useDispatch()
+
+::: qa
+Q: Jakie są trzy zasady Reduxa?
+A: Jedno źródło prawdy (jeden store), stan tylko do odczytu (zmiana przez akcje), zmiany przez czyste funkcje (reducery).
+Q: Dlaczego w createSlice można "mutować" state?
+A: RTK używa Immera. Zmiany na draftcie są zapisywane i zamieniane na nowy, niemutowalny obiekt stanu. Zewnętrznie Redux nadal dostaje nową referencję.
+Q: Czy Redux jest dziś nadal potrzebny?
+A: Rzadziej niż kiedyś. Stan serwera obsługuje TanStack Query lub RTK Query, prosty stan globalny Context lub Zustand. Redux ma sens przy dużym, złożonym stanie klienta, wielu zespołach i potrzebie ścisłych konwencji oraz narzędzi. Za: przewidywalność i DevTools. Przeciw: więcej kodu i koncepcji do nauki.
+
+::: sources
+- Redux Essentials, Part 1 | https://redux.js.org/tutorials/essentials/part-1-overview-concepts
+- Redux Fundamentals | https://redux.js.org/tutorials/fundamentals/part-1-overview
+- Redux Toolkit: createSlice | https://redux.js.org/toolkit/api/createSlice
+
+@topic state-context
+title: Context API i kiedy to za mało
+level: mid
+tags: Context, useContext, prop drilling, re-render
+summary: Context przekazuje wartość w głąb drzewa bez prop drillingu. To mechanizm wstrzykiwania zależności, a nie pełne narzędzie do zarządzania stanem: każda zmiana wartości re-renderuje wszystkich konsumentów.
+
+::: body
+Context sprawdza się dla danych **rzadko zmieniających się** i potrzebnych w wielu miejscach: motyw, język, zalogowany użytkownik, konfiguracja, instancje serwisów.
+
+Kiedy Context to za mało:
+
+- **Częste zmiany**: każda zmiana `value` powoduje re-render **wszystkich** komponentów używających `useContext` tego kontekstu, nawet jeśli potrzebują tylko jednego pola. Nie ma selektorów.
+- **Duży obiekt w jednym kontekście**: zmiana jednego pola odświeża całą aplikację.
+- **Złożona logika**: middleware, persystencja, DevTools, akcje asynchroniczne.
+- **Stan serwera**: cache, refetch, deduplikacja, to zadanie dla TanStack Query.
+
+Łagodzenie problemów w samym Context: podział na kilka kontekstów (np. osobno stan i funkcje dispatch), `useMemo` na `value`, trzymanie providera nisko w drzewie. Gdy to nie wystarcza, przejdź na Zustand, Jotai lub Redux, które pozwalają subskrybować wybrany fragment stanu.
+
+::: code tsx
+const ThemeContext = createContext<'light' | 'dark'>('light');
+
+function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  return (
+    <ThemeContext value={theme}>          {/* React 19: Context as provider */}
+      <Layout onToggle={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))} />
+    </ThemeContext>
+  );
+}
+
+function Header() {
+  const theme = use(ThemeContext); // or useContext(ThemeContext)
+  return <header className={theme}>...</header>;
+}
+
+::: pitfalls
+- Tworzenie nowego obiektu `value={{ user, setUser }}` przy każdym renderze providera: każdy render rodzica re-renderuje wszystkich konsumentów.
+- Jeden "AppContext" z całym stanem aplikacji.
+
+::: qa
+Q: Kiedy Context API to za mało?
+A: Gdy stan zmienia się często i ma wielu konsumentów (każda zmiana re-renderuje wszystkich, brak selektorów), gdy potrzebujesz middleware, DevTools lub persystencji, oraz dla stanu serwera. Wtedy Zustand, Jotai, Redux lub TanStack Query.
+Q: Czy Context to narzędzie do zarządzania stanem?
+A: Nie do końca. To mechanizm transportu wartości w dół drzewa (dependency injection). Stan i tak trzymasz w `useState`/`useReducer`; Context tylko go udostępnia.
+Q: Jak ograniczyć re-rendery przy Context?
+A: Rozdzielić kontekst na mniejsze (np. dane i akcje osobno), memoizować `value`, trzymać provider jak najniżej, a komponenty-dzieci, które nie potrzebują kontekstu, przekazywać jako `children`.
+
+::: sources
+- React: Passing Data Deeply with Context | https://react.dev/learn/passing-data-deeply-with-context
+- React: useContext | https://react.dev/reference/react/useContext
+- React: Scaling Up with Reducer and Context | https://react.dev/learn/scaling-up-with-reducer-and-context
+
+@topic state-zustand
+title: Zustand
+level: mid
+tags: Zustand, store, selector, hooks
+summary: Minimalistyczny store oparty na hookach. Brak providera i boilerplate'u, a selektory sprawiają, że komponent re-renderuje się tylko przy zmianie wybranego fragmentu stanu.
+
+::: body
+- Store tworzysz funkcją `create`, dostajesz hook.
+- **Selektory**: `useStore(s => s.count)` subskrybuje tylko `count`.
+- Brak providera: store to moduł, działa też poza React (`useStore.getState()`).
+- Middleware: `persist` (localStorage), `devtools` (Redux DevTools), `immer`.
+- Mały rozmiar i niski próg wejścia.
+
+Kiedy: stan globalny klienta średniej złożoności (koszyk, filtry, UI state), gdy Context powoduje za dużo re-renderów, a Redux wydaje się zbyt ciężki. Konsekwencja długofalowa: mniej narzuconej struktury, więc w dużym zespole warto ustalić własne konwencje (np. slices, nazewnictwo akcji).
+
+::: code ts
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+type FiltersState = {
+  city: string;
+  maxPrice: number;
+  setCity: (city: string) => void;
+  reset: () => void;
+};
+
+export const useFilters = create<FiltersState>()(
+  persist(
+    (set) => ({
+      city: '',
+      maxPrice: 5000,
+      setCity: (city) => set({ city }),
+      reset: () => set({ city: '', maxPrice: 5000 }),
+    }),
+    { name: 'filters' },
+  ),
+);
+
+// Component re-renders only when `city` changes
+const city = useFilters((s) => s.city);
+
+::: qa
+Q: Czym Zustand różni się od Context API?
+A: Zustand przechowuje stan poza drzewem React i pozwala subskrybować wybrany fragment przez selektor, więc re-renderują się tylko zainteresowane komponenty. Nie potrzebuje providera i ma middleware (persist, devtools). Context po prostu przekazuje wartość i re-renderuje wszystkich konsumentów przy każdej zmianie.
+Q: Zustand czy Redux Toolkit?
+A: Zustand dla prostszego stanu i mniejszych zespołów: mało kodu, szybki start. RTK gdy potrzebujesz ścisłych konwencji, rozbudowanych DevTools, middleware, RTK Query w jednym ekosystemie. Za Zustand: prostota. Przeciw: mniej narzuconej struktury w dużej skali.
+
+::: sources
+- Zustand: Introduction | https://zustand.docs.pmnd.rs/getting-started/introduction
+- Zustand: GitHub | https://github.com/pmndrs/zustand
+
+@topic state-jotai
+title: Jotai (stan atomowy)
+level: senior
+tags: Jotai, atom, atomic state, derived state
+summary: Jotai buduje stan z małych, niezależnych atomów. Komponenty subskrybują pojedyncze atomy, a atomy pochodne wyliczają wartości z innych atomów.
+
+::: body
+- **Atom** to najmniejsza jednostka stanu: `atom(0)`.
+- `useAtom(countAtom)` działa jak `useState`, ale stan jest współdzielony między komponentami.
+- **Atomy pochodne**: `atom((get) => get(priceAtom) * get(qtyAtom))` przeliczają się automatycznie.
+- Atomy asynchroniczne współpracują z Suspense.
+- Podejście **bottom-up** (składasz z atomów), w przeciwieństwie do **top-down** Reduxa/Zustanda (jeden store, z którego wybierasz fragmenty).
+
+Kiedy: dużo niezależnych, drobnych kawałków stanu i zależności między nimi (np. edytory, konfiguratory, formularze wieloetapowe). Podobna idea: Recoil (niewspierany), signals.
+
+::: code tsx
+import { atom, useAtom, useAtomValue } from 'jotai';
+
+const nightsAtom = atom(7);
+const pricePerNightAtom = atom(350);
+const totalAtom = atom((get) => get(nightsAtom) * get(pricePerNightAtom)); // derived
+
+function Nights() {
+  const [nights, setNights] = useAtom(nightsAtom);
+  return <input type="number" value={nights} onChange={(e) => setNights(+e.target.value)} />;
+}
+function Total() {
+  const total = useAtomValue(totalAtom); // re-renders only when total changes
+  return <strong>{total} zł</strong>;
+}
+
+::: qa
+Q: Czym różni się podejście atomowe (Jotai) od store'a (Zustand/Redux)?
+A: Store to jeden obiekt stanu, z którego komponenty wybierają fragmenty (top-down). Jotai składa stan z wielu małych atomów i atomów pochodnych (bottom-up); zależności między nimi są śledzone automatycznie, a re-renderują się tylko komponenty używające zmienionego atomu.
+
+::: sources
+- Jotai: Introduction | https://jotai.org/docs/introduction
+- Jotai: Comparison | https://jotai.org/docs/basics/comparison
+
+@topic state-server-state
+title: Server state vs client state (TanStack Query)
+level: mid
+tags: TanStack Query, React Query, cache, server state
+summary: Dane z API to nie jest zwykły stan aplikacji: są współdzielone, mogą się zdezaktualizować i wymagają cache. TanStack Query zarządza nimi za Ciebie.
+
+::: body
+**Client state**: należy do przeglądarki (otwarty modal, filtry, motyw). **Server state**: kopia danych z serwera (oferty, profil), która może być nieaktualna.
+
+Server state wymaga: cache, deduplikacji zapytań, odświeżania w tle, ponowień, paginacji, optymistycznych aktualizacji, invalidacji po mutacjach. Ręcznie w `useEffect` + `useState` to dużo kodu i błędów (race conditions, brak cache).
+
+**TanStack Query** (dawniej React Query):
+
+- `useQuery({ queryKey, queryFn })`: pobieranie z cache i statusami (`isPending`, `isError`, `data`).
+- **Query key** to identyfikator cache, np. `['offers', { city }]`.
+- **`staleTime`**: jak długo dane są "świeże" (bez refetchu). **`gcTime`**: jak długo nieużywane dane zostają w pamięci.
+- **Stale-while-revalidate**: najpierw pokazuje dane z cache, potem odświeża w tle.
+- `useMutation` + `queryClient.invalidateQueries` po zapisie.
+
+Efekt: w wielu aplikacjach po przeniesieniu danych z API do TanStack Query w globalnym store zostaje bardzo niewiele.
+
+::: code tsx
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+function Offers({ city }: { city: string }) {
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['offers', { city }],
+    queryFn: ({ signal }) => fetch(`/api/offers?city=${city}`, { signal }).then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  if (isPending) return <p>Ładowanie...</p>;
+  if (isError) return <p>Błąd</p>;
+  return <OfferList offers={data} />;
+}
+
+function useBookOffer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => fetch(`/api/bookings`, { method: 'POST', body: JSON.stringify({ id }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['offers'] }),
+  });
+}
+
+::: qa
+Q: Czym różni się server state od client state?
+A: Client state jest w pełni kontrolowany przez aplikację (UI, filtry). Server state to kopia danych należących do serwera: asynchroniczna, współdzielona z innymi użytkownikami i mogąca się zdezaktualizować. Wymaga cache, synchronizacji i invalidacji.
+Q: Co to jest staleTime i gcTime?
+A: `staleTime`: czas, przez który dane są uznawane za świeże i nie są pobierane ponownie. `gcTime` (dawniej `cacheTime`): czas, przez który nieużywane dane zostają w cache, zanim zostaną usunięte.
+Q: Dlaczego nie trzymać odpowiedzi API w Redux lub Zustand?
+A: Musiałbyś ręcznie napisać cache, deduplikację, refetch, ponowienia i obsługę race conditions. Narzędzia do server state robią to deklaratywnie. Globalny store zostaje dla prawdziwego stanu klienta.
+
+::: sources
+- TanStack Query: Overview | https://tanstack.com/query/latest/docs/framework/react/overview
+- TanStack Query: Important Defaults | https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults
+- TkDodo: Practical React Query | https://tkdodo.eu/blog/practical-react-query
+
+@topic state-choosing
+title: Jak wybrać sposób zarządzania stanem
+level: senior
+tags: architektura, decyzja, URL state, form state
+summary: Najpierw nazwij rodzaj stanu, potem wybierz najprostsze narzędzie, które go obsłuży. Nie każdy stan musi być globalny.
+
+::: body
+| Rodzaj stanu | Przykład | Narzędzie |
+|---|---|---|
+| Lokalny UI | otwarty dropdown | `useState` / `useReducer` |
+| Współdzielony przez kilka komponentów | wybrany wariant | lifting state up |
+| Globalny, rzadko zmieniany | motyw, język, user | Context |
+| Globalny, często zmieniany | koszyk, złożone filtry | Zustand / Redux / Jotai |
+| Server state | oferty, profil | TanStack Query / RTK Query / SWR |
+| URL state | filtry, strona, sortowanie | query params (`useSearchParams`, nuqs) |
+| Formularze | wartości, walidacja | React Hook Form + Zod, Server Actions |
+
+Zasady:
+
+- Zaczynaj **lokalnie**, podnoś stan dopiero, gdy jest potrzebny wyżej.
+- **Stan wyliczalny liczysz**, nie przechowujesz.
+- **Filtry i paginacja w URL**: link można udostępnić, działa przycisk Wstecz i odświeżenie strony (ważne w e-commerce i SEO).
+
+::: qa
+Q: Jak zdecydowałbyś o zarządzaniu stanem w nowej aplikacji?
+A: Klasyfikuję stan: server state do TanStack Query, filtry i paginacja do URL, formularze do React Hook Form, lokalny UI w `useState`. Dopiero to, co zostaje i jest naprawdę globalne, trafia do Context (rzadkie zmiany) lub Zustand/Redux (częste zmiany). Za: mniejszy globalny store i mniej re-renderów. Przeciw: kilka bibliotek do opanowania. Długofalowo: każda warstwa ma jasną odpowiedzialność.
+Q: Dlaczego filtry wyszukiwarki trzymać w URL?
+A: Bo stan w URL jest trwały i udostępnialny: odświeżenie strony go nie gubi, działa przycisk Wstecz, link można wysłać, a SSR i SEO widzą te same parametry.
+
+::: sources
+- React: Managing State | https://react.dev/learn/managing-state
+- Kent C. Dodds: Application State Management with React | https://kentcdodds.com/blog/application-state-management-with-react
+- TkDodo: React Query as a State Manager | https://tkdodo.eu/blog/react-query-as-a-state-manager
+
+@quiz
+Q: Prawidłowa kolejność przepływu danych we Flux:
++ Action → Dispatcher → Store → View
+- View → Store → Dispatcher → Action
+- Dispatcher → Action → View → Store
+- Store → Action → View → Dispatcher
+E: Widok wysyła akcję, dispatcher przekazuje ją do store'a, store aktualizuje stan, widok się renderuje.
+T: state-flux
+
+Q: Główna wada Context API przy często zmieniającym się stanie:
+- Nie działa z TypeScript
++ Każda zmiana value re-renderuje wszystkich konsumentów (brak selektorów)
+- Nie można przekazywać funkcji
+- Wymaga Reduxa
+E: Context nie ma selektorów; komponent nie może subskrybować jednego pola.
+T: state-context
+
+Q: Dlaczego w reducerach RTK można pisać `state.items.push(x)`?
+- Redux Toolkit pozwala mutować stan
++ Immer zamienia zmiany na draftcie w nowy, niemutowalny stan
+- Bo push nie mutuje tablicy
+- To działa tylko w trybie dev
+E: Immer śledzi zmiany i produkuje nowy obiekt.
+T: state-redux
+
+Q: Gdzie najlepiej trzymać dane pobrane z API (lista ofert)?
+- W Context
+- W localStorage
++ W narzędziu do server state, np. TanStack Query
+- W zmiennej globalnej window
+E: Server state wymaga cache, refetchu i invalidacji, które zapewnia TanStack Query.
+T: state-server-state
+
+Q: W Zustand komponent z `useStore(s => s.city)` re-renderuje się z powodu store'a, gdy:
+- Zmieni się dowolne pole store'a
++ Zmieni się wartość city
+- Ktokolwiek wywoła set(), nawet bez zmian
+- Nigdy
+E: Selektor ogranicza subskrypcję do wybranego fragmentu stanu.
+T: state-zustand

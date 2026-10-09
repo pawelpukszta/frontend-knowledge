@@ -1,0 +1,280 @@
+@category senior
+name: Architektura & senior
+short: Senior
+hue: system
+desc: Tematy, które odróżniają seniora: strategia testów, architektura frontu, micro frontends, observability, code review, decyzje architektoniczne i AI w pracy developera.
+
+@topic sr-testing
+title: Strategia testów: piramida i testing trophy
+level: senior
+tags: testy, unit, integration, e2e, Vitest, Playwright, Testing Library
+summary: Testy mają dawać pewność przy rozsądnym koszcie. Na froncie najwięcej wartości dają testy integracyjne komponentów, uzupełnione o testy jednostkowe logiki i kilka testów E2E krytycznych ścieżek.
+
+::: body
+- **Static**: TypeScript, ESLint. Najtańsza warstwa, łapie całe klasy błędów.
+- **Unit**: czyste funkcje, hooki, reducery (Vitest/Jest). Szybkie, precyzyjne.
+- **Integration**: komponent lub cała strona z prawdziwymi dziećmi, mockowaną siecią (MSW) i interakcjami użytkownika (Testing Library + user-event). Najlepszy stosunek pewności do kosztu.
+- **E2E**: prawdziwa przeglądarka i backend (Playwright, Cypress). Kilka krytycznych ścieżek: wyszukiwanie → oferta → rezerwacja → płatność.
+- Dodatkowo: testy wizualne (Chromatic, Playwright screenshots), testy dostępności (axe), kontraktowe.
+
+Zasada Testing Library: "Im bardziej testy przypominają sposób używania aplikacji, tym większą dają pewność". Testuj zachowanie (co widzi i robi użytkownik), nie implementację (stan wewnętrzny, nazwy klas).
+
+**Piramida** (dużo unit, mało E2E) vs **testing trophy** (Kent C. Dodds: nacisk na integrację). Obie mówią to samo: E2E są drogie i wolne, więc używaj ich oszczędnie.
+
+::: code tsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+test('filters offers by city', async () => {
+  const user = userEvent.setup();
+  render(<SearchPage />); // network mocked with MSW
+  await user.type(screen.getByRole('searchbox', { name: /miasto/i }), 'Rzym');
+  expect(await screen.findByRole('heading', { name: /rzym/i })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: /ateny/i })).not.toBeInTheDocument();
+});
+
+::: qa
+Q: Jak zaplanowałbyś strategię testów aplikacji front-end?
+A: TypeScript i ESLint jako fundament, testy jednostkowe dla logiki domenowej i hooków, większość wysiłku w testy integracyjne komponentów i stron (Testing Library + MSW), kilka testów E2E na krytyczne ścieżki biznesowe w Playwright, a do tego axe i ewentualnie testy wizualne w CI. Za: wysoka pewność przy rozsądnym czasie CI. Przeciw: testy integracyjne wymagają dobrego mockowania API. Długofalowo: testy odporne na refaktoryzację, bo sprawdzają zachowanie.
+Q: Dlaczego nie testować szczegółów implementacji?
+A: Takie testy psują się przy każdej refaktoryzacji, choć zachowanie się nie zmieniło (fałszywe alarmy), a jednocześnie mogą przejść, gdy UI jest zepsute. Testy zachowania sprawdzają to, co ważne dla użytkownika.
+
+::: sources
+- Kent C. Dodds: The Testing Trophy and Testing Classifications | https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications
+- Testing Library: Guiding Principles | https://testing-library.com/docs/guiding-principles
+- Playwright: Best Practices | https://playwright.dev/docs/best-practices
+- Mock Service Worker | https://mswjs.io/
+
+@topic sr-architecture
+title: Architektura aplikacji front-end
+level: senior
+tags: architektura, feature-based, modularność, monorepo, design system
+summary: Dobra architektura frontu grupuje kod według funkcjonalności, pilnuje kierunku zależności i oddziela UI od logiki domenowej i dostępu do danych.
+
+::: body
+- **Struktura według funkcji (feature-based / vertical slices)**: `features/search`, `features/booking`, każdy z komponentami, hookami, API i typami. Zamiast `components/`, `hooks/`, `utils/` na całą aplikację.
+- **Warstwy i kierunek zależności**: `app` (routing, providery) → `features` → `shared` (UI kit, utils). Feature nie importuje z innego feature'a inaczej niż przez jego publiczne API. Pilnuj tego regułami lint (np. `eslint-plugin-boundaries`, Feature-Sliced Design).
+- **Oddziel warstwy**: komponenty prezentacyjne, logika w hookach lub domenie, dostęp do danych w jednym miejscu (API client, query keys).
+- **Design system** / biblioteka komponentów współdzielona między zespołami, z tokenami i Storybookiem.
+- **Monorepo** (pnpm workspaces, Turborepo, Nx) dla wielu aplikacji i paczek: wspólne typy i narzędzia, atomowe zmiany; koszt to złożoność CI i narzędzi.
+- **Kontrakty**: typy generowane z OpenAPI/GraphQL, walidacja na granicach (Zod).
+
+::: qa
+Q: Jak zorganizowałbyś strukturę katalogów dużej aplikacji React?
+A: Według funkcjonalności: `app/` (routing, providery), `features/<nazwa>/` z własnymi komponentami, hookami, API i publicznym `index.ts`, oraz `shared/` na UI kit i narzędzia. Zależności tylko w dół, pilnowane lintem. Za: łatwa nawigacja, własność zespołów, możliwość wydzielenia modułu. Przeciw: trzeba dyscypliny przy decyzji, co jest "shared". Długofalowo: skaluje się z liczbą zespołów.
+Q: Kiedy warto przejść na monorepo?
+A: Gdy kilka aplikacji lub paczek współdzieli kod (design system, typy API, konfiguracje) i zmiany często dotyczą kilku naraz. Zyski: atomowe zmiany i jedna wersja zależności. Koszty: narzędzia (Turborepo/Nx), czas CI, uprawnienia i granice własności.
+
+::: sources
+- Feature-Sliced Design | https://feature-sliced.design/
+- Turborepo: Monorepo handbook | https://turborepo.dev/docs/crafting-your-repository
+- React: Thinking in React | https://react.dev/learn/thinking-in-react
+
+@topic sr-microfrontends
+title: Micro frontends
+level: senior
+tags: micro frontends, Module Federation, skalowanie zespołów
+summary: Podział frontu na niezależnie budowane i wdrażane części, własność różnych zespołów. Rozwiązuje problem organizacyjny, a nie techniczny, i ma wysoki koszt.
+
+::: body
+Sposoby integracji:
+
+- **Build time**: paczki npm (proste, ale brak niezależnego deployu).
+- **Runtime**: **Module Federation** (webpack, Rspack, Vite plugin), import maps, Web Components, iframe.
+- **Server/edge**: składanie fragmentów HTML (SSI, ESI), osobne aplikacje pod różnymi ścieżkami (najprostsze: "multi-zone" w Next.js).
+
+Plusy: niezależne wdrożenia i zespoły, izolacja awarii, stopniowa migracja starego kodu.
+
+Minusy: duplikacja zależności i większy bundle, niespójny UX, złożoność komunikacji między częściami, trudniejsze testy E2E, wersjonowanie współdzielonych bibliotek, wyższy próg wejścia.
+
+Kiedy ma sens: wiele zespołów (np. 5+) pracuje nad jednym produktem, potrzebują niezależnych cykli wydań, albo trwa migracja z legacy. Dla jednego zespołu to zwykle przerost formy; modularny monolit daje większość korzyści taniej.
+
+::: qa
+Q: Kiedy wybrałbyś micro frontends?
+A: Gdy problemem jest skala organizacji: wiele zespołów blokuje się nawzajem przy wydaniach jednej aplikacji, części produktu mają różne cykle życia, lub trzeba stopniowo migrować legacy. Dla małego zespołu wybrałbym modularny monolit z jasnymi granicami. Konsekwencje długofalowe: niezależność zespołów kosztem wydajności, spójności UX i złożoności infrastruktury.
+
+::: sources
+- Martin Fowler: Micro Frontends | https://martinfowler.com/articles/micro-frontends.html
+- Module Federation | https://module-federation.io/
+
+@topic sr-observability
+title: Monitoring i observability na froncie
+level: senior
+tags: observability, monitoring, Sentry, RUM, logi, alerty
+summary: Musisz wiedzieć, co dzieje się u użytkowników: błędy JS, wydajność (RUM), zachowanie w kluczowych ścieżkach. Bez tego dowiadujesz się o problemach z reklamacji.
+
+::: body
+- **Error tracking**: Sentry, Datadog, Bugsnag. Zbieranie wyjątków z source maps (wgrywanych do narzędzia, niekoniecznie publicznych), release tracking, powiązanie z deployem.
+- **RUM**: Core Web Vitals od prawdziwych użytkowników (`web-vitals`, narzędzia APM) z podziałem na strony, urządzenia i wersje.
+- **Logi i tracing**: correlation/trace ID przekazywany z frontu do backendu (OpenTelemetry), żeby prześledzić żądanie przez system.
+- **Metryki biznesowe**: konwersja lejka, porzucenia, błędy płatności.
+- **Alerty** na skoki błędów i regresje wydajności po wdrożeniu; **feature flags** do szybkiego wycofania.
+- W React: **Error Boundaries** przechwytują błędy renderu i pokazują fallback zamiast białego ekranu.
+
+Monitoring odpowiada na "czy coś jest nie tak?", observability na "dlaczego?", dzięki bogatemu kontekstowi (release, użytkownik, urządzenie, ślad akcji).
+
+::: qa
+Q: Jak monitorujesz aplikację front-end na produkcji?
+A: Error tracking z source maps i powiązaniem z wydaniami (np. Sentry), RUM dla Core Web Vitals, trace ID przekazywane do backendu, metryki biznesowe kluczowych ścieżek i alerty po wdrożeniach. Error Boundaries w React zapobiegają białemu ekranowi, a feature flags pozwalają szybko wyłączyć problematyczną funkcję.
+Q: Czym różni się monitoring od observability?
+A: Monitoring śledzi znane metryki i alarmuje, gdy przekroczą progi. Observability to zdolność zrozumienia nieznanych problemów na podstawie danych (logi, metryki, trace'y z kontekstem), bez dopisywania nowego kodu.
+
+::: sources
+- Sentry: JavaScript docs | https://docs.sentry.io/platforms/javascript/
+- OpenTelemetry: Browser | https://opentelemetry.io/docs/languages/js/getting-started/browser/
+- React: Error boundaries | https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
+
+@topic sr-code-review
+title: Code review i mentoring
+level: senior
+tags: code review, mentoring, PR, komunikacja
+summary: Code review służy jakości, dzieleniu się wiedzą i spójności, a nie wytykaniu błędów. Senior automatyzuje drobiazgi i skupia się na architekturze, ryzyku i czytelności.
+
+::: body
+Na co patrzeć (od najważniejszego):
+
+1. Czy zmiana rozwiązuje właściwy problem i spełnia wymagania?
+2. Architektura i granice modułów, wpływ na resztę systemu.
+3. Poprawność, przypadki brzegowe, obsługa błędów, bezpieczeństwo.
+4. Wydajność i dostępność.
+5. Testy: czy sprawdzają zachowanie.
+6. Czytelność i nazewnictwo.
+
+Formatowanie i styl zostaw automatom (Prettier, ESLint, CI).
+
+Dobre praktyki:
+
+- Małe PR-y, dobry opis (co, dlaczego, jak testować, screenshoty).
+- Komentarze jako pytania i sugestie, z uzasadnieniem. Oznaczaj wagę: "nit:", "blocking:".
+- Chwal dobre rozwiązania. Oceniaj kod, nie osobę.
+- Szybki czas reakcji: review blokuje innych.
+
+Mentoring: pair programming, wyjaśnianie "dlaczego", stopniowe oddawanie odpowiedzialności, dokumentowanie decyzji.
+
+::: qa
+Q: Na co zwracasz uwagę w code review?
+A: Najpierw czy zmiana rozwiązuje właściwy problem i jak wpływa na architekturę, potem poprawność, przypadki brzegowe, bezpieczeństwo, wydajność, dostępność i testy. Styl zostawiam narzędziom. Komentarze formułuję jako sugestie z uzasadnieniem i oznaczam, co blokuje merge.
+Q: Jak podejść do PR-a juniora z wieloma problemami?
+A: Priorytetyzuję: blokujące kwestie w komentarzach, reszta jako sugestie lub rozmowa na żywo (pair review). Wyjaśniam dlaczego, podaję materiały, doceniam to, co dobre. Celem jest rozwój osoby, a nie tylko poprawienie tego jednego PR-a.
+
+::: sources
+- Google: Engineering Practices, Code Review | https://google.github.io/eng-practices/review/
+- Conventional Comments | https://conventionalcomments.org/
+
+@topic sr-adr
+title: Decyzje architektoniczne i ADR
+level: senior
+tags: ADR, trade-offs, decyzje, dokumentacja
+summary: Senior podejmuje decyzje świadomie: porównuje opcje, nazywa kompromisy i zapisuje uzasadnienie w krótkim dokumencie ADR, żeby zespół za rok wiedział, dlaczego tak jest.
+
+::: body
+**ADR (Architecture Decision Record)**: krótki dokument w repo (np. `docs/adr/0007-state-management.md`):
+
+- **Kontekst**: jaki problem i jakie ograniczenia.
+- **Rozważane opcje** z plusami i minusami.
+- **Decyzja**.
+- **Konsekwencje**: co zyskujemy, co tracimy, co trzeba będzie zrobić, jaki wpływ długofalowy.
+- Status (proponowana, przyjęta, zastąpiona przez ADR-00X).
+
+Jak rozmawiać o trade-offach na rozmowie: nie ma "najlepszej" technologii, jest najlepsza **w danym kontekście** (zespół, skala, czas, budżet, ryzyko). Pokaż, że znasz koszty własnej rekomendacji i wiesz, kiedy przestałaby być dobra. Rozróżniaj decyzje odwracalne (podejmuj szybko) od trudnych do odwrócenia (analizuj dokładniej).
+
+::: code md
+# ADR-0007: Server state managed by TanStack Query
+
+## Status
+Accepted (2026-03-02)
+
+## Context
+Offers, availability and bookings are fetched in 14 places with ad-hoc useEffect code.
+We see duplicated requests, race conditions and no cache between pages.
+
+## Options
+1. Keep useEffect + Zustand - no new dependency, but we keep writing cache logic.
+2. RTK Query - good if we adopted Redux; we have not.
+3. TanStack Query - mature cache, devtools, SSR support; one more library to learn.
+
+## Decision
+Option 3.
+
+## Consequences
++ Cache, dedup, retries and invalidation out of the box.
+- Team onboarding; query key conventions must be documented.
+Long term: global store shrinks to UI state only.
+
+::: qa
+Q: Jak podejmujesz decyzje architektoniczne?
+A: Definiuję problem i ograniczenia, zbieram 2-3 realne opcje, porównuję je (koszt wdrożenia i utrzymania, ryzyko, wpływ na zespół, odwracalność), robię szybki prototyp, jeśli jest niepewność, a decyzję i konsekwencje zapisuję w ADR. Decyzje odwracalne podejmuję szybciej, nieodwracalne konsultuję szerzej.
+Q: Opowiedz o decyzji technicznej, której żałujesz.
+A: Dobra odpowiedź (metoda STAR): kontekst, decyzja i jej powody, co poszło nie tak, jak to naprawiłeś i czego się nauczyłeś (np. że abstrakcja była przedwczesna, więc teraz stosujesz AHA i ADR). Pokazuje dojrzałość i refleksję, a nie nieomylność.
+
+::: sources
+- Michael Nygard: Documenting Architecture Decisions | https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions
+- ADR GitHub organization | https://adr.github.io/
+
+@topic sr-ai-dev
+title: AI w pracy front-end developera
+level: senior
+tags: AI, Copilot, Cursor, Claude, MCP, agenty, LLM, prompt engineering
+summary: Asystenci AI przyspieszają pisanie kodu, testów i dokumentacji, ale odpowiedzialność za poprawność, bezpieczeństwo i architekturę zostaje po stronie developera.
+
+::: body
+**Narzędzia**: GitHub Copilot, Cursor, Windsurf, Claude Code, ChatGPT. Tryby: podpowiedzi w edytorze, czat z kontekstem repo, **agenty** wykonujące wieloetapowe zadania (zmiany w wielu plikach, uruchamianie testów).
+
+**MCP (Model Context Protocol)**: otwarty standard łączenia modeli AI z narzędziami i danymi (repozytorium, Figma, Jira, bazy, przeglądarka). Zamiast osobnej integracji dla każdego narzędzia AI jest jeden protokół: serwer MCP udostępnia narzędzia, a klient (IDE, asystent) z nich korzysta.
+
+**Dobre praktyki**:
+
+- Dawaj kontekst: cel, ograniczenia, konwencje projektu (pliki instrukcji typu `CLAUDE.md`, `.cursor/rules`, `copilot-instructions.md`).
+- Małe kroki i weryfikacja: czytaj i rozumiej kod przed commitem, uruchamiaj testy.
+- Test-first: niech AI pisze implementację pod testy, które rozumiesz.
+- Nie wklejaj sekretów ani danych osobowych; sprawdź politykę firmy.
+- Uważaj na zmyślone API i przestarzałe wzorce; weryfikuj w dokumentacji.
+
+**AI w produkcie** (Next.js + LLM): streaming odpowiedzi (Vercel AI SDK), RAG (wyszukiwanie w bazie wiedzy + generowanie), walidacja wyjść modelu (np. Zod), ochrona przed prompt injection, koszty i limity, obsługa błędów i fallbacki.
+
+::: qa
+Q: Jak używasz AI w codziennej pracy i jak dbasz o jakość?
+A: Do boilerplate'u, testów, refaktoryzacji, eksploracji nieznanego kodu i dokumentacji. Daję kontekst (konwencje projektu, pliki instrukcji), pracuję małymi krokami, czytam każdą zmianę i uruchamiam testy oraz lint. Nie przekazuję sekretów. Traktuję wynik jak PR od juniora: przydatny, ale wymaga review.
+Q: Czym jest MCP?
+A: Model Context Protocol: otwarty protokół, który standaryzuje sposób, w jaki aplikacje AI łączą się z zewnętrznymi narzędziami i źródłami danych. Serwer MCP wystawia narzędzia i zasoby (np. dostęp do Jiry, bazy, przeglądarki), a klient AI może z nich korzystać bez osobnej integracji dla każdego narzędzia.
+Q: Jakie są ryzyka integracji LLM w aplikacji webowej?
+A: Halucynacje (błędne odpowiedzi), prompt injection (dane użytkownika lub dokumenty zmieniające instrukcje modelu), wyciek danych, nieprzewidywalne koszty i opóźnienia, zależność od dostawcy. Mitygacje: walidacja wyjścia, ograniczone uprawnienia narzędzi, RAG z cytowaniem źródeł, limity, monitoring i ludzka weryfikacja przy krytycznych akcjach.
+
+::: sources
+- Model Context Protocol: Introduction | https://modelcontextprotocol.io/docs/getting-started/intro
+- Anthropic: Prompt engineering overview | https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview
+- Vercel AI SDK | https://ai-sdk.dev/docs/introduction
+- OWASP: Top 10 for LLM Applications | https://genai.owasp.org/llm-top-10/
+
+@quiz
+Q: Które testy na froncie zwykle dają najlepszy stosunek pewności do kosztu?
+- Snapshot testy każdego komponentu
++ Testy integracyjne komponentów/stron z Testing Library
+- Wyłącznie E2E
+- Testy stanu wewnętrznego komponentów
+E: Testing trophy stawia na integrację; E2E są drogie, a testy implementacji kruche.
+T: sr-testing
+
+Q: Micro frontends rozwiązują przede wszystkim problem:
++ Organizacyjny: niezależne zespoły i wdrożenia
+- Wydajności ładowania strony
+- Braku TypeScriptu
+- SEO
+E: Kosztem wydajności i złożoności dają niezależność zespołów.
+T: sr-microfrontends
+
+Q: Co powinien zawierać ADR?
+- Tylko decyzję
++ Kontekst, rozważane opcje, decyzję i konsekwencje
+- Harmonogram sprintu
+- Listę osób w zespole
+E: Najważniejsze jest uzasadnienie i konsekwencje, żeby zespół rozumiał decyzję w przyszłości.
+T: sr-adr
+
+Q: Czym jest MCP?
+- Biblioteką React do czatów
++ Otwartym protokołem łączenia modeli AI z narzędziami i danymi
+- Modelem językowym
+- Formatem plików konfiguracyjnych
+E: Model Context Protocol standaryzuje integracje AI z zewnętrznymi systemami.
+T: sr-ai-dev

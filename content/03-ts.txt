@@ -1,0 +1,571 @@
+@category ts
+name: TypeScript
+short: TS
+hue: rendering
+desc: Jak działa TS, generyki vs type guards, narrowing, utility types, satisfies oraz kiedy abstrakcja ma sens (DRY vs WET/AHA).
+
+@topic ts-how-it-works
+title: Jak działa TypeScript: kompilacja i type erasure
+level: mid
+tags: kompilacja, tsc, type erasure, build
+summary: TypeScript to JavaScript z typami sprawdzanymi w czasie developmentu. Po kompilacji typy znikają, a w przeglądarce lub na produkcji działa czysty JS.
+
+::: body
+1. Piszesz kod `.ts` / `.tsx`.
+2. **Type checker** (`tsc`, także w IDE) analizuje typy i zgłasza błędy. Nic nie uruchamia.
+3. **Transpilacja** usuwa adnotacje typów i ewentualnie obniża składnię (np. do ES2019). W nowoczesnych projektach robią to szybkie narzędzia: esbuild (Vite), SWC (Next.js), Babel. One **nie sprawdzają typów**, tylko je wycinają, dlatego w CI osobno uruchamia się `tsc --noEmit`.
+4. Na produkcji działa **zwykły JavaScript**. Typy nie istnieją w runtime (**type erasure**).
+
+Konsekwencje:
+
+- TS nie waliduje danych z API w runtime. Jeśli backend zwróci co innego niż typ, TS tego nie zauważy. Do walidacji granic systemu służą biblioteki jak **Zod** czy **Valibot**.
+- Nie da się zrobić `if (x instanceof MyInterface)`: interfejsy nie istnieją w JS.
+- Konstrukcje z efektem w runtime (`enum`, `namespace`, parameter properties) generują kod. Dlatego nowoczesne zalecenia (i tryb `erasableSyntaxOnly`) preferują unie literałów zamiast `enum`.
+- Node.js (od 22.18 / 23.6) uruchamia pliki `.ts` bezpośrednio, usuwając typy ("type stripping"), ale ich nie sprawdza.
+- **TypeScript 7** (lipiec 2026) to kompilator przepisany na Go (projekt "Corsa"): pełne buildy i sprawdzanie typów są ok. 8-12 razy szybsze. Zasady języka się nie zmieniły.
+
+::: flow
+Kod .ts > Type checking (tsc, IDE) > Usunięcie typów (esbuild / SWC / tsc) > Czysty .js > Przeglądarka / Node.js
+
+::: code ts
+// Source (.ts)
+interface Offer { id: number; price: number }
+const format = (o: Offer): string => `${o.price} zł`;
+
+// Output (.js) - types are gone
+// const format = (o) => `${o.price} zł`;
+
+::: pitfalls
+- Traktowanie typów jako walidacji danych z zewnątrz (`as User` na odpowiedzi API).
+- Brak `tsc --noEmit` w CI, gdy build używa esbuild/SWC: błędy typów przechodzą na produkcję.
+
+::: qa
+Q: Czy TypeScript działa w przeglądarce?
+A: Nie. Przeglądarka wykonuje JavaScript. TS jest kompilowany do JS, a typy są usuwane (type erasure). Służą tylko w czasie developmentu i budowania.
+Q: Czy TypeScript chroni przed błędnymi danymi z API?
+A: Nie w runtime. Typ to obietnica, której TS nie sprawdza po kompilacji. Na granicach systemu (API, formularze, localStorage) waliduje się dane biblioteką typu Zod, z której można też wyprowadzić typ (`z.infer`).
+Q: Dlaczego Vite nie zgłasza błędów typów przy buildzie?
+A: Vite używa esbuild do samego usuwania typów, bez type checkingu (dla szybkości). Sprawdzanie typów uruchamia się osobno: `tsc --noEmit`, w IDE, w CI lub pluginem.
+
+::: sources
+- TypeScript Handbook: The Basics (erased types) | https://www.typescriptlang.org/docs/handbook/2/basic-types.html
+- TypeScript for JavaScript Programmers | https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes.html
+- Node.js: Running TypeScript natively | https://nodejs.org/api/typescript.html
+- TypeScript blog: Announcing TypeScript 7.0 | https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/
+
+@topic ts-type-vs-interface
+title: type vs interface
+level: mid
+tags: type, interface, alias
+summary: Oba opisują kształt obiektu. interface można rozszerzać i łączyć (declaration merging), type obsługuje unie, krotki i typy warunkowe.
+
+::: body
+| | `interface` | `type` |
+|---|---|---|
+| Kształt obiektu | tak | tak |
+| Unie, krotki, prymitywy | nie | tak (`type Id = string \| number`) |
+| Rozszerzanie | `extends` | `&` (intersection) |
+| Declaration merging | tak (dwie deklaracje się łączą) | nie (błąd duplikatu) |
+| Mapped / conditional types | nie | tak |
+
+Praktyczna zasada: bądź spójny w projekcie. Częste podejście: `interface` dla publicznych kształtów obiektów (np. props, obiekty z API), `type` dla unii i typów złożonych. Declaration merging przydaje się przy rozszerzaniu typów bibliotek (np. `Window`).
+
+::: code ts
+interface User { id: string; name: string }
+interface Admin extends User { permissions: string[] }
+
+type Status = 'idle' | 'loading' | 'error' | 'success';
+type WithTimestamps<T> = T & { createdAt: Date };
+
+// Declaration merging - extending a global
+declare global {
+  interface Window { dataLayer: unknown[] }
+}
+
+::: qa
+Q: Kiedy type, a kiedy interface?
+A: `type` gdy potrzebujesz unii, krotek, typów warunkowych lub mapped types. `interface` dla kształtów obiektów, zwłaszcza gdy mają być rozszerzane lub łączone. W codziennym kodzie różnica jest niewielka; ważniejsza jest spójność.
+Q: Czym jest declaration merging?
+A: Dwie deklaracje `interface` o tej samej nazwie łączą się w jedną. Używane do rozszerzania typów globalnych lub bibliotek (module augmentation).
+
+::: sources
+- TypeScript Handbook: Everyday Types (type aliases vs interfaces) | https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- TypeScript Handbook: Declaration Merging | https://www.typescriptlang.org/docs/handbook/declaration-merging.html
+
+@topic ts-any-unknown-never
+title: any, unknown, never
+level: mid
+tags: any, unknown, never, bezpieczeństwo typów
+summary: any wyłącza sprawdzanie typów. unknown to bezpieczny odpowiednik: zanim użyjesz wartości, musisz ją zawęzić. never oznacza wartość, która nie może wystąpić.
+
+::: body
+- **`any`**: "wszystko wolno". Wyłącza TS dla tej wartości i "zaraża" inne typy. Unikaj (reguła lint `no-explicit-any`).
+- **`unknown`**: "nie wiem, co to jest". Możesz przypisać do niego wszystko, ale żeby coś z nim zrobić, musisz go **zawęzić** (type guard). Idealny dla danych z zewnątrz, `catch (e)` i `JSON.parse`.
+- **`never`**: typ bez wartości. Zwracany przez funkcję, która zawsze rzuca błąd; pojawia się w wyczerpanych uniach. Służy do **exhaustiveness checking**.
+- **`void`**: funkcja nic istotnego nie zwraca.
+
+::: code ts
+function parse(json: string): unknown {
+  return JSON.parse(json);
+}
+const data = parse('{"price": 10}');
+// data.price;           // error: 'data' is of type 'unknown'
+if (typeof data === 'object' && data !== null && 'price' in data) {
+  console.log(data.price); // narrowed, OK
+}
+
+try { risky(); } catch (e) {        // e is unknown (useUnknownInCatchVariables)
+  if (e instanceof Error) console.error(e.message);
+}
+
+::: qa
+Q: Różnica między any a unknown?
+A: Oba przyjmują dowolną wartość. `any` pozwala na wszystko bez sprawdzania (utrata bezpieczeństwa). `unknown` wymaga zawężenia przed użyciem, więc wymusza sprawdzenie typu. Do danych z zewnątrz używaj `unknown`.
+Q: Do czego służy never?
+A: Opisuje stan niemożliwy: funkcja, która nigdy nie wraca, lub gałąź po obsłużeniu wszystkich wariantów unii. Przypisanie wartości do `never` w `default` w `switch` daje błąd kompilacji, gdy ktoś doda nowy wariant i go nie obsłuży.
+
+::: sources
+- TypeScript Handbook: Everyday Types (any) | https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- TypeScript Handbook: Narrowing (never type) | https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+
+@topic ts-generics
+title: Generyki (generics)
+level: mid
+tags: generics, T, constraints, reużywalność
+summary: Generyk to "parametr dla typu". Pozwala napisać funkcję lub komponent raz i zachować pełną informację o typie dla różnych danych.
+
+::: body
+Generyk działa jak argument funkcji, ale na poziomie typów: `T` zostaje "podstawione" konkretnym typem przy użyciu. Zwykle TS **sam wnioskuje** `T` z argumentów.
+
+- **Constraints**: `T extends { id: string }` ogranicza, jakie typy są dozwolone.
+- **Domyślny typ**: `<T = string>`.
+- **`keyof` + generyk**: `K extends keyof T` pozwala bezpiecznie operować na kluczach obiektu.
+- Typowe miejsca: funkcje pomocnicze, hooki (`useState<T>`), komponenty listy/tabeli, klient API (`fetchJson<T>`), utility types.
+
+Reguła: generyk ma sens, gdy **łączy** typy (np. wejście z wyjściem). Jeśli `T` występuje tylko raz, zwykle nie jest potrzebny.
+
+::: analogy
+Generyk to pudełko z etykietą "tu włóż cokolwiek". Gdy włożysz książkę, pudełko wie, że wyjmiesz książkę, a nie "coś".
+
+::: code ts
+function first<T>(items: T[]): T | undefined {
+  return items[0];
+}
+const n = first([1, 2, 3]);    // number | undefined
+const s = first(['a', 'b']);   // string | undefined
+
+// Constraint + keyof
+function pluck<T, K extends keyof T>(items: T[], key: K): T[K][] {
+  return items.map((item) => item[key]);
+}
+pluck([{ id: 1, city: 'Rzym' }], 'city'); // string[]
+// pluck([...], 'country');              // error: not a key
+
+// Generic API helper (note: the type is a promise, not runtime validation)
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  return res.json() as Promise<T>;
+}
+
+::: pitfalls
+- "Generyk dla generyku": `function log<T>(x: T): void` - `T` użyte raz nic nie daje, wystarczy `unknown`.
+- Zbyt skomplikowane typy generyczne, których nikt w zespole nie rozumie. Czytelność też jest wymaganiem.
+
+::: qa
+Q: Czym są generyki i po co je stosować?
+A: Parametry typów, które pozwalają pisać reużywalny kod bez utraty informacji o typie. Zamiast `any` funkcja `first<T>(arr: T[]): T` zachowuje powiązanie: tablica stringów daje string.
+Q: Co robi `extends` w generyku?
+A: Nakłada ograniczenie (constraint): `T extends { id: string }` oznacza, że `T` musi mieć co najmniej pole `id` typu string. Dzięki temu w środku funkcji możesz bezpiecznie użyć `item.id`.
+Q: Jak otypować generyczny komponent listy w React?
+A: `function List<T>({ items, renderItem }: { items: T[]; renderItem: (item: T) => ReactNode })`. TS wywnioskuje `T` z `items`, a `renderItem` dostanie poprawny typ elementu.
+
+::: sources
+- TypeScript Handbook: Generics | https://www.typescriptlang.org/docs/handbook/2/generics.html
+- Total TypeScript (Matt Pocock) | https://www.totaltypescript.com/
+- Matt Pocock: YouTube | https://www.youtube.com/@mattpocockuk
+
+@topic ts-type-guards
+title: Type guards i narrowing
+level: mid
+tags: type guard, narrowing, typeof, instanceof, in, predicate
+summary: Type guard to sprawdzenie w runtime, dzięki któremu TS zawęża typ w danym bloku kodu. Zamienia "może być A lub B" na "tu na pewno jest A".
+
+::: body
+**Narrowing** to zawężanie szerokiego typu (np. `string | number`) do węższego na podstawie analizy przepływu kodu. Wbudowane type guards:
+
+- `typeof x === 'string'` dla prymitywów.
+- `x instanceof Date` dla klas.
+- `'swim' in animal` dla sprawdzenia właściwości.
+- Porównanie z literałem / `===`, sprawdzenie truthiness, `Array.isArray`.
+- **Discriminated unions**: sprawdzenie wspólnego pola `kind`/`type`.
+
+**Własny type guard (type predicate)**: funkcja zwracająca `x is Type`. **Assertion function**: `asserts x is Type` rzuca błąd, jeśli warunek nie jest spełniony. Od TS 5.5 proste predykaty są wnioskowane automatycznie, np. w `.filter(x => x !== null)`.
+
+Pamiętaj: type guard to **zwykły kod JS wykonywany w runtime**. TS ufa, że Twoja funkcja `isUser` sprawdza to, co deklaruje. Błędny predykat okłamie kompilator.
+
+::: code ts
+type Offer = { kind: 'hotel'; stars: number } | { kind: 'flight'; airline: string };
+
+function describe(o: Offer) {
+  if (o.kind === 'hotel') return `${o.stars}*`; // o: hotel variant
+  return o.airline;                             // o: flight variant
+}
+
+// Custom type predicate
+interface User { id: string; email: string }
+function isUser(value: unknown): value is User {
+  return (
+    typeof value === 'object' && value !== null &&
+    'id' in value && typeof value.id === 'string' &&
+    'email' in value && typeof value.email === 'string'
+  );
+}
+
+// Assertion function
+function assertDefined<T>(v: T, msg: string): asserts v is NonNullable<T> {
+  if (v == null) throw new Error(msg);
+}
+
+const ids = [1, null, 3].filter((x) => x !== null); // number[] (TS 5.5+)
+
+::: qa
+Q: Czym jest type guard?
+A: Wyrażenie lub funkcja sprawdzająca typ w runtime, po której TS zawęża typ w danym bloku. Wbudowane: `typeof`, `instanceof`, `in`, porównania z literałami. Własne: funkcje z typem zwracanym `x is T`.
+Q: Czym jest type predicate i jakie ma ryzyko?
+A: Typ zwracany `value is User` informuje TS, że gdy funkcja zwraca `true`, argument jest typu `User`. Ryzyko: TS nie weryfikuje implementacji. Jeśli sprawdzenie jest niepełne, kompilator przyjmie fałszywe założenie.
+Q: Czym różni się `is` od `asserts`?
+A: `x is T` zwraca boolean i zawęża typ w gałęzi `if`. `asserts x is T` nic nie zwraca, tylko rzuca błąd, gdy warunek nie jest spełniony; po jej wywołaniu typ jest zawężony w dalszym kodzie.
+
+::: sources
+- TypeScript Handbook: Narrowing | https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+- TypeScript Handbook: Creating Types from Types | https://www.typescriptlang.org/docs/handbook/2/types-from-types.html
+- TypeScript 5.5: Inferred Type Predicates | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-5.html
+
+@topic ts-discriminated-unions
+title: Discriminated unions i exhaustiveness check
+level: mid
+tags: union, discriminated union, never, stan
+summary: Unia obiektów ze wspólnym polem-etykietą (np. status) pozwala modelować stany bez niemożliwych kombinacji, a never pilnuje obsługi wszystkich wariantów.
+
+::: body
+Zamiast wielu opcjonalnych pól (`isLoading?`, `error?`, `data?`), które pozwalają na absurdalne kombinacje (np. `isLoading: true` i `error` naraz), modelujesz każdy stan osobno. Zasada: **make impossible states impossible**.
+
+Exhaustiveness check: w `default` przypisujesz wartość do `never`. Gdy ktoś doda nowy wariant, kompilator pokaże błąd we wszystkich miejscach, które go nie obsługują.
+
+::: code ts
+type RequestState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'error'; error: string }
+  | { status: 'success'; data: T };
+
+function render(state: RequestState<string[]>) {
+  switch (state.status) {
+    case 'idle': return 'Wpisz frazę';
+    case 'loading': return 'Ładowanie...';
+    case 'error': return state.error;             // error is available here
+    case 'success': return state.data.join(', '); // data is available here
+    default: {
+      const _exhaustive: never = state; // compile error if a case is missing
+      return _exhaustive;
+    }
+  }
+}
+
+::: qa
+Q: Czym jest discriminated union?
+A: Unia typów obiektowych, które mają wspólne pole z literałem (dyskryminator, np. `status` lub `kind`). Sprawdzenie tego pola zawęża typ do konkretnego wariantu.
+Q: Jak wymusić obsługę wszystkich wariantów unii?
+A: Exhaustiveness check: w gałęzi `default` przypisać wartość do zmiennej typu `never`. Jeśli jakiś wariant nie jest obsłużony, TS zgłosi błąd kompilacji.
+
+::: sources
+- TypeScript Handbook: Discriminated unions | https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions
+- TypeScript Handbook: Exhaustiveness checking | https://www.typescriptlang.org/docs/handbook/2/narrowing.html#exhaustiveness-checking
+
+@topic ts-guards-vs-generics
+title: Type guards vs generyki: czym się różnią
+level: mid
+tags: type guard, generics, porównanie
+summary: Generyki działają w czasie kompilacji i zachowują typ, który już znasz. Type guards działają w runtime i odkrywają typ, którego jeszcze nie znasz.
+
+::: body
+To dwa różne narzędzia, często mylone, bo oba "robią coś z typami".
+
+| | Generyki | Type guards |
+|---|---|---|
+| Kiedy działają | tylko compile time | runtime (zwykły JS) + informacja dla TS |
+| Problem | "chcę reużywalny kod dla wielu typów bez utraty informacji" | "mam szeroki typ (unia, unknown) i muszę sprawdzić, co to jest" |
+| Kierunek | przenoszą typ z wejścia na wyjście | zawężają szeroki typ do węższego |
+| Po kompilacji | znikają całkowicie | zostają jako warunki `if` |
+| Przykład | `useState<T>`, `first<T>(arr)` | `typeof`, `isUser(x)`, `status === 'error'` |
+
+Często działają razem: generyczny guard `isDefined<T>(x: T | null): x is T` albo generyczny parser z walidacją, który zwraca `T` po sprawdzeniu danych.
+
+::: analogy
+Generyk to formularz z polem "wpisz typ": zachowuje to, co już wiesz. Type guard to bramka na lotnisku: sprawdza, kim naprawdę jesteś, zanim wpuści Cię dalej.
+
+::: code ts
+// Generic: keeps a known type
+function wrap<T>(value: T): { value: T } { return { value }; }
+
+// Type guard: discovers an unknown type at runtime
+function isString(x: unknown): x is string { return typeof x === 'string'; }
+
+// Together: generic guard used in filter
+function isDefined<T>(x: T | null | undefined): x is T { return x != null; }
+const prices = [100, null, 250].filter(isDefined); // number[]
+
+::: qa
+Q: Czym różni się type guard od generyka?
+A: Generyk to parametr typu, który działa tylko w czasie kompilacji i przenosi informację o typie (np. z argumentu na wynik). Type guard to kod wykonywany w runtime, który sprawdza wartość i pozwala TS zawęzić typ. Generyk odpowiada na pytanie "jak zachować typ?", guard na "jaki to jest typ?".
+Q: Czy można połączyć oba mechanizmy?
+A: Tak. Np. `isDefined<T>(x: T | null): x is T` to generyczny type guard, który w `filter` usuwa `null` i zachowuje typ elementów.
+
+::: sources
+- TypeScript Handbook: Generics | https://www.typescriptlang.org/docs/handbook/2/generics.html
+- TypeScript Handbook: Narrowing | https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+
+@topic ts-utility-types
+title: Utility types, mapped i conditional types
+level: mid
+tags: Partial, Pick, Omit, Record, ReturnType, mapped types
+summary: Wbudowane typy pomocnicze przekształcają istniejące typy, żeby nie powtarzać definicji. Pod spodem to mapped i conditional types.
+
+::: body
+Najczęściej używane:
+
+- `Partial<T>` / `Required<T>`: wszystkie pola opcjonalne / wymagane.
+- `Readonly<T>`: pola tylko do odczytu.
+- `Pick<T, 'a' | 'b'>` / `Omit<T, 'a'>`: wybór / pominięcie pól.
+- `Record<K, V>`: obiekt o kluczach `K` i wartościach `V`.
+- `ReturnType<typeof fn>`, `Parameters<typeof fn>`, `Awaited<T>`.
+- `NonNullable<T>`, `Exclude<U, X>`, `Extract<U, X>`.
+- React: `ComponentProps<typeof Button>`, `ComponentProps<'button'>`.
+
+**Mapped type**: iteracja po kluczach `{ [K in keyof T]: ... }`. **Conditional type**: `T extends U ? X : Y`, z `infer` do "wyciągania" typów.
+
+::: code ts
+interface Offer { id: string; title: string; price: number; createdAt: Date }
+
+type OfferDraft = Omit<Offer, 'id' | 'createdAt'>;
+type OfferPatch = Partial<OfferDraft>;
+type PriceMap = Record<Offer['id'], number>;
+
+// Mapped type
+type Nullable<T> = { [K in keyof T]: T[K] | null };
+
+// Conditional type with infer
+type ElementOf<T> = T extends (infer U)[] ? U : never;
+type N = ElementOf<number[]>; // number
+
+// Types derived from runtime values
+const loadOffers = async () => [{ id: '1', price: 99 }];
+type Loaded = Awaited<ReturnType<typeof loadOffers>>;
+
+::: qa
+Q: Różnica między Pick i Omit?
+A: `Pick<T, K>` tworzy typ tylko z wybranych kluczy, `Omit<T, K>` z wszystkich poza wskazanymi. Wybierasz ten, przy którym lista kluczy jest krótsza i stabilniejsza.
+Q: Czym jest mapped type?
+A: Typ zbudowany przez iterację po kluczach innego typu: `{ [K in keyof T]: NewType }`. Na nim oparte są `Partial`, `Readonly`, `Record`.
+
+::: sources
+- TypeScript Handbook: Utility Types | https://www.typescriptlang.org/docs/handbook/utility-types.html
+- TypeScript Handbook: Mapped Types | https://www.typescriptlang.org/docs/handbook/2/mapped-types.html
+- TypeScript Handbook: Conditional Types | https://www.typescriptlang.org/docs/handbook/2/conditional-types.html
+
+@topic ts-satisfies-const
+title: satisfies, as const i asercje (as)
+level: senior
+tags: satisfies, as const, assertion, literal types
+summary: as wymusza typ (i może skłamać). satisfies sprawdza zgodność z typem, zachowując dokładny typ wartości. as const zamienia wartości w readonly literały.
+
+::: body
+- **`as Type` (asercja)**: "zaufaj mi". Wyłącza część sprawdzania. Używaj rzadko, np. przy DOM (`as HTMLInputElement`).
+- **`satisfies Type`** (TS 4.9+): sprawdza, czy wartość pasuje do typu, ale **nie poszerza** typu wynikowego. Najlepsze dla obiektów konfiguracyjnych.
+- **`as const`**: literały zamiast szerokich typów (`'PLN'` zamiast `string`), wszystko `readonly`. Pozwala wyprowadzić unię z tablicy.
+- **Non-null assertion `x!`**: mówi, że wartość nie jest `null`. Kolejne miejsce, gdzie łatwo okłamać kompilator.
+
+::: code ts
+type Currency = 'PLN' | 'EUR';
+
+const config = {
+  default: 'PLN',
+  symbols: { PLN: 'zł', EUR: '€' },
+} satisfies { default: Currency; symbols: Record<Currency, string> };
+config.symbols.PLN; // exact type preserved, typo would be a compile error
+
+const STATUSES = ['draft', 'published', 'archived'] as const;
+type Status = (typeof STATUSES)[number]; // 'draft' | 'published' | 'archived'
+
+const input = document.querySelector('#q') as HTMLInputElement; // assertion
+
+::: qa
+Q: Różnica między satisfies a as?
+A: `as` nadpisuje typ, a kompilator Ci wierzy (możesz przypisać błędne dane). `satisfies` weryfikuje, że wartość spełnia typ, i zostawia dokładniejszy typ wywnioskowany z wartości. `satisfies` jest bezpieczniejszy.
+Q: Do czego służy as const?
+A: Zamienia wartości na najwęższe typy literałowe i `readonly`. Typowe użycie: tablica stałych, z której wyprowadzasz unię typów, oraz obiekty konfiguracyjne.
+
+::: sources
+- TypeScript 4.9: The satisfies Operator | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html
+- TypeScript Handbook: Everyday Types (literal types, assertions) | https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+
+@topic ts-react
+title: TypeScript w React
+level: mid
+tags: React, props, events, ComponentProps
+summary: Typujesz props, zdarzenia, refy i hooki. Zwykle wystarcza inferencja; jawne typy dajesz na granicach komponentu.
+
+::: body
+- **Props**: `type Props = { title: string; onSelect?: (id: string) => void }`. `children: React.ReactNode`.
+- **Rozszerzanie natywnych elementów**: `ComponentProps<'button'>` lub `ComponentPropsWithoutRef<'button'>`.
+- **Zdarzenia**: `React.ChangeEvent<HTMLInputElement>`, `React.MouseEvent<HTMLButtonElement>`, `React.FormEvent`.
+- **useState**: inferencja z wartości początkowej; jawny typ, gdy startujesz od `null`: `useState<User | null>(null)`.
+- **useRef**: `useRef<HTMLInputElement>(null)`.
+- `React.FC` nie jest już zalecany jako domyślny; typowanie props w parametrze jest prostsze.
+
+::: code tsx
+import type { ComponentProps, ReactNode } from 'react';
+
+type ButtonProps = ComponentProps<'button'> & {
+  variant?: 'primary' | 'ghost';
+  icon?: ReactNode;
+};
+
+export function Button({ variant = 'primary', icon, children, ...rest }: ButtonProps) {
+  return (
+    <button className={`btn btn-${variant}`} {...rest}>
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function Search() {
+  const [query, setQuery] = useState('');
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value);
+  return <input value={query} onChange={onChange} />;
+}
+
+::: qa
+Q: Jak otypować komponent przyjmujący wszystkie atrybuty natywnego buttona?
+A: `type Props = ComponentProps<'button'> & { variant?: ... }` i przekazać `...rest` do `<button>`. Komponent przyjmie `onClick`, `disabled`, `aria-*` itp. z poprawnymi typami.
+Q: Jak otypować useState startujący od null?
+A: `useState<User | null>(null)`. Bez tego TS wywnioskuje typ `null` i nie pozwoli ustawić użytkownika.
+
+::: sources
+- React: Using TypeScript | https://react.dev/learn/typescript
+- React TypeScript Cheatsheet | https://react-typescript-cheatsheet.netlify.app/
+
+@topic ts-dry-aha
+title: DRY vs WET vs AHA: kiedy abstrakcja ma sens
+level: senior
+tags: DRY, WET, AHA, abstrakcja, refactoring, clean code
+summary: DRY każe nie powtarzać kodu, WET dopuszcza powtórzenia, AHA radzi unikać pochopnych abstrakcji. Duplikacja jest tańsza niż zła abstrakcja.
+
+::: body
+- **DRY (Don't Repeat Yourself)**: każda **wiedza** (reguła biznesowa) powinna mieć jedno źródło prawdy. Uwaga: chodzi o wiedzę, nie o podobnie wyglądający kod.
+- **WET (Write Everything Twice)**: pozwól sobie na powtórzenie; abstrahuj dopiero przy trzecim wystąpieniu ("rule of three").
+- **AHA (Avoid Hasty Abstractions, Kent C. Dodds)**: optymalizuj pod **zmianę**. Poczekaj, aż wzorzec się ustabilizuje i zrozumiesz, co naprawdę jest wspólne.
+
+Sandi Metz: "duplication is far cheaper than the wrong abstraction". Zła abstrakcja rośnie: każdy nowy przypadek dodaje parametr, flagę `if (isSpecialCase)`, i po roku komponent `<Card>` ma 25 propsów.
+
+Kiedy **abstrahować**:
+
+- Ta sama reguła biznesowa w wielu miejscach (np. wyliczanie ceny z VAT, walidacja PESEL). Rozjazd tych kopii to bug.
+- Kod zmienia się **razem, z tego samego powodu**.
+- Wzorzec wystąpił 3+ razy i jest stabilny.
+
+Kiedy **powtórzyć**:
+
+- Kod wygląda podobnie, ale należy do różnych domen i będzie ewoluował niezależnie (np. formularz rezerwacji i formularz kontaktowy).
+- Abstrakcja wymagałaby flag i warunków specyficznych dla wywołujących.
+- Jeszcze nie wiesz, jak będą wyglądać kolejne przypadki.
+
+Jak wyjść ze złej abstrakcji: wstaw ("inline") kod z powrotem w miejsca użycia, usuń nieużywane gałęzie, a potem zobacz, co jest naprawdę wspólne.
+
+W TypeScript to samo dotyczy typów: jeden super-generyczny typ z pięcioma parametrami bywa gorszy niż dwa proste, czytelne typy.
+
+::: code ts
+// Hasty abstraction: flags for every caller
+function formatPrice(v: number, opts: { withVat?: boolean; forPartner?: boolean; hideCents?: boolean; legacy?: boolean }) { /* ... */ }
+
+// Better: shared knowledge extracted, callers compose it
+const VAT_RATE = 0.23;
+export const gross = (net: number) => net * (1 + VAT_RATE); // single source of business truth
+export const pln = (v: number) =>
+  new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(v);
+
+::: pitfalls
+- Wydzielanie "wspólnego" komponentu po dwóch podobnych użyciach, zanim wiesz, czy będą się zmieniać razem.
+- Traktowanie DRY jako zasady o tekście kodu zamiast o wiedzy.
+- Utrzymywanie złej abstrakcji tylko dlatego, że "już jest i ktoś się napracował" (sunk cost).
+
+::: qa
+Q: Czym jest AHA programming?
+A: Podejście "Avoid Hasty Abstractions": nie twórz abstrakcji, dopóki nie zobaczysz powtarzalnego, stabilnego wzorca i nie zrozumiesz, co jest naprawdę wspólne. Optymalizujesz pod łatwość zmian, a nie pod minimalną liczbę linii.
+Q: Kiedy duplikacja kodu jest lepsza niż abstrakcja?
+A: Gdy podobny kod ma różne powody zmian (różne domeny, zespoły, cykle życia), gdy abstrakcja wymagałaby flag i warunków dla wywołujących, lub gdy przypadków jest za mało, żeby poznać wzorzec. Duplikację łatwo później scalić; złą abstrakcję trudno rozplątać.
+Q: Masz komponent z 20 propsami-flagami. Co robisz?
+A: Sygnał złej abstrakcji. Opcje: rozbić na mniejsze komponenty i kompozycję (children, sloty), wstawić kod z powrotem w miejsca użycia i ponownie zidentyfikować część wspólną, lub wydzielić hook z logiką, zostawiając osobne widoki. Za: prostszy kod i mniej regresji. Przeciw: chwilowo więcej linii. Długofalowo: łatwiejsze zmiany niezależnych przypadków.
+
+::: sources
+- Kent C. Dodds: AHA Programming | https://kentcdodds.com/blog/aha-programming
+- Sandi Metz: The Wrong Abstraction | https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction
+- Effective TypeScript (Dan Vanderkam) | https://effectivetypescript.com/
+
+@quiz
+Q: Co dzieje się z typami TypeScript po kompilacji?
+- Są sprawdzane w runtime przez przeglądarkę
++ Są usuwane, zostaje czysty JavaScript
+- Zamieniają się w komentarze JSDoc
+- Trafiają do osobnego pliku, który ładuje przeglądarka
+E: Type erasure: typy służą tylko w czasie developmentu i budowania.
+T: ts-how-it-works
+
+Q: Który typ wymaga zawężenia przed użyciem wartości?
+- any
++ unknown
+- never
+- object
+E: `unknown` przyjmuje wszystko, ale nie pozwala nic zrobić bez type guarda.
+T: ts-any-unknown-never
+
+Q: Co zwraca funkcja będąca własnym type guardem?
+- `asserts x is T`
++ `x is T` (boolean w runtime)
+- `T`
+- `never`
+E: Type predicate `x is T` to boolean, po którym TS zawęża typ w gałęzi `if`.
+T: ts-type-guards
+
+Q: Najważniejsza różnica między generykami a type guards:
++ Generyki działają tylko w compile time, type guards wykonują się w runtime
+- Generyki są szybsze w runtime
+- Type guards działają tylko z klasami
+- Nie ma różnicy, to synonimy
+E: Generyki przenoszą informację o typie, guardy sprawdzają wartość w trakcie działania programu.
+T: ts-guards-vs-generics
+
+Q: Który zapis sprawdza zgodność obiektu z typem, ale zachowuje jego dokładny typ?
+- as
++ satisfies
+- as const
+- !
+E: `satisfies` weryfikuje zgodność bez poszerzania typu.
+T: ts-satisfies-const
+
+Q: Zasada AHA mówi, żeby:
+- Zawsze wydzielać kod po drugim powtórzeniu
++ Unikać pochopnych abstrakcji i optymalizować pod zmianę
+- Nigdy nie tworzyć abstrakcji
+- Pisać wszystko dwa razy
+E: "Avoid Hasty Abstractions": duplikacja jest tańsza niż zła abstrakcja.
+T: ts-dry-aha
+
+Q: Po co przypisywać wartość do zmiennej typu never w `default` switcha?
+- Żeby przyspieszyć kod
++ Żeby kompilator wykrył nieobsłużony wariant unii
+- Żeby zignorować błąd
+- Żeby wymusić rzucenie wyjątku
+E: Exhaustiveness check: nowy wariant spowoduje błąd kompilacji.
+T: ts-discriminated-unions

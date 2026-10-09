@@ -1,0 +1,743 @@
+@cl-category css
+name: CSS
+desc: Organizacja i jakość stylów, nowoczesne funkcje CSS, layout, wydajność renderowania i responsywność.
+sources: MDN: CSS | https://developer.mozilla.org/en-US/docs/Web/CSS ; web.dev: Learn CSS | https://web.dev/learn/css
+
+@cl-group Organizacja i jakość kodu
+sources: MDN: Organizing your CSS | https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Styling_basics/Organizing
+
+[embedded-or-inline-css] high
+T: Bez stylów inline i osadzonych
+D: Style w atrybutach `style` i blokach `<style>` w treści strony są trudne w utrzymaniu, nie są cache'owane i komplikują CSP. Wyjątek: wygenerowany w buildzie krytyczny CSS w head.
+W: Atrybut `style` ma najwyższą specyficzność poza `!important`, więc nadpisanie go z arkusza wymaga kolejnych `!important` i rozpoczyna wyścig specyficzności.
+W: Restrykcyjne CSP (`style-src 'self'`) blokuje atrybuty `style` i bloki `<style>`; inline style zmuszają do dodania `'unsafe-inline'`, co osłabia ochronę przed wstrzykiwaniem treści.
+W: Style w zewnętrznym pliku są pobierane raz i cache'owane między stronami; te same reguły wklejone w HTML są przesyłane przy każdym wejściu.
+V: Wyszukaj `style=` i `<style>` w szablonach i komponentach (np. `rg 'style="' src/`); w DevTools Elements reguły inline są oznaczone jako `element.style`.
+```html Źle
+<div class="offer" style="padding: 16px; color: #c00; font-weight: 700">
+  Last minute: Kreta, 2 499 zł
+</div>
+```
+```css Dobrze
+/* offer.css: one class, reusable and cacheable */
+.offer--last-minute {
+  padding: var(--space-4);
+  color: var(--color-danger);
+  font-weight: 700;
+}
+/* Dynamic values: set a custom property from JS (el.style.setProperty), CSP-safe */
+.progress-bar { inline-size: var(--progress, 0%); }
+```
+X: Przekazywanie wartości dynamicznych przez `style={{...}}` tam, gdzie wystarczy klasa modyfikatora lub atrybut `data-*`.
+X: Ręcznie wklejony "krytyczny CSS", który z czasem rozjeżdża się z arkuszem głównym.
+
+[specificity-management] high
+T: Niska i płaska specyficzność
+D: Proste selektory (pojedyncze klasy), `:where()` dla stylów bazowych, `@layer` dla kolejności. Wyścig specyficzności kończy się `!important` i kruchym kodem.
+W: Selektor `#header .nav ul li a` ma specyficzność (1,1,3); każda zmiana stylu linku wymaga jeszcze mocniejszego selektora albo `!important`.
+W: Gdy wszystkie selektory mają podobną wagę (0,1,0), o wyniku decyduje kolejność w kodzie, co jest przewidywalne i łatwe do zrozumienia w code review.
+W: `:where()` ma zerową specyficzność, więc style bazowe biblioteki lub resetu można nadpisać jedną klasą.
+V: Stylelint (`selector-max-specificity`, `selector-max-id`, `declaration-no-important`); w DevTools najechanie na selektor w panelu Styles pokazuje jego specyficzność.
+```css Źle
+#booking-form .form-row input[type="text"].field { border-color: gray; } /* (1,3,1) */
+.field--error { border-color: red !important; } /* forced to win */
+```
+```css Dobrze
+@layer base, components;
+@layer base {
+  :where(input, select, textarea) { border: 1px solid var(--color-border); }
+}
+@layer components {
+  .field { border-color: var(--color-border); }        /* (0,1,0) */
+  .field[aria-invalid="true"] { border-color: var(--color-danger); } /* (0,2,0) */
+}
+```
+X: Używanie identyfikatorów (`#id`) w selektorach stylów.
+X: Głębokie zagnieżdżanie w SCSS, które odwzorowuje strukturę DOM i podbija specyficzność.
+S: MDN: Specificity | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Specificity
+
+[css-print] medium
+T: Style do druku
+D: `@media print`: ukryj nawigację i reklamy, czarny tekst na białym tle, adresy linków po treści. Ważne dla potwierdzeń rezerwacji, biletów, faktur.
+W: Klienci biur podróży nadal drukują vouchery, potwierdzenia rezerwacji i bilety; bez stylów druku dostają kilka stron menu, banerów i stopki.
+W: Tła i ciemne motywy marnują toner, a jasny tekst na białym papierze bywa nieczytelny.
+W: Na wydruku link nie jest klikalny, więc bez adresu po treści informacja (np. regulamin) ginie.
+V: Podgląd wydruku (Ctrl+P) lub emulacja `print` w DevTools: Rendering, Emulate CSS media type.
+```css
+@media print {
+  .site-header, .site-footer, .newsletter, .ads, .chat-widget { display: none; }
+  body { color: #000; background: #fff; font-size: 12pt; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.9em; }
+  .booking-summary, table, figure { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
+  @page { margin: 15mm; }
+}
+```
+X: Ukrycie w druku numeru rezerwacji lub kodu QR razem z "dekoracjami".
+
+[naming-conventions] medium
+T: Spójna konwencja nazewnictwa
+D: BEM, CUBE CSS, utility-first lub CSS Modules, byle jedna w projekcie. Przewidywalne nazwy ułatwiają pracę zespołu i refaktoryzację.
+W: Z nazwy `.offer-card__price--promo` od razu widać, do jakiego komponentu należy klasa i że to wariant; można ją bezpiecznie zmienić bez szukania użyć w całym projekcie.
+W: Mieszanie konwencji (`.offerCard`, `.offer_title`, `.btn-primary`) powoduje duplikaty stylów i konflikty nazw w dużych zespołach.
+W: Konwencję da się wymusić automatycznie regexem w linterze, więc nie zależy od pamięci recenzenta.
+V: Code review, Stylelint (`selector-class-pattern`) z regexem dopasowanym do konwencji.
+```css BEM
+.offer-card { display: grid; gap: var(--space-2); }
+.offer-card__title { font-size: var(--text-lg); }
+.offer-card__price { font-weight: 700; }
+.offer-card__price--promo { color: var(--color-danger); }
+```
+```json .stylelintrc.json
+{
+  "extends": ["stylelint-config-standard"],
+  "rules": {
+    "selector-class-pattern": [
+      "^[a-z][a-z0-9]*(-[a-z0-9]+)*(__[a-z0-9]+(-[a-z0-9]+)*)?(--[a-z0-9]+(-[a-z0-9]+)*)?$",
+      { "message": "Use BEM: block__element--modifier" }
+    ]
+  }
+}
+```
+X: Nazwy opisujące wygląd zamiast roli (`.red-text`, `.left-box`), które kłamią po pierwszym redesignie.
+
+[reset-css] medium
+T: Reset lub normalize CSS
+D: Ujednolica domyślne style przeglądarek (marginesy, `box-sizing: border-box`, dziedziczenie fontów w formularzach). Nowoczesne resety są małe i nie usuwają przydatnych stylów (np. focusu).
+W: Przeglądarki mają różne domyślne marginesy, rozmiary nagłówków i style kontrolek; bez resetu ten sam komponent wygląda inaczej w Chrome i Safari.
+W: `box-sizing: border-box` sprawia, że `width: 100%` z paddingiem nie wychodzi poza kontener, co usuwa częstą przyczynę poziomego przewijania.
+W: Agresywne stare resety (`* { outline: none }`, usuwanie list-style bez zamiennika) psują dostępność; nowoczesny reset poprawia tylko to, co trzeba.
+V: Sprawdź pierwszą warstwę stylów projektu (np. `@layer reset`) i czy nie usuwa focusu ani semantyki list.
+```css
+@layer reset {
+  *, *::before, *::after { box-sizing: border-box; }
+  * { margin: 0; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body { min-block-size: 100dvh; line-height: 1.5; }
+  img, picture, video, canvas, svg { display: block; max-inline-size: 100%; }
+  input, button, textarea, select { font: inherit; }
+  p, h1, h2, h3 { overflow-wrap: break-word; }
+  :where(ul, ol)[role="list"] { list-style: none; padding: 0; }
+}
+```
+X: Reset ładowany po stylach komponentów, który nadpisuje ich marginesy.
+
+[styles-lint] medium
+T: Linter dla CSS i SCSS
+D: Stylelint wykrywa błędy, nieznane właściwości, duplikaty i pilnuje konwencji. Uruchamiaj go w edytorze i w CI.
+W: Literówka w nazwie właściwości (`colr`) jest przez przeglądarkę po cichu ignorowana; linter zgłasza ją od razu.
+W: Reguły typu `declaration-no-important` czy `selector-max-specificity` utrzymują jakość kodu bez zależności od czujności recenzenta.
+W: Stylelint od wersji 16 nie zajmuje się formatowaniem; łącz go z Prettierem, a sam linter skup na poprawności i konwencjach.
+V: `npx stylelint "**/*.{css,scss}"` w pipeline CI i w pre-commit (lint-staged); build powinien się wywracać na błędach.
+```json package.json
+{
+  "scripts": {
+    "lint:css": "stylelint \"src/**/*.{css,scss}\" --max-warnings 0"
+  },
+  "lint-staged": {
+    "*.{css,scss}": "stylelint --fix"
+  }
+}
+```
+```json .stylelintrc.json
+{
+  "extends": ["stylelint-config-standard-scss"],
+  "rules": {
+    "declaration-no-important": true,
+    "selector-max-id": 0,
+    "color-named": "never"
+  }
+}
+```
+X: Linter skonfigurowany tylko w edytorze jednej osoby, bez kroku w CI.
+S: Stylelint | https://stylelint.io/
+
+[css-custom-properties] high
+T: Custom properties jako design tokeny
+D: Kolory, odstępy, typografia i promienie jako zmienne CSS (`--color-primary`). Działają w runtime, więc ułatwiają motywy (np. ciemny) i spójność.
+W: Zmiana koloru marki w jednym miejscu zmienia go w całej aplikacji; bez tokenów trzeba szukać dziesiątek wartości `#0b5fff` i ich wariantów.
+W: W przeciwieństwie do zmiennych SCSS custom properties istnieją w przeglądarce, więc tryb ciemny, motyw partnera czy wariant komponentu to tylko nadpisanie zmiennych.
+W: Tokeny są wspólnym językiem z projektantami (Figma Variables) i ograniczają liczbę "prawie takich samych" odcieni i odstępów.
+V: Wyszukaj powtarzające się wartości "na sztywno" w arkuszach (np. Stylelint `color-no-hex` poza plikiem tokenów); w DevTools Computed widać, skąd pochodzi wartość zmiennej.
+```css
+:root {
+  --color-brand: oklch(55% 0.2 255);
+  --color-text: oklch(25% 0.02 255);
+  --space-2: 0.5rem;
+  --space-4: 1rem;
+  --radius-md: 0.5rem;
+}
+.btn {
+  /* Component-level token with a global fallback */
+  background: var(--btn-bg, var(--color-brand));
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+}
+.btn--partner { --btn-bg: oklch(60% 0.15 145); }
+```
+X: Tokeny nazwane wartością (`--blue-500` używany wszędzie) zamiast rolą (`--color-link`), przez co motyw ciemny wymaga zmiany nazw.
+S: MDN: Using CSS custom properties | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascading_variables/Using_CSS_custom_properties
+
+[css-order] medium
+T: Właściwa kolejność ładowania CSS
+D: Arkusze CSS w head przed skryptami, które od nich zależą; brak `@import` (tworzy łańcuch zapytań). Kolejność plików musi odpowiadać zamierzonej kaskadzie.
+W: `@import` w CSS przeglądarka odkrywa dopiero po pobraniu i sparsowaniu arkusza nadrzędnego, więc pliki ładują się sekwencyjnie, a render czeka na cały łańcuch.
+W: Synchroniczny skrypt umieszczony po arkuszu czeka na jego pobranie, bo może czytać style; niepotrzebnie wymieszane skrypty i arkusze opóźniają FCP.
+W: Przy równej specyficzności wygrywa reguła później w kodzie; zmiana kolejności plików potrafi "zepsuć" wygląd bez zmiany ani jednej linijki CSS.
+V: Sprawdź head strony i waterfall w DevTools Network: arkusze powinny startować równolegle, bez schodków wynikających z `@import`.
+```html Źle
+<head>
+  <script src="/analytics.js"></script>
+  <link rel="stylesheet" href="/main.css" /> <!-- main.css contains @import "theme.css" -->
+</head>
+```
+```html Dobrze
+<head>
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/theme.css" />
+  <script type="module" src="/app.js"></script> <!-- deferred by default -->
+</head>
+```
+X: `@import` w SCSS jest w porządku (łączony w buildzie), ale `@import` w wynikowym CSS już nie; sprawdź plik produkcyjny.
+
+@cl-group Nowoczesne funkcje CSS
+sources: web.dev: Baseline | https://web.dev/baseline
+
+[view-transitions] low
+T: View Transitions API dla płynnych przejść
+D: Natywne animacje między stanami strony lub między stronami (MPA: `@view-transition`) bez bibliotek JS. Uszanuj `prefers-reduced-motion`.
+W: Płynne przejście z listy ofert do szczegółów (miniatura "przelatuje" w duże zdjęcie) pomaga zachować kontekst i daje wrażenie aplikacji natywnej.
+W: Przejścia między stronami w klasycznej aplikacji wielostronicowej działają z samym CSS, bez routera SPA i dodatkowego JS.
+W: API jest progresywnym ulepszeniem: przeglądarki bez wsparcia po prostu zmienią stronę bez animacji.
+V: Sprawdź przejścia w przeglądarce z obsługą API oraz z włączonym `prefers-reduced-motion` (DevTools: Rendering); panel Animations pozwala je spowolnić.
+```css Przejścia między stronami (MPA)
+@view-transition { navigation: auto; }
+
+/* Same name on the list thumbnail and the detail hero image */
+.offer-card__img { view-transition-name: var(--vt-name); }
+.offer-hero__img { view-transition-name: var(--vt-name); }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none; }
+}
+```
+```js Przejście w SPA
+// Feature-detect, then update the DOM inside the callback
+function showOffer(offer) {
+  if (!document.startViewTransition) return render(offer);
+  document.startViewTransition(() => render(offer));
+}
+```
+X: Ta sama wartość `view-transition-name` na kilku elementach jednocześnie; przejście zostanie pominięte.
+S: MDN: View Transition API | https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API
+
+[cascade-layers] low
+T: @layer do kontroli kaskady
+D: Warstwy (reset, base, components, utilities) ustalają kolejność ważności bez podbijania specyficzności. Ułatwiają integrację bibliotek.
+W: Reguła z późniejszej warstwy wygrywa niezależnie od specyficzności, więc pojedyncza klasa utility pokona rozbudowany selektor z biblioteki komponentów.
+W: Style zewnętrznej biblioteki zamknięte w niskiej warstwie (`@import url(lib.css) layer(vendor)`) przestają wymagać `!important` przy nadpisywaniu.
+W: Style poza warstwami mają wyższy priorytet niż wszystkie warstwy, co pozwala stopniowo migrować stary kod.
+V: Przegląd struktury arkuszy; DevTools Styles grupuje reguły według warstw i pokazuje ich kolejność.
+```css
+/* Order declared once; later layers win */
+@layer reset, vendor, base, components, utilities;
+
+@import url("date-picker.css") layer(vendor);
+
+@layer components {
+  .card .card__title { margin-block-end: 1rem; }
+}
+@layer utilities {
+  .mb-0 { margin-block-end: 0; } /* wins despite lower specificity */
+}
+```
+X: `!important` wewnątrz warstw działa odwrotnie: ważniejsze jest w warstwie wcześniejszej; nie mieszaj tych mechanizmów.
+S: MDN: @layer | https://developer.mozilla.org/en-US/docs/Web/CSS/@layer
+
+[has-selector] low
+T: :has() do stylowania rodzica
+D: Styl zależny od zawartości (np. karta z zaznaczonym checkboxem, formularz z błędem) bez dodatkowych klas ustawianych w JS.
+W: Mniej JS tylko do przełączania klas oznacza mniej kodu do pobrania i mniej błędów rozjechania stanu DOM i stylów.
+W: `:has()` jest Baseline od grudnia 2023, więc działa we wszystkich współczesnych przeglądarkach.
+W: Stan pochodzi z natywnych pseudoklas (`:checked`, `:user-invalid`, `:focus-visible`), więc pozostaje spójny z tym, co widzi technologia asystująca.
+V: Przegląd miejsc, gdzie JS przełącza klasy tylko dla stylów; sprawdź działanie w DevTools, zmieniając stan kontrolek.
+```css
+/* Highlight the selected room option */
+.room-option:has(input:checked) {
+  border-color: var(--color-brand);
+  background: var(--color-brand-subtle);
+}
+/* Mark the whole field when the user leaves it invalid */
+.field:has(input:user-invalid) .field__label { color: var(--color-danger); }
+
+/* Card layout depends on whether an image exists */
+.offer-card:has(> img) { grid-template-columns: 12rem 1fr; }
+```
+X: Bardzo szerokie selektory typu `body:has(.x)` przeliczane przy każdej zmianie DOM; zawężaj zakres do komponentu.
+
+[dark-mode-css] medium
+T: Tryb ciemny z prefers-color-scheme
+D: Kolory zdefiniowane jako tokeny i nadpisane w `@media (prefers-color-scheme: dark)`, plus `color-scheme: light dark`, żeby kontrolki formularzy i scrollbary też się dopasowały.
+W: Wielu użytkowników ma ciemny motyw systemowy; jasna strona po zmroku razi, a niedopasowane pola formularzy (białe na ciemnym tle) wyglądają jak błąd.
+W: Na ekranach OLED ciemne piksele zużywają mniej energii, co wydłuża czas pracy baterii.
+W: Gdy kolory są tokenami, tryb ciemny to kilkanaście nadpisanych zmiennych zamiast kopii całego arkusza.
+V: Emulacja `prefers-color-scheme` w DevTools (Rendering); sprawdź kontrast tekstu, pól formularzy, focusu i obrazków z przezroczystym tłem w obu motywach.
+```css
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --text: #1c1f24;
+  --surface: #f4f5f7;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #121417; --text: #e8eaed; --surface: #1d2025; }
+}
+/* Alternative for single values: light-dark() (needs color-scheme set) */
+.badge { background: light-dark(#e6f0ff, #1a2a44); }
+
+body { background: var(--bg); color: var(--text); }
+```
+X: Czysta czerń `#000` z czysto białym tekstem; zbyt duży kontrast męczy oczy, lepsze są ciemne szarości.
+X: Brak przełącznika w UI dla osób, które chcą innego motywu niż systemowy.
+S: web.dev: prefers-color-scheme | https://web.dev/articles/prefers-color-scheme
+
+[color-oklch] low
+T: oklch() dla spójnych palet
+D: Przestrzeń OKLCH ma percepcyjnie równą jasność, więc odcienie z tej samej palety wyglądają równo jasno, a generowanie wariantów (hover, odcienie) jest przewidywalne.
+W: W HSL żółty i niebieski o tej samej jasności `50%` wyglądają zupełnie inaczej; w OKLCH parametr L odpowiada temu, co widzi oko, więc łatwiej utrzymać kontrast.
+W: Wariant hover to zmiana jednego parametru (np. L o 8 punktów) bez ręcznego dobierania heksów.
+W: OKLCH obejmuje szerszy gamut (Display P3), więc na nowoczesnych ekranach kolory marki mogą być żywsze; `oklch()` jest Baseline od 2023.
+V: Przegląd definicji kolorów w tokenach; picker w DevTools pokazuje wartości OKLCH i granicę gamutu sRGB.
+```css
+:root {
+  --brand-h: 255;
+  --brand: oklch(55% 0.2 var(--brand-h));
+  --brand-hover: oklch(from var(--brand) calc(l - 0.08) c h);
+  --brand-subtle: oklch(95% 0.03 var(--brand-h));
+  /* Same lightness, different hues: visually balanced status colors */
+  --success: oklch(60% 0.15 145);
+  --warning: oklch(60% 0.15 75);
+}
+.btn:hover { background: var(--brand-hover); }
+```
+X: Ustawianie bardzo wysokiej chromy bez sprawdzenia, jak kolor jest przycinany na ekranach sRGB.
+S: MDN: oklch() | https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/oklch
+
+[css-at-property] low
+T: @property dla typowanych custom properties
+D: Rejestracja zmiennej z typem (`syntax: '<color>'`) pozwala ją animować i daje wartość początkową oraz walidację.
+W: Zwykła custom property jest dla przeglądarki ciągiem znaków, więc `transition` przeskakuje skokowo; zarejestrowana z typem `<angle>` czy `<color>` interpoluje się płynnie, np. w gradientach.
+W: `inherits: false` zatrzymuje dziedziczenie zmiennej w głąb drzewa, co upraszcza komponenty i ogranicza przeliczanie stylów.
+W: Niepoprawna wartość wraca do `initial-value` zamiast unieważniać całą deklarację; `@property` jest Baseline od 2024.
+V: Przegląd animowanych zmiennych CSS; w DevTools Styles zarejestrowane właściwości mają podgląd definicji `@property`.
+```css
+@property --promo-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.promo-badge {
+  background: conic-gradient(from var(--promo-angle), #ff7a00, #ffd000, #ff7a00);
+  animation: spin 4s linear infinite;
+}
+@keyframes spin { to { --promo-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .promo-badge { animation: none; } }
+```
+X: Rejestrowanie każdej zmiennej "na zapas"; potrzebne głównie przy animacjach i tam, gdzie liczy się typ.
+S: MDN: @property | https://developer.mozilla.org/en-US/docs/Web/CSS/@property
+
+[focus-styles] high
+T: Widoczne style focusu
+D: Nigdy `outline: none` bez zamiennika. `:focus-visible` z wyraźną obwódką (kontrast 3:1) pokazuje użytkownikom klawiatury, gdzie są.
+W: Osoby korzystające z klawiatury, switchy czy sterowania głosem bez widocznego focusu nie wiedzą, który element jest aktywny; formularz rezerwacji staje się nie do przejścia.
+W: To wymóg WCAG 2.4.7 (AA); WCAG 2.2 dodaje 2.4.11, focus nie może być całkowicie zasłonięty np. przez przyklejony nagłówek lub baner cookies.
+W: `:focus-visible` pokazuje obwódkę przy nawigacji klawiaturą, a nie po kliknięciu myszą, więc nie ma konfliktu z oczekiwaniami projektantów.
+V: Przejdź stronę Tabem w obu motywach; wyszukaj w kodzie `outline: none` i `outline: 0` bez zamiennika w `:focus-visible`.
+```css Źle
+button:focus { outline: none; }
+```
+```css Dobrze
+:focus-visible {
+  outline: 3px solid var(--focus-ring, oklch(55% 0.2 255));
+  outline-offset: 2px;
+}
+/* Keep focused elements clear of the sticky header (WCAG 2.4.11) */
+html { scroll-padding-block-start: 5rem; }
+/* Windows high contrast: transparent outline still renders */
+.card-link:focus-visible { outline: 2px solid transparent; box-shadow: 0 0 0 3px var(--focus-ring); }
+```
+X: Focus sygnalizowany tylko zmianą koloru tła o niskim kontraście.
+S: W3C Understanding 2.4.7: Focus Visible | https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html
+
+@cl-group Layout
+sources: MDN: CSS layout | https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout
+
+[css-grid] medium
+T: Grid do układów dwuwymiarowych
+D: Układ strony, siatki kart i galerii w CSS Grid (`repeat(auto-fill, minmax())`, obszary nazwane) zamiast zagnieżdżonych flexboksów i marginesów.
+W: Jedna reguła `repeat(auto-fill, minmax(...))` tworzy responsywną siatkę ofert bez żadnego media query.
+W: Grid kontroluje wiersze i kolumny jednocześnie, więc karty w rzędzie mają równą wysokość, a odstępy zapewnia `gap` bez ujemnych marginesów.
+W: Nazwane obszary (`grid-template-areas`) czytelnie opisują layout i pozwalają przebudować go w media query bez zmiany HTML.
+V: Przegląd głównych layoutów; DevTools Elements ma nakładkę Grid z liniami, numerami i nazwami obszarów.
+```css
+.offers {
+  display: grid;
+  /* min() prevents overflow on screens narrower than 18rem */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-4);
+}
+.page {
+  display: grid;
+  grid-template-areas: "header" "filters" "results";
+}
+@media (width >= 64rem) {
+  .page { grid-template-columns: 18rem 1fr; grid-template-areas: "header header" "filters results"; }
+}
+.page__filters { grid-area: filters; }
+```
+X: Zmiana kolejności wizualnej przez `order` lub obszary tak, że różni się od kolejności w DOM i nawigacji klawiaturą.
+
+[flexbox-patterns] medium
+T: Dobre praktyki Flexboxa
+D: Flexbox do układów jednowymiarowych; `gap` zamiast marginesów, `min-width: 0` dla elementów z długim tekstem, świadome `flex-wrap`.
+W: Element flex ma domyślnie `min-width: auto`, więc długa nazwa hotelu lub URL nie pozwala mu się skurczyć i wypycha układ poza ekran.
+W: `gap` daje odstępy tylko między elementami, bez sztuczek z `:last-child` i ujemnymi marginesami przy zawijaniu.
+W: Bez `flex-wrap` przyciski i tagi przy wąskim ekranie ściskają się do nieczytelności zamiast przejść do nowej linii.
+V: Testy przy szerokości 320 px, z długimi tekstami i powiększeniem 200%; nakładka Flexbox w DevTools pokazuje wolne miejsce i kurczenie.
+```css Źle
+.hotel-row { display: flex; }
+.hotel-row > * + * { margin-left: 16px; }
+.hotel-row__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* never truncates */
+```
+```css Dobrze
+.hotel-row { display: flex; align-items: center; gap: var(--space-4); }
+.hotel-row__name {
+  flex: 1;
+  min-inline-size: 0; /* allow shrinking below content width */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tags { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+```
+X: Budowanie siatek kart z `flex-basis: 33.33%` i obliczaniem marginesów zamiast Grida.
+
+[logical-properties] medium
+T: Właściwości logiczne dla RTL i i18n
+D: `margin-inline-start`, `padding-block`, `inset-inline-end` zamiast left/right. Układ automatycznie odwraca się dla języków pisanych od prawej do lewej.
+W: Wersja arabska lub hebrajska serwisu (np. dla rynków na Bliskim Wschodzie) działa po ustawieniu `dir="rtl"`, bez osobnego arkusza z odwróconymi stronami.
+W: Właściwości logiczne dopasowują się też do pionowych trybów pisma (`writing-mode`), co bywa potrzebne w japońskich czy chińskich treściach.
+W: Skróty `margin-inline`, `padding-block`, `inset` są krótsze i czytelniej wyrażają intencję ("odstęp w osi tekstu").
+V: Ustaw `dir="rtl"` na `<html>` w DevTools i sprawdź ikony, strzałki, odstępy i pozycjonowane elementy.
+```css Źle
+.price-tag { margin-left: 8px; padding-right: 12px; text-align: left; }
+.badge { position: absolute; top: 0; right: 0; }
+```
+```css Dobrze
+.price-tag { margin-inline-start: 0.5rem; padding-inline-end: 0.75rem; text-align: start; }
+.badge { position: absolute; inset-block-start: 0; inset-inline-end: 0; }
+/* Directional icons should mirror in RTL */
+[dir="rtl"] .icon-arrow { transform: scaleX(-1); }
+```
+X: Zamiana właściwości na logiczne, ale pozostawienie `text-align: left` i `float: left`.
+S: MDN: CSS logical properties and values | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_logical_properties_and_values
+
+[subgrid] low
+T: subgrid do wyrównania zagnieżdżonych elementów
+D: `grid-template-rows: subgrid` pozwala np. wyrównać tytuły, opisy i ceny w kartach ofert niezależnie od długości treści.
+W: Bez subgrid cena w karcie z dwulinijkowym tytułem jest niżej niż w sąsiedniej; porównywanie ofert w rzędzie staje się trudniejsze.
+W: Wcześniejsze obejścia (stałe wysokości, JS mierzący elementy) psują się przy innej długości tekstu lub tłumaczeniu na inny język.
+W: `subgrid` jest Baseline od 2023 i działa we wszystkich współczesnych przeglądarkach.
+V: Przegląd list kart o różnej długości treści; nakładka Grid w DevTools pokazuje linie dziedziczone przez subgrid.
+```css
+.offers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-4);
+}
+.offer-card {
+  display: grid;
+  grid-row: span 4; /* image, title, description, price */
+  grid-template-rows: subgrid;
+  row-gap: var(--space-2);
+}
+```
+X: Zapomnienie o `grid-row: span N` na karcie; subgrid nie ma wtedy wierszy do odziedziczenia.
+
+@cl-group Wydajność CSS
+sources: web.dev: Optimize CSS | https://web.dev/learn/performance/optimize-resource-loading
+
+[css-critical] high
+T: Krytyczny CSS inline
+D: Style potrzebne do wyrenderowania treści nad zgięciem wstawione w `<style>` w head, reszta ładowana asynchronicznie. Skraca FCP i LCP.
+W: Zewnętrzny arkusz blokuje renderowanie: na wolnym mobilnym łączu każdy dodatkowy round trip po CSS to setki milisekund pustego ekranu.
+W: Krytyczny CSS mieszczący się razem z HTML w pierwszych ok. 14 kB odpowiedzi pozwala narysować pierwszy widok już po pierwszym pakiecie danych.
+W: Szybszy LCP (próg dobrego wyniku 2,5 s) to lepsza ocena Core Web Vitals i mniej porzuceń strony wyników wyszukiwania.
+V: Lighthouse i panel Performance (insight dotyczący zasobów blokujących renderowanie), test z ograniczeniem sieci "Slow 4G".
+```html
+<head>
+  <style>
+    /* Critical: generated at build time (e.g. Critters/Beasties), above-the-fold only */
+    :root { --bg: #fff; --text: #1c1f24; }
+    body { margin: 0; font-family: system-ui, sans-serif; color: var(--text); }
+    .hero { min-block-size: 60vh; display: grid; place-items: center; }
+  </style>
+  <link rel="preload" href="/css/main.css" as="style" />
+  <link rel="stylesheet" href="/css/main.css" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="/css/main.css" /></noscript>
+</head>
+```
+X: Wstawienie inline całego arkusza (setki kB), co spowalnia HTML i wyłącza cache CSS.
+X: Atrybut `onload` jest inline handlerem; przy restrykcyjnym CSP potrzebny jest skrypt z nonce lub hash.
+S: web.dev: Extract critical CSS | https://web.dev/articles/extract-critical-css
+
+[css-non-blocking] high
+T: Niekrytyczny CSS nie blokuje renderowania
+D: Style dla innych mediów (`media="print"`) i niekrytyczne arkusze ładuj asynchronicznie (preload + zmiana `rel`, podział na trasy).
+W: Każdy `<link rel="stylesheet">` bez atrybutu `media` (lub z pasującym) blokuje pierwsze malowanie, nawet jeśli dotyczy stopki czy modala, którego nikt nie otworzy.
+W: Arkusz z niepasującym `media` (np. `print`) przeglądarka pobiera z niskim priorytetem i nie czeka na niego z renderowaniem.
+W: Podział CSS na trasy w bundlerze sprawia, że strona listy ofert nie pobiera stylów panelu rezerwacji.
+V: Lighthouse i Insights w DevTools Performance (zasoby blokujące renderowanie); w Network sprawdź priorytety arkuszy.
+```html
+<!-- Only applies when printing: does not block rendering -->
+<link rel="stylesheet" href="/css/print.css" media="print" />
+<!-- Wide-screen extras: non-blocking on phones -->
+<link rel="stylesheet" href="/css/desktop.css" media="(width >= 64rem)" />
+<!-- Non-critical styles loaded after first paint -->
+<link rel="preload" href="/css/widgets.css" as="style"
+      onload="this.onload=null; this.rel='stylesheet'" />
+<noscript><link rel="stylesheet" href="/css/widgets.css" /></noscript>
+```
+X: Asynchroniczne ładowanie stylów widocznych od razu, co daje mignięcie niewystylowanej treści (FOUC) i przesunięcia układu (CLS).
+
+[css-minification] high
+T: Zminifikowany CSS
+D: Usunięcie białych znaków i komentarzy oraz skrócenie wartości zmniejsza transfer. Robią to bundlery (Lightning CSS, cssnano).
+W: CSS blokuje renderowanie, więc każdy zaoszczędzony kilobajt bezpośrednio skraca czas do pierwszego malowania, szczególnie na słabych łączach mobilnych.
+W: Minifikatory łączą też zduplikowane reguły i skracają wartości (`#ffffff` na `#fff`, `0px` na `0`), czego kompresja Brotli sama nie zrobi.
+W: Minifikacja i kompresja się uzupełniają: najpierw minifikacja w buildzie, potem Brotli lub gzip na serwerze lub CDN.
+V: Podgląd pliku CSS na produkcji (jedna linia, bez komentarzy) i nagłówek `content-encoding` w Network.
+```ts vite.config.ts
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  css: { transformer: "lightningcss" },
+  build: {
+    cssMinify: "lightningcss",
+    // Keep source maps for debugging without shipping comments
+    sourcemap: true,
+  },
+});
+```
+X: Wyłączenie minifikacji "na chwilę" do debugowania i zapomnienie o niej; do debugowania służą source mapy.
+
+[unused-css] high
+T: Usunięte nieużywane reguły CSS
+D: Martwy CSS wydłuża pobieranie i przeliczanie stylów. Pomagają podział CSS per komponent lub trasa, Tailwind (generuje tylko użyte klasy), PurgeCSS.
+W: W starszych projektach często ponad połowa pobranego CSS nie jest używana na danej stronie, a przeglądarka i tak musi go pobrać i sparsować przed renderem.
+W: Każda reguła to praca przy dopasowaniu selektorów; mniej reguł to krótsze przeliczanie stylów przy każdej zmianie DOM.
+W: Martwy kod utrudnia refaktoryzację, bo nikt nie wie, czy klasę można usunąć.
+V: Zakładka Coverage w DevTools (czerwone fragmenty po przejściu typowych ścieżek), bundle analyzer, raport niewykorzystanych selektorów w PurgeCSS.
+```css Tailwind CSS v4
+@import "tailwindcss";
+/* Tailwind scans sources and emits only used utilities.
+   Add paths it cannot detect automatically, e.g. a shared UI package */
+@source "../node_modules/@acme/ui/dist";
+```
+```tsx CSS Modules per component
+// Styles are bundled only on routes that import this component
+import styles from "./BookingSummary.module.css";
+
+export function BookingSummary({ total }: { total: string }) {
+  return <section className={styles.summary}>{total}</section>;
+}
+```
+X: Dynamiczne składanie nazw klas z fragmentów (np. `text-{color}-500` w szablonie); narzędzie ich nie wykryje i nie wygeneruje lub usunie.
+
+[webfont-format] medium
+T: Fonty w formacie WOFF2
+D: WOFF2 ma najlepszą kompresję i jest wspierany przez wszystkie współczesne przeglądarki; starsze formaty (TTF, EOT, SVG) są zbędne. Do tego fallbackowy stos fontów systemowych.
+W: WOFF2 (kompresja Brotli) jest zwykle o ok. 30% mniejszy niż WOFF i wielokrotnie mniejszy niż TTF; fonty często ważą więcej niż cały CSS.
+W: Subsetting (`unicode-range`) ogranicza pobieranie do potrzebnych znaków; dla polskiego wystarczy Basic Latin, Latin-1 i Latin Extended-A (ą, ę, ł, ś, ż...).
+W: `font-display: swap` z dopasowanym fontem zapasowym (`size-adjust`) pokazuje tekst od razu i ogranicza przesunięcie układu przy podmianie fontu.
+V: DevTools Network z filtrem Font: tylko pliki `.woff2`, rozsądna liczba wag; w Performance sprawdź, czy tekst nie jest niewidoczny podczas ładowania.
+```css
+@font-face {
+  font-family: "Brand Sans";
+  src: url("/fonts/brand-sans-latin-ext.woff2") format("woff2");
+  font-weight: 400 700; /* variable font: one file for all weights */
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0100-017F, U+2000-206F, U+20AC;
+}
+@font-face {
+  font-family: "Brand Sans Fallback";
+  src: local("Arial");
+  size-adjust: 104%; /* match metrics to reduce CLS on swap */
+}
+body { font-family: "Brand Sans", "Brand Sans Fallback", system-ui, sans-serif; }
+```
+X: Ładowanie 6 osobnych wag zamiast jednego fontu zmiennego.
+
+[animation-performance] high
+T: Animacje przez transform i opacity
+D: Te właściwości mogą być obsłużone przez compositor na GPU, bez layoutu i paintu. Animacje `top`, `width`, `margin` wymuszają przeliczenia w każdej klatce.
+W: Przy 60 klatkach na sekundę przeglądarka ma ok. 16 ms na klatkę; animacja `height` czy `left` wymusza layout całej strony i na tańszych telefonach gubi klatki.
+W: Animacje na compositorze działają płynnie nawet wtedy, gdy główny wątek jest zajęty JavaScriptem.
+W: Ciężkie animacje zabierają czas głównemu wątkowi i mogą pogorszyć INP (próg dobrego wyniku 200 ms).
+V: DevTools Performance (fioletowe bloki Layout podczas animacji), panel Rendering: Paint flashing i Frame Rendering Stats.
+```css Źle
+.drawer { left: -320px; transition: left 300ms; }
+.drawer.is-open { left: 0; }
+```
+```css Dobrze
+.drawer { transform: translateX(-100%); transition: transform 300ms ease-out; }
+.drawer.is-open { transform: translateX(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer { transition: none; }
+}
+```
+X: `will-change: transform` na dziesiątkach elementów "na wszelki wypadek"; każda warstwa zużywa pamięć GPU.
+S: web.dev: Stick to compositor-only properties | https://web.dev/articles/stick-to-compositor-only-properties-and-manage-layer-count
+
+[css-containment] medium
+T: CSS containment
+D: `contain: layout paint` lub `content-visibility: auto` ograniczają zasięg przeliczeń i pozwalają pominąć renderowanie sekcji poza ekranem.
+W: Na długiej stronie (opis hotelu, opinie, mapa, FAQ) `content-visibility: auto` pozwala przeglądarce pominąć layout i paint sekcji poza ekranem, co skraca pierwsze renderowanie.
+W: `contain` daje gwarancję, że zmiany wewnątrz widgetu (np. licznik w koszyku) nie wymuszą przeliczenia reszty strony.
+W: Treść ukryta przez `content-visibility: auto` nadal jest w DOM, więc działa wyszukiwanie na stronie i jest dostępna dla czytników ekranu, w przeciwieństwie do `display: none`.
+V: Profil renderowania w DevTools Performance przed i po zmianie (czas Rendering i Layout); sprawdź, czy pasek przewijania nie "skacze".
+```css
+.hotel-section {
+  content-visibility: auto;
+  /* Placeholder size; "auto" remembers the real size after first render */
+  contain-intrinsic-size: auto 600px;
+}
+.cart-widget {
+  contain: layout paint; /* internal changes stay inside */
+}
+```
+X: `content-visibility: auto` na sekcji widocznej od razu (np. z elementem LCP), co opóźnia jej renderowanie.
+S: web.dev: content-visibility | https://web.dev/articles/content-visibility
+
+@cl-group Responsywność i mobile
+sources: web.dev: Learn Responsive Design | https://web.dev/learn/design
+
+[viewport-zoom] high
+T: Nie blokuj powiększania
+D: `user-scalable=no` i `maximum-scale=1` w meta viewport uniemożliwiają powiększanie, co narusza WCAG 1.4.4.
+W: Osoby słabowidzące powiększają szczegóły (cena, godziny lotu, drobny druk regulaminu); zablokowany zoom odcina je od treści.
+W: WCAG 1.4.4 (AA) wymaga możliwości powiększenia tekstu do 200%, a European Accessibility Act czyni to obowiązkiem dla e-commerce i usług turystycznych.
+W: Blokowanie zoomu zwykle maskuje inny problem (np. auto-zoom iOS na polach poniżej 16 px), który da się rozwiązać w CSS.
+V: Sprawdź meta viewport w kodzie; audyt dostępności Lighthouse zgłasza `user-scalable=no` i `maximum-scale` poniżej 5; przetestuj gest pinch na telefonie.
+```html Źle
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+```
+```html Dobrze
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+```
+X: Wyłączanie zoomu, żeby uniknąć powiększania pól formularzy w iOS; poprawne rozwiązanie to `font-size: 1rem` w polach.
+
+[responsive-units] high
+T: Jednostki względne
+D: `rem` dla fontów (szanuje ustawienia użytkownika), `%`, `fr`, `vw`, `dvh`, `clamp()` dla układu. Stałe piksele utrudniają skalowanie.
+W: Użytkownik, który ustawił w przeglądarce większą czcionkę domyślną, nie zobaczy zmiany, jeśli rozmiary są w `px`; w `rem` tekst rośnie zgodnie z jego wyborem.
+W: `100vh` na telefonach nie uwzględnia paska adresu i ucina dolny przycisk "Rezerwuj"; `100dvh` lub `100svh` liczą realną wysokość.
+W: `clamp()` daje płynną typografię bez kilku breakpointów, ale część w `rem` jest konieczna, żeby tekst dalej reagował na zoom (WCAG 1.4.4).
+V: Zmień domyślny rozmiar czcionki przeglądarki (np. 20 px) i powiększ stronę do 200%; sprawdź, czy układ się nie łamie.
+```css Źle
+h1 { font-size: 32px; }
+.hero { height: 100vh; }
+.title { font-size: 4vw; } /* ignores user font size and zoom */
+```
+```css Dobrze
+h1 { font-size: clamp(1.75rem, 1.2rem + 2vw, 2.75rem); }
+.hero { min-block-size: 100dvh; }
+.container { inline-size: min(100% - 2rem, 75rem); margin-inline: auto; }
+```
+X: Ustawienie `html { font-size: 62.5% }`, które nadpisuje preferencje użytkownika i komplikuje obliczenia.
+
+[container-queries] medium
+T: Container queries dla komponentów
+D: Komponent dopasowuje się do szerokości miejsca, w którym go umieszczono, a nie do okna. Kluczowe dla reużywalnych komponentów design systemu.
+W: Ta sama karta oferty trafia do szerokiej listy, wąskiego paska bocznego i karuzeli; media queries widzą tylko okno, więc nie wiedzą, ile miejsca ma karta.
+W: Komponent zawiera całą swoją logikę responsywności, więc można go przenieść w inne miejsce bez dopisywania wyjątków.
+W: Jednostki kontenera (`cqi`) pozwalają skalować typografię i odstępy względem komponentu; container queries są Baseline od 2023.
+V: Umieść komponent w wąskim i szerokim kontenerze (np. w Storybooku); DevTools pokazuje znacznik `container` przy elemencie.
+```css
+.offer-slot {
+  container: offer / inline-size;
+}
+.offer-card { display: grid; gap: var(--space-2); }
+
+@container offer (width >= 32rem) {
+  .offer-card { grid-template-columns: 14rem 1fr; }
+  .offer-card__title { font-size: clamp(1.1rem, 4cqi, 1.5rem); }
+}
+```
+X: Ustawienie `container-type` na samym komponencie, który chce się stylować; zapytanie dotyczy przodka, nie elementu.
+S: MDN: CSS container queries | https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment/Container_queries
+
+[font-size] medium
+T: Czytelny rozmiar tekstu na mobile
+D: Tekst główny co najmniej 16 px (1rem) na telefonach; mniejszy wymusza powiększanie. Pola formularzy poniżej 16 px powodują automatyczny zoom w iOS Safari.
+W: Tekst 12-13 px na telefonie trzymanym w ręku jest męczący, szczególnie dla starszych użytkowników, a to duża grupa klientów biur podróży.
+W: iOS Safari automatycznie powiększa stronę po fokusie na polu z fontem mniejszym niż 16 px; użytkownik musi potem ręcznie oddalać widok w środku formularza.
+W: Odpowiednia interlinia (ok. 1,5) i długość linii (45-75 znaków) mają równie duży wpływ na czytelność jak sam rozmiar.
+V: Computed styles w DevTools w widoku mobilnym; test formularza na prawdziwym iPhonie.
+```css
+html { font-size: 100%; } /* respect the user's default (usually 16px) */
+body { font-size: 1rem; line-height: 1.5; }
+.article { max-inline-size: 65ch; }
+/* Prevent iOS focus zoom */
+input, select, textarea { font-size: max(1rem, 16px); }
+.legal-note { font-size: 0.875rem; } /* small print still at least 14px */
+```
+X: Mały tekst w ważnych miejscach: warunki rezygnacji, opłaty dodatkowe, informacje o bagażu.
+
+[horizontal-scroll] medium
+T: Brak przewijania w poziomie
+D: Strona mieści się w szerokości ekranu od 320 px. Typowe przyczyny: stałe szerokości, długie słowa i URL-e, tabele, obrazy bez `max-width: 100%`.
+W: WCAG 1.4.10 (Reflow) wymaga, żeby treść działała przy szerokości 320 CSS px bez przewijania w dwóch kierunkach; to też odpowiednik powiększenia 400% na desktopie.
+W: Poziomy scroll na telefonie powoduje "pływanie" strony przy przewijaniu i przypadkowe ukrycie części treści, np. ceny.
+W: `overflow-x: hidden` na `body` tylko ukrywa objaw i potrafi zepsuć `position: sticky`; trzeba znaleźć element, który wystaje.
+V: Viewport 320-375 px w DevTools; w konsoli `document.documentElement.scrollWidth > innerWidth` oraz skrypt wskazujący winowajcę.
+```css
+img, video, iframe { max-inline-size: 100%; block-size: auto; }
+.content { overflow-wrap: anywhere; } /* long URLs and booking codes */
+.table-wrapper { overflow-x: auto; } /* scroll only the table, not the page */
+.full-bleed { inline-size: 100%; } /* not 100vw, which includes the scrollbar */
+```
+```js Znajdź wystający element (konsola)
+const vw = document.documentElement.clientWidth;
+document.querySelectorAll("body *").forEach((el) => {
+  if (el.getBoundingClientRect().right > vw) console.log(el);
+});
+```
+X: `width: 100vw` na elementach pełnej szerokości; na desktopie z widocznym paskiem przewijania jest szersze niż strona.
+
+[interstitials] medium
+T: Bez natrętnych interstitiali
+D: Pełnoekranowe popupy zasłaniające treść zaraz po wejściu (zwłaszcza na mobile) frustrują i są sygnałem negatywnym dla Google. Używaj banerów zajmujących niewielką część ekranu. Wyjątki: weryfikacja wieku, wymogi prawne, logowanie.
+W: Google wskazuje, że strony, których treść jest trudno dostępna po przejściu z wyników mobilnych, mogą być oceniane niżej.
+W: Popup z newsletterem zasłaniający ofertę zaraz po wejściu z reklamy podnosi współczynnik odrzuceń i marnuje budżet kampanii.
+W: Źle zrobiony popup bywa pułapką dla klawiatury i czytnika ekranu (brak focusu, brak zamknięcia Escape), co narusza WCAG.
+V: Wejście na stronę na telefonie z czystą sesją (tryb incognito); sprawdź, ile ekranu zajmuje baner cookies i promocje oraz czy da się je zamknąć klawiaturą.
+```css
+/* Small, dismissible banner instead of a full-screen overlay */
+.promo-banner {
+  position: fixed;
+  inset-inline: var(--space-2);
+  inset-block-end: var(--space-2);
+  max-block-size: 25dvh;
+  overflow: auto;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 4px 24px rgb(0 0 0 / 0.2);
+}
+```
+X: Pokazywanie popupu natychmiast po wejściu zamiast po interakcji lub przy zamiarze wyjścia.
+X: Baner, który zasłania przycisk "Rezerwuj" lub pole wyszukiwania.
+S: Google: Avoid intrusive interstitials | https://developers.google.com/search/docs/appearance/avoid-intrusive-interstitials

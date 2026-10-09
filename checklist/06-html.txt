@@ -1,0 +1,692 @@
+@cl-category html
+name: HTML
+desc: Fundamenty dokumentu, semantyka, formularze, multimedia i PWA.
+sources: WHATWG: HTML Living Standard | https://html.spec.whatwg.org/ ; MDN: HTML | https://developer.mozilla.org/en-US/docs/Web/HTML
+
+@cl-group Szkielet dokumentu
+sources: MDN: The head metadata in HTML | https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Structuring_content/Webpage_metadata
+
+[doctype] critical
+T: Doctype HTML5
+D: `<!doctype html>` jako pierwsza linia dokumentu. Bez niego przeglądarka włącza tryb quirks z historycznymi błędami renderowania.
+W: W trybie quirks inaczej liczona jest m.in. wysokość procentowa, wysokość linii przy obrazach inline i dziedziczenie fontów w tabelach; layout wygląda dobrze w jednym miejscu i rozjeżdża się w innym.
+W: Krótka forma `<!doctype html>` wystarcza; stare DTD, np. XHTML 1.0 Transitional, potrafi włączyć tryb "almost standards" z innym renderowaniem obrazów w komórkach tabel.
+W: Frameworki (Next.js, Astro) dodają doctype same, ale ręcznie pisane szablony, strony z CMS-ów i szablony e-maili często go gubią.
+V: Źródło strony; w konsoli `document.compatMode === 'CSS1Compat'` (tryb quirks to `BackCompat`); Chrome zgłasza też tryb quirks w panelu Issues.
+```html
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8">
+    <title>Wakacje w Grecji 2027</title>
+  </head>
+  <body>...</body>
+</html>
+```
+```js Konsola DevTools
+document.compatMode; // "CSS1Compat" = standards mode, "BackCompat" = quirks mode
+```
+X: Komentarz licencyjny lub dołączony fragment szablonu wygenerowany przed doctype.
+
+[charset] critical
+T: Kodowanie UTF-8
+D: `<meta charset="utf-8">` jako pierwszy element head (w pierwszych 1024 bajtach). Inaczej polskie znaki mogą wyświetlić się błędnie.
+W: Bez deklaracji przeglądarka zgaduje kodowanie; "Zażółć gęślą jaźń" odczytane jako Windows-1250 zamienia się w "ZaĹĽĂłĹ‚Ä‡ gÄ™Ĺ›lÄ… jaĹşĹ„", a strona traci wiarygodność.
+W: Deklaracja musi znaleźć się w pierwszych 1024 bajtach; jeśli wcześniej stoją długie skrypty lub tagi Open Graph, przeglądarka może zacząć parsowanie od nowa lub użyć złego kodowania.
+W: BOM ma pierwszeństwo przed nagłówkiem HTTP `Content-Type`, a ten przed meta; wszystkie źródła muszą wskazywać UTF-8.
+V: Źródło strony (meta na początku head) i nagłówek `Content-Type` w panelu Network.
+```html
+<head>
+  <meta charset="utf-8"> <!-- first element in head -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Last minute: Turcja, Egipt, Grecja</title>
+</head>
+```
+```http Odpowiedź serwera
+HTTP/2 200
+content-type: text/html; charset=utf-8
+```
+X: `<meta charset>` umieszczony po skryptach analitycznych i dziesiątkach tagów meta.
+X: Serwer wysyłający `charset=iso-8859-2` dla plików zapisanych w UTF-8.
+
+[viewport] critical
+T: Meta viewport
+D: `<meta name="viewport" content="width=device-width, initial-scale=1">`. Bez niego telefony renderują stronę w szerokości ok. 980 px i pomniejszają.
+W: Bez meta viewport media queries dla telefonów nie zadziałają, a tekst jest mikroskopijny; użytkownik musi powiększać i przewijać w poziomie.
+W: Google indeksuje i ocenia strony w wersji mobilnej (mobile-first indexing), więc problem z widokiem mobilnym to problem z widocznością w wyszukiwarce.
+W: Nie dodawaj `maximum-scale=1` ani `user-scalable=no`: blokują powiększanie i łamią WCAG 1.4.4 (Safari na iOS od lat i tak je ignoruje).
+V: Źródło strony, test na telefonie lub w trybie urządzenia w DevTools; axe (`meta-viewport`) wykrywa blokadę zoomu.
+```html
+<!-- Bad: blocks pinch zoom, fails WCAG 1.4.4 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<!-- Good -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Good: on-screen keyboard resizes the layout (Chromium, Firefox) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+```
+X: Blokowanie zoomu, "żeby inputy nie powiększały strony na iOS"; lepiej ustawić `font-size` pól na co najmniej 16 px.
+S: MDN: Viewport meta tag | https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Viewport_meta_element
+
+[lang-attribute] high
+T: Atrybut lang na elemencie html
+D: `<html lang="pl">` (kod BCP 47) wybiera właściwy syntezator mowy w czytnikach, reguły dzielenia wyrazów i tłumaczenie automatyczne. Fragmenty w innym języku mają własny `lang`.
+W: Czytnik ekranu wybiera głos na podstawie `lang`; polski tekst czytany angielskim syntezatorem jest niezrozumiały. WCAG 3.1.1 (A).
+W: Przeglądarka używa `lang` do dzielenia wyrazów (`hyphens: auto`), cudzysłowów w `q`, doboru fontów i decyzji, czy zaproponować tłumaczenie.
+W: Wtrącenia w innym języku oznacz osobno (`<span lang="en">`): WCAG 3.1.2 (AA).
+V: Źródło strony, axe (`html-has-lang`, `html-lang-valid`, `valid-lang`).
+```html
+<!doctype html>
+<html lang="pl">
+<body>
+  <p>Pakiet obejmuje transfer i <span lang="en">late check-out</span> do 14:00.</p>
+  <blockquote lang="de">Ein wunderbarer Urlaub auf Kreta!</blockquote>
+</body>
+</html>
+```
+```tsx app/layout.tsx
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="pl">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+X: `lang="en"` pozostawione z szablonu startowego (np. create-next-app) na polskiej stronie.
+X: Jeden `lang` dla wszystkich wersji językowych serwisu zamiast ustawiania go per locale.
+S: W3C Understanding 3.1.1: Language of Page | https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html
+
+[direction-attribute] medium
+T: Kierunek tekstu dla języków RTL
+D: `dir="rtl"` dla arabskiego, hebrajskiego, perskiego itp. (na `html` lub fragmencie), `dir="auto"` dla treści od użytkowników w nieznanym języku, np. opinii i imion.
+W: Bez `dir` tekst RTL wyświetla się z przestawioną interpunkcją i liczbami w złych miejscach, więc zdanie staje się nieczytelne.
+W: Atrybut `dir`, a nie samo CSS `direction`, przekazuje kierunek także czytnikom ekranu, tłumaczom i wyszukiwarkom.
+W: Właściwości logiczne CSS (`padding-inline`, `margin-inline-start`, `inset-inline-end`) odwracają layout automatycznie, bez osobnego arkusza RTL.
+V: Podgląd wersji językowych RTL; ustaw `dir="rtl"` na `html` w DevTools i sprawdź, czy layout odwraca się lustrzanie.
+```html
+<!-- Arabic version of the site -->
+<html lang="ar" dir="rtl">
+
+<!-- Polish page with user reviews in any language -->
+<p dir="auto">فندق رائع وإطلالة جميلة على البحر</p>
+<p><bdi>יעל כהן</bdi> oceniła hotel na 9/10</p>
+```
+```css
+/* Logical properties flip automatically in RTL */
+.offer-card__badge { position: absolute; inset-inline-end: 1rem; }
+.offer-card__body { padding-inline: 1.5rem; }
+.icon-arrow:dir(rtl) { transform: scaleX(-1); }
+```
+X: `margin-left` i `left` na sztywno w komponentach, które mają działać w obu kierunkach.
+
+[w3c-compliant] high
+T: Poprawny HTML
+D: Walidacja wyłapuje niezamknięte tagi, błędne zagnieżdżenia i nieistniejące atrybuty, które przeglądarki "naprawiają" na różne sposoby.
+W: Parser HTML poprawia błędy według własnego algorytmu: `div` wewnątrz `p` zamyka akapit, a zagnieżdżony `form` jest ignorowany, więc DOM różni się od tego, co napisano.
+W: Błędna struktura psuje drzewo dostępności (np. `li` poza listą) i powoduje błędy hydracji w React, gdy serwer i przeglądarka zbudują inny DOM.
+W: Walidator wyłapuje literówki w atrybutach (`scr`, `aria-lable`), których przeglądarka nie zgłosi.
+V: W3C Markup Validation Service (Nu Html Checker) lub html-validate w CI na zbudowanych stronach.
+```html Źle
+<p>Cena zawiera: <div>przelot, transfer, ubezpieczenie</div></p> <!-- p auto-closes before div -->
+<ul><div><li>All inclusive</li></div></ul>                          <!-- div is not allowed in ul -->
+<img scr="/img/hotel.avif" alt="Hotel Aegean Blue">                 <!-- typo, image never loads -->
+```
+```bash CI
+# Validate the generated HTML in CI
+npx html-validate "dist/**/*.html"
+```
+```json .htmlvalidate.json
+{
+  "extends": ["html-validate:recommended"],
+  "rules": {
+    "no-inline-style": "off"
+  }
+}
+```
+X: Walidowanie tylko szablonów źródłowych zamiast HTML wygenerowanego po SSR.
+S: W3C: Markup Validation Service | https://validator.w3.org/
+
+[unique-id] high
+T: Unikalne ID
+D: Każde `id` występuje na stronie tylko raz. Duplikaty ID psują etykiety formularzy, relacje ARIA, kotwice i skrypty.
+W: `label for`, `aria-labelledby` i `aria-describedby` wskazują pierwszy element o danym ID; drugie pole zostaje bez etykiety lub dostaje cudzy opis błędu.
+W: Kotwice (`#szczegoly`) i `getElementById` trafiają w pierwszy element, więc skrypt działa na złej karcie oferty.
+W: W React generuj ID przez `useId()`, bo zahardkodowane `id="email"` zdubluje się, gdy komponent pojawi się na stronie dwa razy.
+W: WCAG 2.2 usunęło kryterium 4.1.1 Parsing, ale zduplikowane ID nadal łamią relacje ARIA, czyli kryteria 1.3.1 i 4.1.2.
+V: Walidator HTML, axe (`duplicate-id-aria`); w konsoli skrypt wyszukujący duplikaty.
+```tsx
+import { useId } from 'react';
+
+export function TravelerField({ label }: { label: string }) {
+  const id = useId(); // unique per instance, stable across SSR and hydration
+  return (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <input id={id} name="traveler" aria-describedby={`${id}-hint`} />
+      <p id={`${id}-hint`}>Imię i nazwisko jak w paszporcie</p>
+    </div>
+  );
+}
+```
+```js Konsola DevTools
+const ids = [...document.querySelectorAll('[id]')].map((el) => el.id);
+console.log(ids.filter((id, i) => ids.indexOf(id) !== i));
+```
+X: Ten sam komponent modala lub formularza wyrenderowany dwukrotnie (wersja mobilna i desktopowa ukryta CSS-em).
+
+[clean-up-comments] medium
+T: Bez komentarzy i kodu debugowego na produkcji
+D: Komentarze HTML, zakomentowane bloki i elementy testowe zwiększają rozmiar i mogą ujawniać informacje o systemie.
+W: Źródło strony widzi każdy: nazwy wewnętrznych systemów, adresy stagingu, nazwiska i notatki TODO o lukach to darmowy rekonesans dla atakującego.
+W: Zakomentowane bloki zwiększają rozmiar HTML, który przy SSR jest generowany i przesyłany przy każdym żądaniu.
+W: Ukryte panele debugowe i `console.log` z danymi rezerwacji nie powinny trafić na produkcję; atrybuty `data-testid` są akceptowalne.
+V: Źródło strony produkcyjnej (wyszukaj `<!--`); skan wyniku builda w CI.
+```html Źle
+<!-- TODO: remove before launch, old CMS at /cms-old (login: test) -->
+<!-- <div class="promo-banner">Black Friday -30%</div> -->
+<button class="debug-reset" style="display:none" onclick="resetCart()">Reset</button>
+```
+```bash CI
+# Fail the build if TODO/DEBUG comments or debug markers leak into production HTML
+if grep -rEn "<!-- ?(TODO|FIXME|DEBUG)|debug-reset" dist --include="*.html"; then
+  echo "Debug artifacts found in build output"
+  exit 1
+fi
+```
+X: Usuwanie wszystkich komentarzy z wyniku SSR: znaczniki Reacta, np. `<!--$-->`, są częścią mechanizmu hydracji.
+
+[noscript-tag] medium
+T: Treść zastępcza w noscript
+D: Gdy JS jest wyłączony lub zablokowany, `<noscript>` informuje użytkownika, co zrobić. Kluczowa treść powinna być jednak w HTML z serwera (SSR).
+W: Pusta strona bez komunikatu wygląda na awarię serwisu; `noscript` przynajmniej podpowiada alternatywę, np. telefon do biura.
+W: Google renderuje JavaScript, ale treść obecna w HTML z serwera jest indeksowana szybciej i pewniej; `noscript` nie zastąpi SSR.
+W: `noscript` nie pomoże, gdy JS jest włączony, ale się nie wykonał (błąd w bundlu, zablokowany CDN, zerwane połączenie); na to potrzebny jest SSR i obsługa błędów.
+V: Wyłącz JavaScript w DevTools (Command Menu: Disable JavaScript) i odśwież stronę.
+```html
+<body>
+  <noscript>
+    <p class="notice">
+      Wyszukiwarka ofert wymaga JavaScriptu. Możesz też zarezerwować wyjazd telefonicznie:
+      <a href="tel:+48221234567">22 123 45 67</a>.
+    </p>
+  </noscript>
+  <!-- Key content is server-rendered, so it is readable without JS -->
+  <main id="main">...</main>
+</body>
+```
+X: Cała aplikacja renderowana tylko po stronie klienta, a w `noscript` jedynie "Włącz JavaScript".
+
+[defer-async] high
+T: Skrypty z defer, async lub type=module
+D: Zwykły `<script>` w head blokuje parsowanie HTML. `defer` lub `type="module"` (kolejność zachowana) dla skryptów aplikacji, `async` dla niezależnych, np. analityki.
+W: Parser zatrzymuje się na każdym klasycznym skrypcie, pobiera go i wykonuje; na wolnym łączu mobilnym to sekundy białego ekranu i gorsze FCP oraz LCP.
+W: `defer` wykonuje skrypty w kolejności po sparsowaniu dokumentu, przed `DOMContentLoaded`; `async` uruchamia skrypt zaraz po pobraniu, w dowolnej kolejności, więc nie nadaje się do skryptów zależnych.
+W: Skrypty `type="module"` są odroczone domyślnie; dodanie do nich `async` uruchamia je od razu po pobraniu.
+V: Head strony, Lighthouse (zasoby blokujące renderowanie), panel Performance w DevTools.
+```html
+<head>
+  <!-- Bad: blocks HTML parsing -->
+  <script src="/js/vendor.js"></script>
+
+  <!-- Good: app code, runs in order after parsing -->
+  <script defer src="/js/vendor.js"></script>
+  <script defer src="/js/app.js"></script>
+
+  <!-- Good: ES module, deferred by default -->
+  <script type="module" src="/js/booking.js"></script>
+
+  <!-- Good: independent third-party script -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"></script>
+</head>
+```
+X: `async` dla skryptu, który zależy od innego (np. wtyczka ładowana przed biblioteką).
+X: `defer` na skrypcie inline: atrybut działa tylko ze `src`.
+
+[subresource-integrity] high
+T: Subresource Integrity dla skryptów z CDN
+D: Atrybut `integrity="sha384-..."` (z `crossorigin`) sprawia, że przeglądarka odrzuci plik zmodyfikowany na serwerze CDN.
+W: Przejęcie CDN lub konta wydawcy uderza we wszystkie strony, które ładują plik; z SRI przeglądarka zablokuje podmieniony skrypt zamiast go wykonać.
+W: SRI działa tylko dla statycznych, wersjonowanych plików; skryptów generowanych dynamicznie (jak przejęty w 2024 r. polyfill.io) nie da się nim zabezpieczyć, więc lepiej hostować je samodzielnie.
+W: Dla zasobów z innej domeny potrzebny jest `crossorigin="anonymous"` i nagłówki CORS po stronie CDN, inaczej przeglądarka zablokuje plik.
+W: PCI DSS 4.0 (wymaganie 6.4.3) nakazuje kontrolę integralności skryptów na stronach płatności; SRI i CSP to podstawowe narzędzia.
+V: Sprawdź skrypty i style ładowane z zewnętrznych domen; błąd integralności widać w konsoli, a zablokowany plik w Network.
+```html
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/dayjs.min.js"
+        integrity="sha384-REPLACE_WITH_BASE64_HASH"
+        crossorigin="anonymous"></script>
+```
+```bash
+# Generate the SRI hash for a pinned file version
+curl -s https://cdn.jsdelivr.net/npm/dayjs@1.11.13/dayjs.min.js \
+  | openssl dgst -sha384 -binary | openssl base64 -A
+```
+X: SRI na adresie bez wersji (`@latest`): każda aktualizacja zmienia hash i blokuje skrypt.
+S: MDN: Subresource Integrity | https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+
+@cl-group Semantyka i nawigacja
+sources: MDN: HTML elements reference | https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements
+
+[html5-semantic-elements] high
+T: Semantyczne elementy HTML5
+D: `header`, `nav`, `main`, `article`, `section`, `aside`, `footer`, `button`, `figure`, `time` zamiast samych `div` i `span`. Dają dostępność, SEO i czytelny kod.
+W: Czytnik ekranu ogłasza role ("nawigacja", "przycisk", "artykuł"); `div` z `onclick` jest dla niego zwykłym tekstem, niedostępnym z klawiatury.
+W: Natywne elementy dają zachowanie za darmo: `button` reaguje na Enter i Spację, `details` się rozwija, `dialog` zarządza focusem.
+W: Wyszukiwarki i tryby czytania (np. Safari Reader) łatwiej znajdują treść główną w `main` i `article`, a `time datetime` podaje datę w formacie maszynowym.
+V: Przegląd DOM głównych szablonów; drzewo dostępności w DevTools (Elements, Accessibility).
+```html Źle
+<div class="header"><div class="menu">...</div></div>
+<div class="offer">
+  <div class="title">Hotel Aegean Blue</div>
+  <span>12.05.2027</span>
+  <div class="btn" onclick="book()">Rezerwuj</div>
+</div>
+```
+```html Dobrze
+<header><nav aria-label="Główna">...</nav></header>
+<main>
+  <article class="offer">
+    <h2>Hotel Aegean Blue</h2>
+    <p>Wylot: <time datetime="2027-05-12">12 maja 2027</time></p>
+    <button type="button" onclick="book()">Rezerwuj</button>
+  </article>
+</main>
+```
+X: `section` jako zamiennik `div` bez nagłówka.
+X: `button` do zmiany strony i `a` bez `href` do akcji: link prowadzi, przycisk działa.
+
+[custom-element-accessibility] medium
+T: Dostępne Web Components
+D: Własne elementy nie mają wbudowanej semantyki: muszą ustawić rolę i stany (np. przez `ElementInternals`), obsługę klawiatury i focusu oraz udostępnić etykietę.
+W: `<fav-toggle>` jest dla czytnika anonimowym kontenerem; bez roli i nazwy nie wiadomo, czy to przycisk, przełącznik, czy tekst.
+W: `ElementInternals` ustawia domyślną rolę i stany ARIA bez dopisywania atrybutów, które autor strony może nadpisać; obsługują to wszystkie główne przeglądarki.
+W: Shadow DOM przerywa relacje ID: `aria-labelledby` spoza komponentu nie widzi elementów w shadow root, więc etykietę trzeba przekazać atrybutem lub slotem.
+W: `static formAssociated = true` z `ElementInternals` sprawia, że własne pole działa z `label`, walidacją i wysyłką formularza.
+V: Panel Accessibility w DevTools (rola, nazwa, stany) i test klawiaturą oraz czytnikiem ekranu.
+```ts fav-toggle.ts
+// Accessible toggle button as an autonomous custom element
+class FavToggle extends HTMLElement {
+  #internals = this.attachInternals();
+
+  connectedCallback() {
+    this.#internals.role = 'button';
+    this.#internals.ariaPressed = 'false';
+    if (!this.hasAttribute('tabindex')) this.tabIndex = 0;
+    this.addEventListener('click', () => this.toggle());
+    this.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggle(); }
+    });
+  }
+
+  toggle() {
+    const pressed = this.#internals.ariaPressed === 'true';
+    this.#internals.ariaPressed = String(!pressed);
+  }
+}
+customElements.define('fav-toggle', FavToggle);
+// Usage: <fav-toggle aria-label="Dodaj hotel do ulubionych">♥</fav-toggle>
+```
+X: Odtwarzanie zachowania przycisku od zera, gdy wystarczy natywny `<button>` wewnątrz shadow DOM.
+X: Customized built-ins (`<button is="...">`): Safari ich nie obsługuje.
+
+[breadcrumb-navigation] medium
+T: Dostępne breadcrumbs
+D: `<nav aria-label="Ścieżka">` z listą `<ol>`, ostatni element z `aria-current="page"`. Plus BreadcrumbList w danych strukturalnych.
+W: Breadcrumbs pokazują, gdzie użytkownik jest w hierarchii (Grecja, Kreta, hotel), i pozwalają jednym kliknięciem wrócić do listy ofert.
+W: `nav` z etykietą tworzy landmark, `ol` ogłasza liczbę poziomów, a `aria-current="page"` informuje, że to bieżąca strona.
+W: BreadcrumbList pomaga Google zrozumieć strukturę serwisu i może zastąpić surowy adres URL ścieżką w wynikach wyszukiwania.
+V: Odczyt czytnikiem ekranu, Rich Results Test.
+```html
+<nav aria-label="Ścieżka">
+  <ol class="breadcrumbs">
+    <li><a href="/">Strona główna</a></li>
+    <li><a href="/wakacje/grecja">Grecja</a></li>
+    <li><a href="/wakacje/grecja/kreta">Kreta</a></li>
+    <li><a href="/hotel/aegean-blue" aria-current="page">Hotel Aegean Blue</a></li>
+  </ol>
+</nav>
+```
+```json JSON-LD
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Grecja", "item": "https://example.pl/wakacje/grecja" },
+    { "@type": "ListItem", "position": 2, "name": "Kreta", "item": "https://example.pl/wakacje/grecja/kreta" },
+    { "@type": "ListItem", "position": 3, "name": "Hotel Aegean Blue" }
+  ]
+}
+```
+X: Separatory ">" lub "/" jako tekst w HTML: czytnik je odczytuje; narysuj je w CSS (np. obrócone obramowanie) lub użyj ikony SVG z `aria-hidden="true"`.
+S: W3C APG: Breadcrumb Pattern | https://www.w3.org/WAI/ARIA/apg/patterns/breadcrumb/
+
+[pagination-accessibility] medium
+T: Dostępna paginacja
+D: `<nav aria-label="Paginacja">`, linki z opisową nazwą ("Strona 3"), bieżąca strona z `aria-current="page"`, prawdziwe adresy URL dla każdej strony.
+W: Linki "1 2 3" bez kontekstu to dla czytnika same liczby; ukryty tekst "Strona" lub etykieta wyjaśnia, dokąd prowadzą.
+W: `aria-current="page"` ogłasza bieżącą stronę; samo pogrubienie widzi tylko osoba widząca.
+W: Każda strona pod własnym adresem (`?page=3`) jest indeksowalna, da się ją udostępnić i wrócić do niej przyciskiem Wstecz. Google nie używa już `rel="prev/next"`, więc liczą się zwykłe linki `<a href>`.
+V: Obsługa klawiaturą i czytnikiem ekranu; sprawdź, czy każda strona ma unikalny adres i działa po odświeżeniu.
+```html
+<nav aria-label="Paginacja wyników">
+  <ul class="pagination">
+    <li><a href="/oferty/grecja?page=1" aria-label="Poprzednia strona">‹</a></li>
+    <li><a href="/oferty/grecja?page=1"><span class="visually-hidden">Strona </span>1</a></li>
+    <li><a href="/oferty/grecja?page=2" aria-current="page"><span class="visually-hidden">Strona </span>2</a></li>
+    <li><a href="/oferty/grecja?page=3"><span class="visually-hidden">Strona </span>3</a></li>
+    <li><a href="/oferty/grecja?page=3" aria-label="Następna strona">›</a></li>
+  </ul>
+</nav>
+```
+X: Paginacja lub "Pokaż więcej" jako `button` z JS bez zmiany adresu URL: dalsze oferty są niewidoczne dla robotów i giną po odświeżeniu.
+
+[404-page] medium
+T: Własna strona 404
+D: Pomocna strona błędu z wyszukiwarką, linkami do popularnych sekcji i strony głównej, zwracająca prawdziwy status 404 (nie 200, czyli "soft 404").
+W: Soft 404 (strona błędu ze statusem 200) może trafić do indeksu jak zwykła strona, a Search Console zgłasza ją jako problem.
+W: Wygasła oferta lub literówka w adresie to częsta ścieżka wejścia z Google i newslettera; pomocna 404 z wyszukiwarką i podobnymi ofertami zatrzymuje użytkownika.
+W: Dla trwale usuniętych treści możesz zwrócić 410, a gdy istnieje odpowiednik, przekierować 301 na niego; masowe przekierowanie na stronę główną Google i tak uzna za soft 404.
+V: Wejdź na nieistniejący adres i sprawdź status w Network; Search Console, raport Strony, pozycja "Soft 404".
+```tsx app/oferta/[id]/page.tsx
+import { notFound } from 'next/navigation';
+
+export default async function OfferPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const offer = await getOffer(id);
+  if (!offer) notFound(); // renders the nearest not-found.tsx
+  return <OfferDetails offer={offer} />;
+}
+```
+```tsx app/not-found.tsx
+import Link from 'next/link';
+
+export default function NotFound() {
+  return (
+    <main id="main">
+      <h1>Nie znaleźliśmy tej strony</h1>
+      <p>Oferta mogła wygasnąć. Wyszukaj inny termin lub kierunek.</p>
+      <search>
+        <form action="/szukaj">
+          <label htmlFor="q">Szukaj ofert</label>
+          <input id="q" name="q" type="search" />
+          <button type="submit">Szukaj</button>
+        </form>
+      </search>
+      <Link href="/last-minute">Zobacz oferty last minute</Link>
+    </main>
+  );
+}
+```
+X: W Next.js `notFound()` wywołane po rozpoczęciu streamingu (np. pod `loading.tsx`) zwraca status 200 z `noindex`, nie 404; sprawdź status w Network.
+S: Next.js: not-found.js | https://nextjs.org/docs/app/api-reference/file-conventions/not-found
+
+[favicons] medium
+T: Favicony dla wszystkich urządzeń
+D: Minimum: `favicon.ico` lub SVG, `apple-touch-icon` 180x180 i ikony 192 i 512 px w Web App Manifest (najlepiej także wersja `maskable`).
+W: Favicona wyróżnia kartę wśród kilkunastu otwartych i pojawia się w zakładkach, historii oraz przy wynikach Google; jej brak wygląda nieprofesjonalnie.
+W: Google wymaga favicony kwadratowej, co najmniej 8x8 px, i zaleca rozmiar większy niż 48x48 px, żeby dobrze wyglądała na różnych powierzchniach.
+W: Bez `apple-touch-icon` iOS przy dodaniu do ekranu początkowego pokaże zastępczą ikonę zamiast logo.
+W: Favicona SVG może reagować na `prefers-color-scheme`, więc logo pozostaje widoczne na ciemnym pasku kart.
+V: Przegląd head i manifestu; DevTools, Application, Manifest (podgląd ikon); test dodania do ekranu głównego.
+```html
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"> <!-- 180x180 -->
+<link rel="manifest" href="/manifest.webmanifest">
+```
+```xml icon.svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    path { fill: #0b57d0; }
+    @media (prefers-color-scheme: dark) { path { fill: #8ab4f8; } }
+  </style>
+  <path d="M16 2 30 16 16 30 2 16z"/>
+</svg>
+```
+X: Favicona zablokowana w robots.txt lub dostępna tylko po zalogowaniu: Google jej nie pobierze.
+S: Google Search Central: Define a favicon to show in search results | https://developers.google.com/search/docs/appearance/favicon-in-search
+
+@cl-group Formularze i wyszukiwanie
+sources: MDN: Web forms | https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Forms
+
+[form-validation] high
+T: Dostępna walidacja formularzy
+D: Komunikaty błędów przy polach, powiązane przez `aria-describedby`, z `aria-invalid="true"`, opisujące, jak naprawić błąd. Nie tylko kolor. Podsumowanie błędów przy długich formularzach.
+W: Błąd oznaczony tylko czerwoną ramką nie dociera do czytnika ekranu ani do osób z zaburzeniami widzenia barw; WCAG 1.4.1 i 3.3.1 (A).
+W: Podpowiedź, jak naprawić błąd ("Podaj datę w formacie DD.MM.RRRR"), to WCAG 3.3.3 (AA) i mniej frustracji niż ogólne "Błędne dane".
+W: Podsumowanie błędów z linkami do pól oszczędza szukania przy długim formularzu, np. danych kilku podróżnych.
+W: Waliduj po opuszczeniu pola lub przy wysyłce, nie przy każdym znaku; komunikaty w trakcie pisania irytują i zagadują czytnik.
+V: Wyślij pusty i błędny formularz z czytnikiem ekranu: focus trafia do podsumowania lub pierwszego błędnego pola, a każdy błąd jest odczytywany razem z polem.
+```html
+<form id="booking" novalidate>
+  <div id="error-summary" tabindex="-1" hidden>
+    <h2>Popraw błędy w formularzu</h2>
+    <ul></ul>
+  </div>
+  <label for="email">E-mail</label>
+  <input id="email" name="email" type="email" autocomplete="email" required
+         aria-describedby="email-error" data-error="Podaj e-mail w formacie jan@example.pl">
+  <p id="email-error" class="field-error"></p>
+  <button type="submit">Rezerwuj</button>
+</form>
+```
+```js
+const form = document.querySelector('#booking');
+const summary = document.querySelector('#error-summary');
+
+form.addEventListener('submit', (e) => {
+  const invalid = [...form.elements].filter((el) => el.willValidate && !el.checkValidity());
+  if (!invalid.length) return;
+  e.preventDefault();
+  summary.querySelector('ul').replaceChildren(...invalid.map((el) => {
+    el.setAttribute('aria-invalid', 'true');
+    document.getElementById(`${el.id}-error`).textContent = el.dataset.error;
+    const li = document.createElement('li');
+    li.innerHTML = `<a href="#${el.id}"></a>`;
+    li.firstChild.textContent = el.dataset.error;
+    return li;
+  }));
+  summary.hidden = false;
+  summary.focus(); // screen reader reads the summary heading and the list
+});
+```
+X: Wyłączenie przycisku "Wyślij" do czasu poprawnego wypełnienia: użytkownik nie wie, co jest nie tak.
+S: W3C Understanding 3.3.1: Error Identification | https://www.w3.org/WAI/WCAG22/Understanding/error-identification.html
+
+[input-types] high
+T: Właściwe typy pól
+D: `type="email"`, `tel`, `number`, `date`, `search` oraz `inputmode` i `autocomplete` wyświetlają odpowiednią klawiaturę mobilną i umożliwiają autouzupełnianie.
+W: Właściwa klawiatura przyspiesza wypełnianie na telefonie: `email` pokazuje "@", `tel` klawiaturę numeryczną, `inputmode="numeric"` same cyfry.
+W: `autocomplete` (np. `given-name`, `email`, `tel`, `postal-code`, `cc-number`) pozwala wypełnić formularz jednym dotknięciem i jest wymagane przez WCAG 1.3.5 (AA) dla danych o użytkowniku.
+W: `type="number"` nie nadaje się do kodu pocztowego, numeru karty ani telefonu: kod "00-950" nie jest liczbą, a pole dodaje strzałki i może zmieniać wartość przy przewijaniu.
+V: Wypełnij formularz na telefonie (iOS i Android) i sprawdź klawiatury oraz podpowiedzi autouzupełniania.
+```html
+<label for="first-name">Imię</label>
+<input id="first-name" name="firstName" autocomplete="given-name">
+
+<label for="mail">E-mail</label>
+<input id="mail" name="email" type="email" autocomplete="email">
+
+<label for="phone">Telefon</label>
+<input id="phone" name="phone" type="tel" autocomplete="tel">
+
+<label for="zip">Kod pocztowy</label>
+<input id="zip" name="zip" autocomplete="postal-code" pattern="\d{2}-\d{3}">
+
+<label for="card">Numer karty</label>
+<input id="card" name="card" inputmode="numeric" autocomplete="cc-number">
+
+<label for="adults">Liczba dorosłych</label>
+<input id="adults" name="adults" type="number" min="1" max="9" value="2">
+```
+X: `autocomplete="off"` na polach danych osobowych "dla bezpieczeństwa": utrudnia życie i łamie WCAG 1.3.5.
+S: MDN: The input element | https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input
+
+[file-upload-accessibility] medium
+T: Dostępne przesyłanie plików
+D: Pole pliku ma etykietę, informację o dozwolonych typach i rozmiarze (`accept` plus tekst pomocniczy), a strefy drag and drop mają alternatywę z przyciskiem.
+W: Strefa "przeciągnij i upuść" wymaga myszy i precyzji; użytkownik klawiatury, czytnika ekranu czy telefonu potrzebuje zwykłego przycisku wyboru pliku.
+W: Informacja o formatach i limicie przed wyborem (np. "PDF lub JPG, do 5 MB") oszczędza nieudanych prób, a `accept` filtruje okno wyboru plików.
+W: Wynik przesyłania (postęp, sukces, błąd) musi zostać ogłoszony, np. przez `role="status"`, bo inaczej zmienia się tylko wizualnie.
+W: `accept` to tylko podpowiedź: typ i rozmiar pliku zawsze sprawdzaj na serwerze.
+V: Prześlij plik tylko klawiaturą i z czytnikiem ekranu; sprawdź komunikat dla zbyt dużego pliku.
+```html
+<label for="passport">Skan paszportu</label>
+<p id="passport-hint">PDF, JPG lub PNG, maksymalnie 5 MB.</p>
+<input id="passport" type="file" name="passport"
+       accept=".pdf,image/jpeg,image/png" aria-describedby="passport-hint">
+<div class="dropzone" aria-hidden="true">lub przeciągnij plik tutaj</div>
+<p id="upload-status" role="status"></p>
+```
+```js
+const input = document.querySelector('#passport');
+const status = document.querySelector('#upload-status');
+
+input.addEventListener('change', () => {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    status.textContent = `Plik ${file.name} jest za duży (maks. 5 MB).`;
+    input.value = '';
+  } else {
+    status.textContent = `Wybrano plik ${file.name}.`;
+  }
+});
+```
+X: Ukrycie `input type="file"` przez `display: none` i podpięcie kliknięcia do `div`: pole znika z kolejności Tab.
+
+[search-input] medium
+T: Dostępna wyszukiwarka
+D: `<search>` lub `role="search"`, `<input type="search">` z etykietą (może być wizualnie ukryta) i przyciskiem z nazwą.
+W: Landmark search pozwala czytnikom przeskoczyć prosto do wyszukiwarki (D w NVDA, rotor w VoiceOver).
+W: Element `<search>` jest obsługiwany we wszystkich głównych przeglądarkach od 2023 r. i ma wbudowaną rolę search, więc nie trzeba dopisywać `role`.
+W: Placeholder to nie etykieta: znika przy pisaniu i zwykle ma za słaby kontrast; przycisk z samą ikoną lupy potrzebuje nazwy dostępnej.
+W: `type="search"` daje na telefonie klawiaturę z klawiszem "Szukaj" i przycisk czyszczenia pola w części przeglądarek.
+V: Odczyt czytnikiem ekranu (landmark search); obsługa klawiaturą, Enter wysyła formularz.
+```html
+<search>
+  <form action="/szukaj">
+    <label for="q" class="visually-hidden">Szukaj kierunku lub hotelu</label>
+    <input id="q" name="q" type="search" placeholder="np. Kreta, Hurghada">
+    <button type="submit" aria-label="Szukaj">
+      <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#icon-search"/></svg>
+    </button>
+  </form>
+</search>
+```
+```css
+/* Hidden visually, still available to screen readers */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+```
+X: Etykieta ukryta przez `display: none`: znika także dla czytnika ekranu.
+
+@cl-group Multimedia
+sources: MDN: The video element | https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video
+
+[video-accessibility] high
+T: Dostępne wideo
+D: Napisy (`<track>`), audiodeskrypcja lub transkrypcja, sterowanie z klawiatury, brak autoodtwarzania z dźwiękiem.
+W: Napisy (WCAG 1.2.2) oraz audiodeskrypcja lub transkrypcja (1.2.3, 1.2.5) obsługują osoby głuche i niewidome; transkrypcję odczyta też monitor brajlowski i zaindeksuje Google.
+W: Własne odtwarzacze często mają `div` zamiast przycisków: nie da się ich obsłużyć klawiaturą, a czytnik nie ogłasza "Odtwórz" ani głośności.
+W: Atrybut `controls` daje natywne, dostępne z klawiatury sterowanie bez pisania kodu.
+V: Obsługa odtwarzacza klawiaturą (Tab, Spacja, strzałki) i czytnikiem; sprawdź napisy i brak autoodtwarzania z dźwiękiem.
+```html
+<figure>
+  <video controls preload="metadata" playsinline poster="/img/hotel-tour.avif">
+    <source src="/video/hotel-tour.webm" type="video/webm">
+    <source src="/video/hotel-tour.mp4" type="video/mp4">
+    <track kind="captions" src="/video/hotel-tour.pl.vtt" srclang="pl" label="Polski" default>
+  </video>
+  <figcaption>
+    Wirtualny spacer po hotelu Aegean Blue (2:14).
+    <a href="/transkrypcje/aegean-blue">Transkrypcja z opisem obrazu</a>
+  </figcaption>
+</figure>
+```
+X: Własne przyciski odtwarzacza bez nazw dostępnych (czytnik ogłasza tylko "przycisk").
+X: Autoodtwarzanie z dźwiękiem w karuzeli ofert.
+
+[video-thumbnail] medium
+T: Miniatura wideo (poster)
+D: Atrybut `poster` pokazuje obraz przed odtworzeniem, zapobiega pustemu prostokątowi i pomaga przy LCP.
+W: Bez `poster` przeglądarka pokazuje czarny prostokąt lub czeka na pierwszą klatkę z pobranego wideo; użytkownik nie wie, co obejrzy.
+W: Obraz `poster` może być elementem LCP; lekki plik AVIF lub WebP w wymiarach odtwarzacza przyspiesza ten pomiar, a `preload="none"` oszczędza transfer wideo.
+W: Atrybuty `width` i `height` na `video` rezerwują proporcje i zapobiegają przesunięciom układu (CLS).
+V: Przegląd elementów `<video>`; w panelu Performance lub Lighthouse sprawdź, czy poster jest elementem LCP i jak szybko się ładuje.
+```html
+<!-- If the poster is the LCP element, start fetching it early -->
+<link rel="preload" as="image" href="/img/aegean-blue-poster.avif" fetchpriority="high">
+
+<video controls preload="none" width="1280" height="720"
+       poster="/img/aegean-blue-poster.avif">
+  <source src="/video/aegean-blue.mp4" type="video/mp4">
+</video>
+```
+X: Poster jako ciężki JPG w rozdzielczości 4K przy odtwarzaczu szerokim na 640 px.
+
+@cl-group PWA
+sources: web.dev: Learn PWA | https://web.dev/learn/pwa
+
+[web-app-manifest] medium
+T: Web App Manifest
+D: `<link rel="manifest">` z nazwą, ikonami, `start_url`, `display` i kolorami pozwala zainstalować stronę jako aplikację.
+W: Manifest decyduje, jak strona wygląda po instalacji: nazwa pod ikoną, ekran startowy, kolor paska, tryb bez paska adresu (`standalone`).
+W: Bez pola `id` tożsamość aplikacji wynika ze `start_url`, więc jego późniejsza zmiana tworzy z punktu widzenia przeglądarki nową aplikację.
+W: `shortcuts` dodają skróty (np. "Moje rezerwacje") po przytrzymaniu ikony, a ikona `maskable` nie zostanie ucięta przez maskę systemu Android.
+V: DevTools → Application → Manifest (błędy, ostrzeżenia, podgląd ikon).
+```html
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0b57d0">
+```
+```json manifest.webmanifest
+{
+  "id": "/",
+  "name": "Wakacje: rezerwacje i oferty",
+  "short_name": "Wakacje",
+  "start_url": "/?source=pwa",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b57d0",
+  "icons": [
+    { "src": "/icons/192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [{ "name": "Moje rezerwacje", "url": "/konto/rezerwacje" }]
+}
+```
+X: Ikona z logo przy samej krawędzi oznaczona jako `maskable`: system utnie jej fragmenty.
+S: MDN: Web application manifest | https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest
+
+[pwa-installability] low
+T: Spełnione kryteria instalacji PWA
+D: HTTPS, poprawny manifest (nazwa, ikony 192 i 512, `start_url`, `display`). Service Worker z obsługą `fetch` nie jest już wymagany przez Chrome do instalacji, ale nadal daje offline.
+W: Zainstalowana aplikacja ma ikonę na ekranie głównym lub w doku i uruchamia się w osobnym oknie; łatwiej do niej wrócić niż do zakładki.
+W: Od Chrome 108 (mobile) i 112 (desktop) service worker z obsługą `fetch` nie jest wymagany do instalacji, ale bez niego aplikacja nie zadziała offline.
+W: Safari na iOS nie pokazuje monitu instalacji: użytkownik dodaje stronę przez Udostępnij, Do ekranu początkowego, więc warto to podpowiedzieć w interfejsie.
+W: Zdarzenie `beforeinstallprompt` (Chromium) pozwala pokazać własny przycisk "Zainstaluj" w dobrym momencie, np. po zakończonej rezerwacji.
+V: DevTools → Application → Manifest (sekcja Installability).
+```js
+const installBtn = document.querySelector('#install');
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); // keep the event and show our own button instead
+  deferredPrompt = e;
+  installBtn.hidden = false;
+});
+
+installBtn.addEventListener('click', async () => {
+  installBtn.hidden = true;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  console.info('Install prompt outcome:', outcome);
+  deferredPrompt = null;
+});
+```
+X: Pokazywanie monitu instalacji zaraz po wejściu na stronę, zanim użytkownik zobaczy jakąkolwiek wartość.

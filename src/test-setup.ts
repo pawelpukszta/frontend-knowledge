@@ -11,3 +11,4 @@ window.matchMedia ??= ((query: string) => ({
   addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false,
 })) as typeof window.matchMedia;
 window.scrollTo = () => {};
+Element.prototype.scrollIntoView = () => {};

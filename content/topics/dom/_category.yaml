@@ -1,0 +1,15 @@
+order: 7
+name: DOM & Rendering
+short: DOM
+hue: painting
+desc: Czym jest DOM, jak przeglądarka zamienia HTML i CSS w piksele, reflow i repaint, event loop, zdarzenia, workers i storage.
+topics:
+  - dom-what
+  - dom-crp
+  - dom-render-blocking
+  - dom-reflow-repaint
+  - dom-event-loop
+  - dom-events
+  - dom-workers
+  - dom-appcache-manifest
+  - dom-storage

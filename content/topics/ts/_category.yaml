@@ -1,0 +1,17 @@
+order: 3
+name: TypeScript
+short: TS
+hue: rendering
+desc: Jak działa TS, generyki vs type guards, narrowing, utility types, satisfies oraz kiedy abstrakcja ma sens (DRY vs WET/AHA).
+topics:
+  - ts-how-it-works
+  - ts-type-vs-interface
+  - ts-any-unknown-never
+  - ts-generics
+  - ts-type-guards
+  - ts-discriminated-unions
+  - ts-guards-vs-generics
+  - ts-utility-types
+  - ts-satisfies-const
+  - ts-react
+  - ts-dry-aha

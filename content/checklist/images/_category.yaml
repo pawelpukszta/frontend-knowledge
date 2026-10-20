@@ -1,0 +1,60 @@
+order: 7
+name: Obrazy
+desc: Teksty alternatywne, formaty, rozmiary, responsywność, kompresja, priorytety ładowania i SVG.
+hue: painting
+sources:
+  - title: "web.dev: Learn Images"
+    url: https://web.dev/learn/images
+  - title: "MDN: Responsive images"
+    url: https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Responsive_images
+groups:
+  - name: Dostępność i semantyka obrazów
+    sources:
+      - title: "W3C WAI: Images Tutorial"
+        url: https://www.w3.org/WAI/tutorials/images/
+    rules:
+      - alt-text
+      - figure-figcaption
+      - filename-quality
+      - broken-images
+      - error-images
+  - name: Formaty
+    sources:
+      - title: "web.dev: Choose the right image format"
+        url: https://web.dev/articles/choose-the-right-image-format
+    rules:
+      - modern-format
+      - webp-format
+      - avif-format
+      - picture-element
+      - progressive-jpeg
+  - name: Rozmiar i kompresja
+    sources:
+      - title: "web.dev: Image performance"
+        url: https://web.dev/learn/performance/image-performance
+    rules:
+      - image-optimization
+      - optimized
+      - image-compression
+      - image-file-size
+      - responsive-size
+      - srcset
+      - responsive-images
+      - retina-display
+      - dimensions
+  - name: Dostarczanie i ładowanie
+    sources:
+      - title: "web.dev: Optimize Largest Contentful Paint"
+        url: https://web.dev/articles/optimize-lcp
+    rules:
+      - critical-images
+      - offscreen-lazy
+      - image-cdn
+      - sprite-generation
+  - name: SVG
+    sources:
+      - title: SVGO
+        url: https://github.com/svg/svgo
+    rules:
+      - svg-optimization
+      - svg-inline

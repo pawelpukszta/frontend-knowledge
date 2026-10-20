@@ -1,0 +1,17 @@
+order: 4
+name: HTTP & REST API
+short: HTTP
+hue: loading
+desc: Jak działa HTTP, czym jest REST, metody i statusy, projektowanie API, GraphQL, CORS i cache.
+topics:
+  - http-basics
+  - http-xhr-fetch
+  - http-rest
+  - http-methods
+  - http-status
+  - http-rest-design
+  - http-graphql
+  - http-rest-vs-graphql
+  - http-realtime
+  - http-cors
+  - http-caching

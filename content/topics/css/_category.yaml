@@ -1,0 +1,14 @@
+order: 13
+name: CSS & layout
+short: CSS
+hue: painting
+desc: Kaskada i specyficzność, box model, Flexbox vs Grid, responsywność z container queries, strategie stylowania (CSS Modules, Tailwind, CSS-in-JS).
+topics:
+  - css-cascade-specificity
+  - css-selectors
+  - css-box-model
+  - css-hiding
+  - css-flex-grid
+  - css-responsive
+  - css-preprocessors
+  - css-strategies

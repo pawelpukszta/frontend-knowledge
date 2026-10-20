@@ -1,0 +1,20 @@
+order: 10
+name: Prywatność
+desc: Zgody, minimalizacja danych, polityka prywatności i prawa użytkowników (RODO/GDPR).
+hue: system
+sources:
+  - title: "EUR-Lex: RODO (GDPR)"
+    url: https://eur-lex.europa.eu/eli/reg/2016/679/oj
+  - title: "UODO: Urząd Ochrony Danych Osobowych"
+    url: https://uodo.gov.pl/
+groups:
+  - name: Zgody i dane osobowe
+    sources:
+      - title: "European Data Protection Board: Guidelines on consent"
+        url: https://www.edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-052020-consent-under-regulation-2016679_en
+    rules:
+      - cookie-consent
+      - privacy-policy
+      - data-minimisation
+      - right-to-erasure
+      - third-party-cookies

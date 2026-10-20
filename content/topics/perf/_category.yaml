@@ -1,0 +1,17 @@
+order: 8
+name: Performance & Web Vitals
+short: Perf
+hue: loading
+desc: Core Web Vitals (LCP, INP, CLS), pozostałe metryki, dane lab vs field, codzienna praca z DevTools (Performance, Network, Lighthouse) i techniki optymalizacji.
+topics:
+  - perf-cwv
+  - perf-lcp
+  - perf-inp
+  - perf-cls
+  - perf-other-metrics
+  - perf-lab-field
+  - perf-devtools-performance
+  - perf-devtools-network
+  - perf-lighthouse
+  - perf-loading-optimizations
+  - perf-bundle

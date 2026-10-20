@@ -1,0 +1,38 @@
+order: 9
+name: Testy i jakość
+desc: Strategia testów, testy przeglądarek i urządzeń, dostępności, wydajności oraz monitoring błędów na produkcji.
+hue: system
+sources:
+  - title: "Testing Library: Guiding Principles"
+    url: https://testing-library.com/docs/guiding-principles
+  - title: "Playwright: Best Practices"
+    url: https://playwright.dev/docs/best-practices
+groups:
+  - name: Strategia testów
+    sources:
+      - title: "Kent C. Dodds: The Testing Trophy"
+        url: https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications
+    rules:
+      - unit-tests
+      - integration-testing
+      - e2e-testing
+      - contract-testing
+      - mock-best-practices
+      - test-coverage
+      - mutation-testing
+  - name: Przeglądarki, urządzenia i specjalistyczne testy
+    sources:
+      - title: "web.dev: Baseline"
+        url: https://web.dev/baseline
+    rules:
+      - cross-browser-testing
+      - mobile-testing
+      - accessibility-testing
+      - visual-regression
+      - performance-budget
+  - name: Monitoring
+    sources:
+      - title: "Sentry: JavaScript"
+        url: https://docs.sentry.io/platforms/javascript/
+    rules:
+      - error-monitoring

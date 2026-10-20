@@ -1,0 +1,13 @@
+order: 9
+name: HTML semantyczny & Accessibility
+short: A11y
+hue: system
+desc: Semantyczne znaczniki, landmarki i nagłówki, ARIA i jej pierwsza zasada, accessible name, klawiatura i focus, WCAG, testowanie.
+topics:
+  - a11y-semantic-html
+  - a11y-landmarks-headings
+  - a11y-aria
+  - a11y-accessible-name
+  - a11y-keyboard-focus
+  - a11y-wcag
+  - a11y-testing

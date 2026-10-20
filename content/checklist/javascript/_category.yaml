@@ -1,0 +1,56 @@
+order: 5
+name: JavaScript
+desc: Jakość i organizacja kodu, TypeScript, wydajność wykonania i bezpieczeństwo kodu po stronie klienta.
+hue: scripting
+sources:
+  - title: "MDN: JavaScript Guide"
+    url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide
+  - title: "TypeScript: TSConfig Reference"
+    url: https://www.typescriptlang.org/tsconfig/
+groups:
+  - name: Jakość i organizacja kodu
+    sources:
+      - title: "ESLint: Getting Started"
+        url: https://eslint.org/docs/latest/use/getting-started
+    rules:
+      - error-handling
+      - javascript-inline
+      - console-cleanup
+      - javascript-linter
+      - es-modules
+      - translation-strings
+      - immutable-patterns
+      - modern-array-methods
+      - const-let
+      - type-coercion
+  - name: TypeScript
+    sources:
+      - title: TypeScript Handbook
+        url: https://www.typescriptlang.org/docs/handbook/intro.html
+    rules:
+      - typescript-strict-mode
+      - type-only-imports
+      - runtime-validation
+      - no-explicit-any
+      - no-unchecked-indexed-access
+  - name: Wydajność wykonania
+    sources:
+      - title: "web.dev: Optimize long tasks"
+        url: https://web.dev/articles/optimize-long-tasks
+    rules:
+      - scheduler-yield
+      - event-delegation
+      - debounce-throttle
+      - javascript-minification
+      - code-splitting
+      - dom-performance
+      - memory-leaks
+  - name: Bezpieczeństwo kodu
+    sources:
+      - title: "OWASP: DOM based XSS Prevention Cheat Sheet"
+        url: https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html
+    rules:
+      - avoid-eval
+      - json-safety
+      - cross-origin-security
+      - web-storage

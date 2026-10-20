@@ -1,0 +1,153 @@
+order: 2
+name: SEO
+desc: "Treść i wiarygodność (E-E-A-T), lokalne SEO, meta tagi, social media i techniczne SEO: indeksowanie, sitemap, przekierowania, dane strukturalne, linkowanie."
+hue: loading
+sources:
+  - title: "Google Search Central: SEO Starter Guide"
+    url: https://developers.google.com/search/docs/fundamentals/seo-starter-guide
+  - title: "Google Search Central: Search Essentials"
+    url: https://developers.google.com/search/docs/essentials
+  - title: "Google Search Central: Structured data"
+    url: https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data
+groups:
+  - name: Treść i wiarygodność
+    sources:
+      - title: "Google: Creating helpful, reliable, people-first content"
+        url: https://developers.google.com/search/docs/fundamentals/creating-helpful-content
+      - title: "Google: Search Quality Rater Guidelines (PDF)"
+        url: https://static.googleusercontent.com/media/guidelines.raterhub.com/en//searchqualityevaluatorguidelines.pdf
+    rules:
+      - quality
+      - ymyl-detection
+      - about-page
+      - affiliate-disclosure
+      - ai-content
+      - anchor-text
+      - article-links
+      - author-byline
+      - author-expertise
+      - citations
+      - contact-page
+      - content-dates
+      - disclaimers
+      - editorial-policy
+      - freshness
+      - keyword-stuffing
+      - llm-parsability
+      - reading-level
+      - trust-signals
+      - word-count
+  - name: Lokalne SEO
+    sources:
+      - title: "Google: LocalBusiness structured data"
+        url: https://developers.google.com/search/docs/appearance/structured-data/local-business
+      - title: Google Business Profile Help
+        url: https://support.google.com/business/
+    rules:
+      - geo-meta
+      - local-business
+      - nap-consistency
+      - physical-address
+      - service-area
+  - name: Meta tagi
+    sources:
+      - title: "Google: Influencing title links"
+        url: https://developers.google.com/search/docs/appearance/title-link
+      - title: "Google: Control your snippets"
+        url: https://developers.google.com/search/docs/appearance/snippet
+    rules:
+      - meta-description
+      - meta-in-body
+      - meta-title
+      - robots-meta
+      - title-unique
+      - canonical-header
+      - duplicate-description
+      - favicon
+      - h1
+      - nosnippet
+  - name: Social media
+    sources:
+      - title: The Open Graph protocol
+        url: https://ogp.me/
+    rules:
+      - og-image-size
+      - og-tags
+      - og-url-match
+      - twitter-cards
+      - share-buttons
+      - social-profiles
+  - name: "Techniczne SEO: indeksowanie"
+    sources:
+      - title: "Google: Crawling and indexing overview"
+        url: https://developers.google.com/search/docs/crawling-indexing
+      - title: "Google: Introduction to robots.txt"
+        url: https://developers.google.com/search/docs/crawling-indexing/robots/intro
+    rules:
+      - canonical-url
+      - noindex-in-sitemap
+      - redirect-chain
+      - robots-meta-conflict
+      - robots-txt
+      - schema-noindex-conflict
+      - sitemap-4xx
+      - sitemap-valid
+      - sitemap
+      - all-noindex-pages
+      - broken-html
+      - canonical-chain
+      - html-size
+      - https-downgrade
+      - hyphens
+      - indexability-conflicts
+      - indexability
+      - pagination
+      - parameters
+      - pdf-size
+      - mime-type
+  - name: "Techniczne SEO: dane strukturalne"
+    sources:
+      - title: "Google: Search gallery of structured data"
+        url: https://developers.google.com/search/docs/appearance/structured-data/search-gallery
+      - title: Schema.org
+        url: https://schema.org/
+    rules:
+      - article
+      - structured-data
+      - author-info
+      - breadcrumb
+      - faq
+      - json-ld-valid
+      - organization
+      - product
+      - review
+      - video
+      - website-search
+  - name: "Techniczne SEO: linki i adresy URL"
+    sources:
+      - title: "Google: Link best practices"
+        url: https://developers.google.com/search/docs/crawling-indexing/links-crawlable
+      - title: "Google: URL structure best practices"
+        url: https://developers.google.com/search/docs/crawling-indexing/url-structure
+    rules:
+      - broken-links
+      - link-checker
+      - broken-external-links
+      - dead-end-pages
+      - external-links
+      - internal-links
+      - invalid-links
+      - length
+      - llms-txt
+      - lowercase
+      - nofollow-internal
+      - orphan-pages
+      - redirect-chains
+      - sitemap-coverage
+      - sitemap-domain
+      - slug-keywords
+      - special-chars
+      - tel-mailto
+      - trailing-slash
+      - weak-internal-links
+      - stop-words

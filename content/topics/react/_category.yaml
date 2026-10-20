@@ -1,0 +1,17 @@
+order: 6
+name: React & Next.js
+short: React
+hue: rendering
+desc: Render i commit, reconciliation, memo, useMemo/useCallback, React Compiler, efekty, custom hooks, CSR/SSR/SSG/ISR, hydration, Server Components.
+topics:
+  - react-render-commit
+  - react-reconciliation
+  - react-memo
+  - react-usememo-usecallback
+  - react-before-memo
+  - react-compiler
+  - react-effects
+  - react-custom-hooks
+  - react-rendering-strategies
+  - react-hydration
+  - react-server-components

@@ -14,6 +14,8 @@ sources:
     url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set
   - title: "MDN: WeakMap"
     url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap
+  - title: "GeeksforGeeks: JavaScript Interview Questions"
+    url: https://www.geeksforgeeks.org/javascript/javascript-interview-questions/
 ---
 
 ## Wyjaśnienie
@@ -51,3 +53,31 @@ Gdy klucze nie są stringami, gdy często dodajesz/usuwasz wpisy, gdy potrzebuje
 ### Do czego służy WeakMap? {#js-collections-q2}
 
 Do przechowywania danych powiązanych z obiektem bez blokowania jego usunięcia z pamięci. Gdy obiekt przestaje być używany, wpis znika automatycznie.
+
+### Jak usunąć duplikaty z tablicy? {#js-collections-q3}
+
+Dla wartości prostych najprościej przez `Set`, który przechowuje tylko unikalne wartości: `[...new Set(arr)]`. Kolejność pierwszych wystąpień zostaje zachowana. Dwie tablice bez powtórzeń połączysz tak samo: `[...new Set([...a, ...b])]`. Dla obiektów `Set` nie pomoże, bo porównuje referencje, a dwa obiekty o tej samej treści to różne referencje. Wtedy usuwasz duplikaty po kluczu, np. przez `Map`.
+
+```js
+[...new Set(['rzym', 'ateny', 'rzym'])]; // ['rzym', 'ateny']
+
+const offers = [{ id: 1 }, { id: 2 }, { id: 1 }];
+const unique = [...new Map(offers.map((o) => [o.id, o])).values()];
+// two offers: id 1 and id 2 (for a repeated id, the last object wins)
+```
+
+### Co się stanie, gdy użyjesz obiektu jako klucza zwykłego obiektu? {#js-collections-q4}
+
+Klucze zwykłego obiektu to zawsze stringi lub symbole. Obiekt użyty jako klucz zamienia się na string `'[object Object]'`, więc dwa różne obiekty trafiają pod ten sam klucz i nadpisują się nawzajem. Podobnie przy powtórzonym kluczu w literale `{ x: 1, x: 2 }` zostaje ostatnia wartość. Jeśli kluczem ma być obiekt, użyj `Map` (lub `WeakMap`).
+
+```js
+const a = { id: 1 };
+const b = { id: 2 };
+const plain = {};
+plain[a] = 'A';
+plain[b] = 'B';
+plain[a]; // 'B': both keys became '[object Object]'
+
+const map = new Map([[a, 'A'], [b, 'B']]);
+map.get(a); // 'A'
+```

@@ -17,6 +17,10 @@ sources:
     url: https://developer.mozilla.org/en-US/docs/Glossary/First-class_Function
   - title: "React (legacy docs): Higher-Order Components"
     url: https://legacy.reactjs.org/docs/higher-order-components.html
+  - title: "javascript.info: Decorators and forwarding, call/apply"
+    url: https://javascript.info/call-apply-decorators
+  - title: "GeeksforGeeks: JavaScript Interview Questions"
+    url: https://www.geeksforgeeks.org/javascript/javascript-interview-questions/
 ---
 
 ## Wyjaśnienie
@@ -82,6 +86,29 @@ Przekształceniem `f(a, b, c)` w `f(a)(b)(c)`: każda funkcja przyjmuje jeden ar
 ### Czym różni się currying od partial application? {#js-hof-currying-q3}
 
 Currying zawsze rozbija funkcję na łańcuch funkcji jednoargumentowych. Partial application to ustalenie części argumentów, by otrzymać funkcję o mniejszej liczbie parametrów (np. przez `bind` lub curried function). Currying jest jednym ze sposobów realizacji partial application.
+
+### Czym jest memoizacja i jak ją napisać? {#js-hof-currying-q4}
+
+Memoizacja to zapamiętywanie wyniku funkcji dla danych argumentów. Przy kolejnym wywołaniu z tymi samymi argumentami funkcja zwraca wynik z cache zamiast liczyć go od nowa. Ma sens tylko dla funkcji czystych (te same argumenty zawsze dają ten sam wynik, bez efektów ubocznych) i kosztownych obliczeń.
+
+```js
+function memoize(fn) {
+  const cache = new Map();
+  return (arg) => {
+    if (cache.has(arg)) return cache.get(arg);
+    const result = fn(arg);
+    cache.set(arg, result);
+    return result;
+  };
+}
+
+const slowSquare = (n) => { /* expensive work */ return n * n; };
+const fastSquare = memoize(slowSquare);
+fastSquare(9); // computed
+fastSquare(9); // returned from the cache
+```
+
+Ograniczenia: cache rośnie bez końca (w praktyce dodaje się limit, np. LRU), a dla wielu argumentów trzeba zbudować jeden klucz (np. `JSON.stringify(args)`). W React ten sam pomysł realizują `useMemo`, `memo` i React Compiler.
 
 ## Quiz
 

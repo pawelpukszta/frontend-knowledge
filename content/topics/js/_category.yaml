@@ -20,6 +20,7 @@ topics:
   - js-async-await
   - js-es6-syntax
   - js-collections
+  - js-strings
   - js-array-methods
   - js-iteration
   - js-iterators-generators

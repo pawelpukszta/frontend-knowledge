@@ -11,6 +11,10 @@ sources:
     url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/this
   - title: "MDN: Arrow function expressions"
     url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Arrow_functions
+  - title: "MDN: setTimeout()"
+    url: https://developer.mozilla.org/en-US/docs/Web/API/Window/setTimeout
+  - title: "GeeksforGeeks: JavaScript Interview Questions"
+    url: https://www.geeksforgeeks.org/javascript/javascript-interview-questions/
 ---
 
 ## Wyjaśnienie
@@ -72,3 +76,28 @@ var myObject = {
 myObject.func();
 ```
 `outer func: this.foo = bar`, `outer func: self.foo = bar`, `inner func: this.foo = undefined`, `inner func: self.foo = bar`. W metodzie `this` to `myObject`. Wewnętrzna IIFE jest wywołana samodzielnie, więc jej `this` to obiekt globalny (tryb nieścisły, `foo` nie istnieje, stąd `undefined`) albo `undefined` w strict mode (wtedy odczyt `this.foo` rzuci `TypeError`). `self` działa dzięki domknięciu. Nowoczesne rozwiązanie: arrow function zamiast IIFE, która przejmuje `this` z metody.
+
+### Jaka jest wartość this w callbacku setTimeout i w handlerze zdarzenia DOM? {#js-this-q4}
+
+Zwykła funkcja przekazana do `setTimeout` jest wywoływana samodzielnie, więc traci obiekt, z którego pochodziła. W przeglądarce jej `this` to `globalThis` (czyli `window`). W handlerze dodanym przez `addEventListener` zwykła funkcja dostaje jako `this` element, na którym wisi listener (to samo co `event.currentTarget`). Arrow function w obu przypadkach bierze `this` z otoczenia.
+
+```js
+const timer = {
+  label: 'Oferta',
+  startRegular() {
+    setTimeout(function () { console.log(this === globalThis); }, 0); // true
+  },
+  startArrow() {
+    setTimeout(() => console.log(this.label), 0); // 'Oferta'
+  },
+};
+
+button.addEventListener('click', function () {
+  console.log(this === button); // true: this is the element
+});
+button.addEventListener('click', (event) => {
+  console.log(event.currentTarget === button); // true: clearer than this
+});
+```
+
+W React handlery nie dostają elementu jako `this`, więc element zawsze bierz z `event.currentTarget`.

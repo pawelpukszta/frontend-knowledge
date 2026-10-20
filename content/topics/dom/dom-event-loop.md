@@ -25,6 +25,10 @@ sources:
     url: https://www.youtube.com/watch?v=8aGhZQkoFbQ
   - title: "javascript.info: Event loop"
     url: https://javascript.info/event-loop
+  - title: "MDN: setTimeout()"
+    url: https://developer.mozilla.org/en-US/docs/Web/API/Window/setTimeout
+  - title: "GeeksforGeeks: JavaScript Interview Questions"
+    url: https://www.geeksforgeeks.org/javascript/javascript-interview-questions/
 ---
 
 ## Wyjaśnienie
@@ -76,6 +80,24 @@ Callback Promise. To mikrozadanie, a kolejka mikrozadań jest opróżniana w ca�
 ### Czym jest long task i dlaczego jest szkodliwy? {#dom-event-loop-q3}
 
 Zadanie na wątku głównym trwające dłużej niż 50 ms. Przez ten czas przeglądarka nie obsłuży kliknięć ani nie wyrenderuje klatki, co pogarsza INP i płynność. Rozwiązania: dzielenie pracy (`scheduler.yield`), Web Workers, mniej JS.
+
+### Dlaczego setTimeout nie jest dokładny i czym różni się od setInterval? {#dom-event-loop-q4}
+
+Opóźnienie w `setTimeout(fn, ms)` to czas minimalny, a nie gwarancja. Callback trafia do kolejki zadań i czeka, aż stos wywołań się opróżni, więc długie zadanie go spóźni. Przeglądarka dodaje też własne ograniczenia. Po 5 zagnieżdżonych wywołaniach minimum to 4 ms. W kartach w tle timery ruszają zwykle najwyżej raz na sekundę, a w Chrome po kilku minutach w tle nawet raz na minutę. Maksymalne opóźnienie to 2 147 483 647 ms (ok. 24,8 dnia); większa wartość się przepełnia i callback rusza od razu.
+
+`setInterval` planuje kolejne wywołania co stały czas i nie czeka na koniec poprzedniego. Gdy callback trwa dłużej niż interwał, wywołania idą jedno za drugim bez przerwy. Rekurencyjny `setTimeout` planuje kolejny krok dopiero po zakończeniu bieżącego, więc przerwa między wywołaniami jest stała. Oba timery trzeba sprzątać (`clearTimeout`, `clearInterval`), np. w cleanup `useEffect`. Do animacji używaj `requestAnimationFrame`, a do mierzenia czasu `performance.now()`.
+
+```js
+let timerId;
+function poll() {
+  fetchStatus().finally(() => {
+    timerId = setTimeout(poll, 5000); // next run starts 5 s after this one ends
+  });
+}
+poll();
+// Later, e.g. in a useEffect cleanup:
+clearTimeout(timerId);
+```
 
 ## Quiz
 

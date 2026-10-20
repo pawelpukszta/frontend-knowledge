@@ -145,6 +145,7 @@ The checklist category folder name must match the category slug on frontendcheck
 - Ids are unique: categories, topics, questions and checklist rules.
 - Code blocks declare a language: `html css scss js ts tsx jsx json http bash yaml xml md txt graphql`.
 - No en dash (U+2013) or em dash (U+2014) anywhere; use a colon, semicolon or hyphen.
+- No raw HTML in the text (only `<kbd>` and `<br>`); write tags as code: `` `<button>` ``.
 - Every file in a category folder is listed in its `_category.yaml`, and every listed id has a file.
 
 ## Credits

@@ -25,7 +25,7 @@ export function ReviewView() {
       {topics.length > 0 && (
         <section className="qa-group" aria-labelledby="h-rev-topics">
           <h2 id="h-rev-topics">Zagadnienia <span className="pill">{topics.length}</span></h2>
-          <div className="tlist">{topics.map((t) => <TopicRow key={t.id} topic={t} />)}</div>
+          <div className="tlist">{topics.map((t) => <TopicRow key={t.id} topic={t} level={3} />)}</div>
         </section>
       )}
       {questions.length > 0 && (

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CL_RULES, QA, QUIZ } from '../data';
-import { buildQuiz, rng, scoreQuiz } from '../lib/quiz';
+import { buildQuiz, rng, scoreQuiz, shuffle } from '../lib/quiz';
 import { emptyDoc, userData } from '../lib/userData';
 import { ChecklistView } from './ChecklistView';
 import { FlashView } from './FlashView';
@@ -37,9 +37,9 @@ describe('quiz', () => {
 
 describe('flashcards', () => {
   it('shares the status with interview questions', () => {
-    render(<FlashView cat="js" />);
-    const front = document.querySelector('.flashcard .front')!.innerHTML;
-    const card = QA.find((q) => q.q === front)!;
+    const card = shuffle(QA.filter((q) => q.category === 'js'), rng(5))[0];
+    render(<FlashView cat="js" random={rng(5)} />);
+    expect(document.querySelector('.flashcard .front')!.innerHTML).toBe(card.q);
     act(() => { fireEvent.keyDown(document.body, { key: ' ' }); });
     expect(screen.getByText('Odpowiedź')).toBeInTheDocument();
     click(screen.getByRole('button', { name: /Umiem/ }));

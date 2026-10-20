@@ -109,6 +109,7 @@ function QuizQuestion({ session, setSession }: { session: Session; setSession: (
 
   return (
     <>
+      <h1 className="sr-only">Quiz</h1>
       <div className="quiz-meta">
         <span><span className="swatch" style={{ background: hueVar(CATEGORY[item.category].hue) }} />{CATEGORY[item.category].name}</span>
         <span>Pytanie {session.i + 1} z {session.items.length}, wynik {score}/{done}</span>

@@ -66,6 +66,12 @@ describe('content validation', () => {
     expect(p.join('\n')).toMatch(/niedozwolony język bloku kodu: "python"/);
   });
 
+  it('rejects raw HTML tags in text but allows <kbd>', async () => {
+    const p = await problems({ 'topics/js/_category.yaml': category(['a']), 'topics/js/a.md': topic({ body: 'Klawisz <kbd>Tab</kbd>, potem <button> i <script>x</script>.' }) });
+    expect(p.join('\n')).toMatch(/surowy HTML "<button>"/);
+    expect(p).toHaveLength(1);
+  });
+
   it('rejects a code block without a language', async () => {
     const p = await problems({ 'topics/js/_category.yaml': category(['a']), 'topics/js/a.md': topic({ body: '```\nx\n```' }) });
     expect(p.join('\n')).toMatch(/niedozwolony język bloku kodu: ""/);

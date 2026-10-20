@@ -14,11 +14,11 @@ const SWIPE_PX = 60;
  * Flashcards over interview questions. "Umiem" / "Powtórz" set the same status as the questions view.
  * The parent keys this view by category and level, so a new filter deals a new deck.
  */
-export function FlashView({ cat }: { cat: string | null }) {
+export function FlashView({ cat, random = Math.random }: { cat: string | null; random?: () => number }) {
   const category = cat ? CATEGORY[cat] : undefined;
   useTitle(category ? `Fiszki: ${category.name}` : 'Fiszki');
   const level = useLevel();
-  const newDeck = () => shuffle(QA.filter((q) => levelOk(level, q.level) && (!category || q.category === category.id)));
+  const newDeck = () => shuffle(QA.filter((q) => levelOk(level, q.level) && (!category || q.category === category.id)), random);
   const [deck, setDeck] = useState<Qa[]>(newDeck);
   const [total, setTotal] = useState(deck.length);
   const [known, setKnown] = useState(0);

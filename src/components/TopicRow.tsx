@@ -6,12 +6,14 @@ import { Html } from './Html';
 import { useUserData } from '../lib/userData';
 import { StatusIcon, topicStatus } from './Status';
 
-export function TopicRow({ topic: t, query = '' }: { topic: Topic; query?: string }) {
+/** `level`: heading level of the title, matching the page outline (2 under the page h1, 3 inside a section). */
+export function TopicRow({ topic: t, query = '', level = 2 }: { topic: Topic; query?: string; level?: 2 | 3 }) {
+  const H = level === 2 ? 'h2' : 'h3';
   const status = useUserData((d) => topicStatus(d, t.id));
   return (
     <a className="trow" href={href.topic(t.id)}>
       <StatusIcon status={status} />
-      {query ? <Html as="h3" html={highlight(escapeHtml(t.title), query)} /> : <h3>{t.title}</h3>}
+      {query ? <Html as={H} html={highlight(escapeHtml(t.title), query)} /> : <H>{t.title}</H>}
       <span className="meta">
         <span className={`level level-${t.level}`}>{t.level}</span>
         <span className="pill">{t.qa.length} {plural(t.qa.length, 'pytanie', 'pytania', 'pytań')}</span>

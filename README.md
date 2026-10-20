@@ -11,19 +11,19 @@ Built with React 19, TypeScript and Vite. Content lives in this repo as Markdown
 Requires Node.js 22.18 or newer (the content tools run TypeScript directly with Node).
 
 ```bash
-npm install
-npm run dev      # dev server with hot reload; editing content reloads the page
-npm run build    # production build in dist/ (fails on invalid content)
-npm run preview  # serve the production build
+pnpm install
+pnpm dev      # dev server with hot reload; editing content reloads the page
+pnpm build    # production build in dist/ (fails on invalid content)
+pnpm preview  # serve the production build
 ```
 
 Checks (all run in CI on every pull request):
 
 ```bash
-npm run typecheck
-npm run lint
-npm run content:check   # validate content/ without building the app
-npm test
+pnpm typecheck
+pnpm lint
+pnpm content:check   # validate content/ without building the app
+pnpm test
 ```
 
 ## Project structure

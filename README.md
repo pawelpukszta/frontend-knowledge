@@ -8,7 +8,7 @@ Built with React 19, TypeScript and Vite. Content lives in this repo as Markdown
 
 ## Run it
 
-Requires Node.js 22.18 or newer (the content tools run TypeScript directly with Node).
+Requires Node.js 22.18 or newer (the content tools run TypeScript directly with Node) and pnpm. The pnpm version is pinned in `packageManager` in `package.json`; a globally installed pnpm switches to it automatically.
 
 ```bash
 pnpm install
@@ -26,6 +26,12 @@ pnpm content:check   # validate content/ without building the app
 pnpm test
 ```
 
+Not in CI yet:
+
+```bash
+pnpm knip            # unused files, exports and dependencies
+```
+
 ## Project structure
 
 ```
@@ -36,6 +42,7 @@ content/
   checklist/<category>/<rule-id>.md    one checklist rule
 tools/content/   content schema (Zod), parser, Markdown renderer (Shiki) and the Vite plugin
 src/             the app: views, components, styles
+scripts/         one-off migration of the proof-of-concept content to Markdown
 ```
 
 The file name is the id: `content/topics/js/js-this.md` is the topic `js-this`, shown at `#/t/js-this`. Ids must be unique, lowercase and use hyphens.

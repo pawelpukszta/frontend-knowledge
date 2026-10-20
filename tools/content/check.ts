@@ -1,4 +1,4 @@
-// `npm run content:check`: validates content/ without building the app.
+// `pnpm content:check`: validates content/ without building the app.
 import { resolve } from 'node:path';
 import { ContentError, loadContent } from './load.ts';
 

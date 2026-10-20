@@ -546,3 +546,15 @@ a.cat-link { text-decoration: none; }
 @media (prefers-reduced-motion: no-preference) {
   main { animation: view-in 0.22s var(--ease); }
 }
+.qa-side { display: inline-flex; align-items: center; gap: 10px; }
+.qa-side .st .ic { width: 19px; height: 19px; }
+.qa details[open] summary .st { color: inherit; }
+.qa-assess { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin-top: 18px; padding-top: 16px; border-top: var(--b-thin); }
+.qa-assess .from { margin: 0; }
+.qa-assess .btn { min-height: 36px; }
+.load-problem { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 0 0 24px; padding: 12px 16px; border: var(--b); background: var(--t-yellow); }
+.qa-summary { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 14px; font-family: var(--font-mono); font-size: 0.82rem; text-transform: uppercase; }
+.qa-summary span { display: inline-flex; align-items: center; gap: 6px; }
+.qa-summary .ic { width: 16px; height: 16px; }
+.qa-summary .k .ic { color: var(--good); }
+.qa-summary .r .ic { color: var(--review); }

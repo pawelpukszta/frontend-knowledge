@@ -8,6 +8,10 @@ describe('parseHash', () => {
     ['#/k/js', { name: 'category', id: 'js' }],
     ['#/t/js-this', { name: 'topic', id: 'js-this' }],
     [href.search('event loop & ł'), { name: 'search', q: 'event loop & ł' }],
+    ['#/pytania', { name: 'qa', cat: null, status: 'all' }],
+    [href.qa('js', 'review'), { name: 'qa', cat: 'js', status: 'review' }],
+    ['#/pytania?s=bogus', { name: 'qa', cat: null, status: 'all' }],
+    ['#/powtorka', { name: 'review' }],
     ['#/nope', { name: 'notFound' }],
   ])('%s', (hash, route) => expect(parseHash(hash)).toEqual(route));
 });

@@ -6,7 +6,13 @@ export type Route =
   | { name: 'category'; id: string }
   | { name: 'topic'; id: string }
   | { name: 'search'; q: string }
+  | { name: 'qa'; cat: string | null; status: QaFilter }
+  | { name: 'review' }
   | { name: 'notFound' };
+
+/** Status filter of the interview questions view. */
+export type QaFilter = 'all' | 'new' | 'review' | 'known';
+const QA_FILTERS: QaFilter[] = ['all', 'new', 'review', 'known'];
 
 export function parseHash(hash: string): Route {
   const [path, query = ''] = hash.replace(/^#/, '').split('?');
@@ -16,6 +22,11 @@ export function parseHash(hash: string): Route {
   if (parts[0] === 'k' && parts[1]) return { name: 'category', id: parts[1] };
   if (parts[0] === 't' && parts[1]) return { name: 'topic', id: parts[1] };
   if (parts[0] === 'szukaj') return { name: 'search', q: params.get('q') ?? '' };
+  if (parts[0] === 'pytania') {
+    const s = params.get('s') as QaFilter;
+    return { name: 'qa', cat: params.get('k'), status: QA_FILTERS.includes(s) ? s : 'all' };
+  }
+  if (parts[0] === 'powtorka') return { name: 'review' };
   return { name: 'notFound' };
 }
 
@@ -24,6 +35,13 @@ export const href = {
   category: (id: string) => `#/k/${id}`,
   topic: (id: string) => `#/t/${id}`,
   search: (q: string) => `#/szukaj?${new URLSearchParams({ q })}`,
+  qa: (cat: string | null = null, status: QaFilter = 'all') => {
+    const p = new URLSearchParams();
+    if (cat) p.set('k', cat);
+    if (status !== 'all') p.set('s', status);
+    return `#/pytania${p.size ? `?${p}` : ''}`;
+  },
+  review: () => '#/powtorka',
 };
 
 const subscribe = (cb: () => void) => {

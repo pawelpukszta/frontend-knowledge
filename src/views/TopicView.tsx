@@ -6,11 +6,15 @@ import { CATEGORY, catStyle, TOPIC, type Topic } from '../data';
 import { href } from '../lib/router';
 import { host, plural, readMinutes } from '../lib/text';
 import { useTitle } from '../lib/useTitle';
+import { markSeen, toggleTopicMark, useUserData } from '../lib/userData';
+import { MarkButtons, StatusTag } from '../components/Status';
 
-interface Sec { id: string; title: string; node: ReactNode }
+interface Sec { id: string; title: string; node: ReactNode; className?: string }
 
 export function TopicView({ topic: t }: { topic: Topic }) {
   useTitle(t.title);
+  useEffect(() => markSeen(t.id), [t.id]);
+  const mark = useUserData((d) => d.topicStatus[t.id]);
   const c = CATEGORY[t.category];
   const i = c.topics.indexOf(t.id);
   const prev = TOPIC[c.topics[i - 1]];
@@ -43,6 +47,14 @@ export function TopicView({ topic: t }: { topic: Topic }) {
       ),
     },
     {
+      id: 'ocena', title: 'Jak ci poszło?', className: 'self-check', node: (
+        <>
+          <p>Oznacz zagadnienie. Te do powtórki zbierają się na stronie startowej i w widoku „Do powtórki”.</p>
+          <MarkButtons value={mark} onToggle={(m) => toggleTopicMark(t.id, m)} label="Ocena zagadnienia" />
+        </>
+      ),
+    },
+    {
       id: 'zrodla', title: 'Źródła', node: (
         <ul className="sources">
           {t.sources.map((s) => (
@@ -70,11 +82,12 @@ export function TopicView({ topic: t }: { topic: Topic }) {
         <div className="topic-meta">
           <span className={`level level-${t.level}`}>{t.level}</span>
           <span>{mins} min czytania</span>
+          {mark && <StatusTag status={mark} />}
           <span className="tags">{t.tags.map((g) => <span key={g} className="topic-tag">{g}</span>)}</span>
         </div>
         <div className="tldr"><p className="tldr-label">W skrócie</p><Html as="p" className="tldr-text" html={t.summary} /></div>
         {sections.map((s) => (
-          <section key={s.id} className="block" id={`sec-${s.id}`} aria-labelledby={`h-${s.id}`}>
+          <section key={s.id} className={`block ${s.className ?? ''}`} id={`sec-${s.id}`} aria-labelledby={`h-${s.id}`}>
             <h2 id={`h-${s.id}`}>{s.title}</h2>
             {s.node}
           </section>

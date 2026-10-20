@@ -1,0 +1,90 @@
+/* Brutalist, reading-first study app. Full-width shell: category rail | content (takes all free space) | page outline.
+   Native CSS only. Shape rule: everything is sharp (radius 0). Borders are drawn in the text color.
+   Color comes from a five-color palette with fixed roles (see "Color roles" below): each study mode and each
+   category owns a color, learning states map to green / yellow / red. Body text always stays near-black on light. */
+:root {
+  --bg: #f4f4f3;
+  --surface: #fdfdfc;
+  --surface-2: #e8e8e6;
+  --ink: #0e0e0e;
+  --ink-soft: #151515;
+  --muted: #424242;
+  --line-soft: #bdbdbb;
+  /* Palette (coolors.co/ff595e-ffca3a-8ac926-1982c4-6a4c93). Three tiers per color:
+     --c-* base fill (blocks, tabs, badges), --d-* deep tone for text/icons on the page background,
+     --t-* tint for large backgrounds behind body text. Text on fills: --on-fill (dark), --on-purple (light). */
+  --c-red: #ff595e;
+  --c-yellow: #ffca3a;
+  --c-green: #8ac926;
+  --c-blue: #1982c4;
+  --c-purple: #6a4c93;
+  --on-fill: #0e0e0e;
+  --on-purple: #fdfdfc;
+  --d-red: #c0262c;
+  --d-yellow: #7a5600;
+  --d-green: #3d690a;
+  --d-blue: #0f5f94;
+  --d-purple: #6a4c93;
+  --t-red: color-mix(in srgb, var(--c-red) 20%, var(--surface));
+  --t-yellow: color-mix(in srgb, var(--c-yellow) 26%, var(--surface));
+  --t-green: color-mix(in srgb, var(--c-green) 22%, var(--surface));
+  --t-blue: color-mix(in srgb, var(--c-blue) 16%, var(--surface));
+  --t-purple: color-mix(in srgb, var(--c-purple) 16%, var(--surface));
+  /* Roles mapped onto the palette */
+  --accent: var(--d-blue);
+  --accent-hover: #0a4670;
+  --accent-soft: var(--t-blue);
+  --accent-ink: #fdfdfc;
+  --good: var(--d-green);
+  --good-soft: var(--t-green);
+  --bad: var(--d-red);
+  --bad-soft: var(--t-red);
+  --review: var(--d-yellow);
+  --review-soft: var(--t-yellow);
+  --mark: var(--c-yellow);
+  --hue-scripting: var(--c-yellow);
+  --hue-rendering: var(--c-purple);
+  --hue-painting: var(--c-green);
+  --hue-loading: var(--c-blue);
+  --hue-system: var(--c-red);
+  --hue-idle: var(--c-red);
+  --mode: var(--c-blue);
+  --code-bg: #f0f0ee;
+  --code-inline: #e3e3e1;
+  --tok-comment: #575757;
+  --tok-keyword: #6a24d4;
+  --tok-string: #0c6533;
+  --tok-number: #923a00;
+  --tok-func: #1c3cd0;
+  --tok-tag: #a8160e;
+  --tok-attr: #774600;
+  --font-display: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --b: 2px solid var(--ink);          /* structural border */
+  --b-thin: 1px solid var(--ink);     /* row dividers */
+  --shadow: 5px 5px 0 var(--ink);     /* hard offset shadow, no blur */
+  --measure: 92ch;                    /* max line length for running text only; code, tables and Q&A use the full column */
+  --gutter: clamp(20px, 3.2vw, 64px);
+  --bar-h: 64px;
+  --rail-w: 272px;                    /* brand cell and rail share one column edge */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101010; --surface: #171717; --surface-2: #242424; --ink: #f1f1ef; --ink-soft: #e4e4e2; --muted: #b9b9b7; --line-soft: #3d3d3d;
+    --d-red: #ff7d81; --d-yellow: #ffca3a; --d-green: #a6dc4f; --d-blue: #5bb3ec; --d-purple: #b9a2de;
+    --accent-hover: #8fcbf3; --accent-ink: #101010;
+    --code-bg: #0b0b0b; --code-inline: #2a2a2a; --tok-comment: #8f8f8f; --tok-keyword: #c9a6ff; --tok-string: #82dba5;
+    --tok-number: #f3b56b; --tok-func: #93a6ff; --tok-tag: #ff9b91; --tok-attr: #f2c94c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101010; --surface: #171717; --surface-2: #242424; --ink: #f1f1ef; --ink-soft: #e4e4e2; --muted: #b9b9b7; --line-soft: #3d3d3d;
+  --d-red: #ff7d81; --d-yellow: #ffca3a; --d-green: #a6dc4f; --d-blue: #5bb3ec; --d-purple: #b9a2de;
+  --accent-hover: #8fcbf3; --accent-ink: #101010;
+  --code-bg: #0b0b0b; --code-inline: #2a2a2a; --tok-comment: #8f8f8f; --tok-keyword: #c9a6ff; --tok-string: #82dba5;
+  --tok-number: #f3b56b; --tok-func: #93a6ff; --tok-tag: #ff9b91; --tok-attr: #f2c94c;
+  color-scheme: dark;
+}

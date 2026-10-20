@@ -1,0 +1,11 @@
+order: 11
+name: Bezpieczeństwo web
+short: Security
+hue: idle
+desc: XSS, CSRF, Content Security Policy, bezpieczne przechowywanie sesji i ryzyka w zależnościach npm.
+topics:
+  - sec-xss
+  - sec-csrf
+  - sec-csp
+  - sec-auth-storage
+  - sec-supply-chain

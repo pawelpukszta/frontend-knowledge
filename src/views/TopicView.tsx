@@ -1,15 +1,64 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Html } from '../components/Html';
 import { Icon } from '../components/Icon';
-import { CATEGORY, catStyle, type Topic } from '../data';
+import { QaItem } from '../components/QaItem';
+import { CATEGORY, catStyle, TOPIC, type Topic } from '../data';
 import { href } from '../lib/router';
-import { host, readMinutes } from '../lib/text';
+import { host, plural, readMinutes } from '../lib/text';
 import { useTitle } from '../lib/useTitle';
+
+interface Sec { id: string; title: string; node: ReactNode }
 
 export function TopicView({ topic: t }: { topic: Topic }) {
   useTitle(t.title);
   const c = CATEGORY[t.category];
+  const i = c.topics.indexOf(t.id);
+  const prev = TOPIC[c.topics[i - 1]];
+  const next = TOPIC[c.topics[i + 1]];
   const mins = readMinutes([t.summary, t.body, t.analogy, t.pitfalls, ...t.qa.flatMap((q) => [q.q, q.a])]);
+
+  const maybe: (Sec | false | '' | undefined)[] = [
+    t.body && { id: 'wyjasnienie', title: 'Wyjaśnienie', node: <Html className="prose" html={t.body} /> },
+    t.flow && {
+      id: 'przeplyw', title: 'Przepływ', node: (
+        <ol className="flow">
+          {t.flow.map((s, n) => (
+            <li key={n}>
+              {n > 0 && <span className="flow-arrow" aria-hidden="true"><Icon name="arrowRight" /></span>}
+              <span className="flow-step"><span className="i">{n + 1}</span>{s}</span>
+            </li>
+          ))}
+        </ol>
+      ),
+    },
+    t.analogy && { id: 'analogia', title: 'Analogia', node: <Html className="callout analogy prose" html={t.analogy} /> },
+    t.code && { id: 'kod', title: 'Przykład kodu', node: <Html className="prose" html={t.code} /> },
+    t.pitfalls && { id: 'bledy', title: 'Częste błędy', node: <Html className="callout pitfalls prose" html={t.pitfalls} /> },
+    t.qa.length > 0 && {
+      id: 'rozmowa', title: 'Na rozmowie', node: (
+        <>
+          <p className="block-hint">Spróbuj odpowiedzieć na głos, zanim rozwiniesz odpowiedź.</p>
+          <div className="qa">{t.qa.map((q) => <QaItem key={q.id} item={{ ...q, category: t.category, level: t.level }} />)}</div>
+        </>
+      ),
+    },
+    {
+      id: 'zrodla', title: 'Źródła', node: (
+        <ul className="sources">
+          {t.sources.map((s) => (
+            <li key={s.url}>
+              <a href={s.url} target="_blank" rel="noopener noreferrer">
+                <span>{s.title}</span><span className="host">{host(s.url)}</span><Icon name="external" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      ),
+    },
+  ];
+  const sections = maybe.filter((s): s is Sec => Boolean(s));
+
+  const active = useActiveSection(sections.map((s) => `sec-${s.id}`));
 
   return (
     <div className="topic-layout" style={catStyle(t.category)}>
@@ -24,56 +73,49 @@ export function TopicView({ topic: t }: { topic: Topic }) {
           <span className="tags">{t.tags.map((g) => <span key={g} className="topic-tag">{g}</span>)}</span>
         </div>
         <div className="tldr"><p className="tldr-label">W skrócie</p><Html as="p" className="tldr-text" html={t.summary} /></div>
-        {t.body && <Section id="wyjasnienie" title="Wyjaśnienie"><Html className="prose" html={t.body} /></Section>}
-        {t.flow && (
-          <Section id="przeplyw" title="Przepływ">
-            <ol className="flow">
-              {t.flow.map((s, n) => (
-                <li key={n}>
-                  {n > 0 && <span className="flow-arrow" aria-hidden="true"><Icon name="arrowRight" /></span>}
-                  <span className="flow-step"><span className="i">{n + 1}</span>{s}</span>
-                </li>
-              ))}
-            </ol>
-          </Section>
-        )}
-        {t.analogy && <Section id="analogia" title="Analogia"><Html className="callout analogy prose" html={t.analogy} /></Section>}
-        {t.code && <Section id="kod" title="Przykład kodu"><Html className="prose" html={t.code} /></Section>}
-        {t.pitfalls && <Section id="bledy" title="Częste błędy"><Html className="callout pitfalls prose" html={t.pitfalls} /></Section>}
-        {t.qa.length > 0 && (
-          <Section id="rozmowa" title="Na rozmowie">
-            <p className="block-hint">Spróbuj odpowiedzieć na głos, zanim rozwiniesz odpowiedź.</p>
-            <div className="qa">
-              {t.qa.map((q) => (
-                <details key={q.id} id={q.id}>
-                  <summary><Html as="span" html={q.q} /><span className="caret" aria-hidden="true"><Icon name="caret" /></span></summary>
-                  <Html className="answer prose" html={q.a} />
-                </details>
-              ))}
-            </div>
-          </Section>
-        )}
-        <Section id="zrodla" title="Źródła">
-          <ul className="sources">
-            {t.sources.map((s) => (
-              <li key={s.url}>
-                <a href={s.url} target="_blank" rel="noopener noreferrer">
-                  <span>{s.title}</span><span className="host">{host(s.url)}</span><Icon name="external" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </Section>
+        {sections.map((s) => (
+          <section key={s.id} className="block" id={`sec-${s.id}`} aria-labelledby={`h-${s.id}`}>
+            <h2 id={`h-${s.id}`}>{s.title}</h2>
+            {s.node}
+          </section>
+        ))}
+        <nav className="pager" aria-label="Sąsiednie zagadnienia">
+          {prev && <a className="prev" href={href.topic(prev.id)}><span><Icon name="arrowLeft" />Poprzednie</span><b>{prev.title}</b></a>}
+          {next && <a className="next" href={href.topic(next.id)}><span>Następne<Icon name="arrowRight" /></span><b>{next.title}</b></a>}
+        </nav>
       </article>
+      <nav className="toc" aria-label="Na tej stronie">
+        <p className="toc-title">Na tej stronie</p>
+        <ol>
+          {sections.map((s) => (
+            <li key={s.id}>
+              <button type="button" aria-current={active === `sec-${s.id}` ? 'location' : undefined}
+                onClick={() => document.getElementById(`sec-${s.id}`)?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' })}>
+                {s.title}
+              </button>
+            </li>
+          ))}
+        </ol>
+        <p className="toc-time">{mins} min czytania, {t.qa.length} {plural(t.qa.length, 'pytanie', 'pytania', 'pytań')}</p>
+      </nav>
     </div>
   );
 }
 
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  return (
-    <section className="block" id={`sec-${id}`} aria-labelledby={`h-${id}`}>
-      <h2 id={`h-${id}`}>{title}</h2>
-      {children}
-    </section>
-  );
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Id of the section currently being read (top band of the viewport). */
+function useActiveSection(ids: string[]): string | undefined {
+  const [active, setActive] = useState<string>();
+  const key = ids.join(' ');
+  useEffect(() => {
+    if (!('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver((entries) => {
+      const hit = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (hit) setActive(hit.target.id);
+    }, { rootMargin: '-20% 0px -65% 0px' });
+    key.split(' ').forEach((id) => { const el = document.getElementById(id); if (el) io.observe(el); });
+    return () => io.disconnect();
+  }, [key]);
+  return active;
 }

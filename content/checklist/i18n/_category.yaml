@@ -1,0 +1,20 @@
+order: 11
+name: Internacjonalizacja
+desc: Formatowanie liczb i dat, liczba mnoga, wersje językowe i projektowanie pod tłumaczenia.
+hue: loading
+sources:
+  - title: "MDN: Intl"
+    url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl
+  - title: "W3C: Internationalization techniques"
+    url: https://www.w3.org/International/techniques/authoring-html
+groups:
+  - name: Formatowanie i tłumaczenia
+    sources:
+      - title: "Unicode CLDR: Language Plural Rules"
+        url: https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html
+    rules:
+      - currency-formatting
+      - pluralization
+      - text-expansion
+      - locale-images
+      - hreflang

@@ -1,0 +1,11 @@
+order: 2
+name: Moduły JS
+short: Moduły
+hue: loading
+desc: Named i default exports, re-eksporty, barrel files, ESM vs CommonJS, dynamic import i tree shaking.
+topics:
+  - mod-named-default
+  - mod-reexports-barrels
+  - mod-esm-cjs
+  - mod-dynamic-import
+  - mod-tree-shaking

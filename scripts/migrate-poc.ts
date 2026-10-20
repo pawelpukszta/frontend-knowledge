@@ -1,6 +1,7 @@
-// One-off migration of the proof-of-concept content (content/*.txt, checklist/*.txt) to the
-// markdown format in content/. Usage: node scripts/migrate-poc.ts <poc-dir> <out-dir> [category-file-glob]
-// Prints a count report: numbers parsed from the PoC files vs. numbers loaded back through the validator.
+// One-off migration of the proof-of-concept content (tag poc-v0: content/*.txt, checklist/*.txt) to the
+// Markdown format in content/. To re-run: `git worktree add ../poc poc-v0`, then
+// `node scripts/migrate-poc.ts ../poc <out-dir> [category-file-regex]`. Prints a count report: numbers
+// parsed from the PoC files vs. numbers loaded back through the validator.
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stringify } from 'yaml';

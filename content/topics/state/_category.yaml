@@ -1,0 +1,14 @@
+order: 5
+name: Zarządzanie stanem
+short: Stan
+hue: painting
+desc: Flux i jednokierunkowy przepływ danych, Redux Toolkit, Context API i jego granice, Zustand, Jotai, server state z TanStack Query.
+topics:
+  - state-flux
+  - state-unidirectional
+  - state-redux
+  - state-context
+  - state-zustand
+  - state-jotai
+  - state-server-state
+  - state-choosing

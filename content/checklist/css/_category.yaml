@@ -1,0 +1,67 @@
+order: 4
+name: CSS
+desc: Organizacja i jakość stylów, nowoczesne funkcje CSS, layout, wydajność renderowania i responsywność.
+hue: painting
+sources:
+  - title: "MDN: CSS"
+    url: https://developer.mozilla.org/en-US/docs/Web/CSS
+  - title: "web.dev: Learn CSS"
+    url: https://web.dev/learn/css
+groups:
+  - name: Organizacja i jakość kodu
+    sources:
+      - title: "MDN: Organizing your CSS"
+        url: https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Styling_basics/Organizing
+    rules:
+      - embedded-or-inline-css
+      - specificity-management
+      - css-print
+      - naming-conventions
+      - reset-css
+      - styles-lint
+      - css-custom-properties
+      - css-order
+  - name: Nowoczesne funkcje CSS
+    sources:
+      - title: "web.dev: Baseline"
+        url: https://web.dev/baseline
+    rules:
+      - view-transitions
+      - cascade-layers
+      - has-selector
+      - dark-mode-css
+      - color-oklch
+      - css-at-property
+      - focus-styles
+  - name: Layout
+    sources:
+      - title: "MDN: CSS layout"
+        url: https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout
+    rules:
+      - css-grid
+      - flexbox-patterns
+      - logical-properties
+      - subgrid
+  - name: Wydajność CSS
+    sources:
+      - title: "web.dev: Optimize CSS"
+        url: https://web.dev/learn/performance/optimize-resource-loading
+    rules:
+      - css-critical
+      - css-non-blocking
+      - css-minification
+      - unused-css
+      - webfont-format
+      - animation-performance
+      - css-containment
+  - name: Responsywność i mobile
+    sources:
+      - title: "web.dev: Learn Responsive Design"
+        url: https://web.dev/learn/design
+    rules:
+      - viewport-zoom
+      - responsive-units
+      - container-queries
+      - font-size
+      - horizontal-scroll
+      - interstitials

@@ -1,0 +1,13 @@
+order: 12
+name: Architektura & senior
+short: Senior
+hue: system
+desc: "Tematy, które odróżniają seniora: strategia testów, architektura frontu, micro frontends, observability, code review, decyzje architektoniczne i AI w pracy developera."
+topics:
+  - sr-testing
+  - sr-architecture
+  - sr-microfrontends
+  - sr-observability
+  - sr-code-review
+  - sr-adr
+  - sr-ai-dev

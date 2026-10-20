@@ -1,0 +1,61 @@
+order: 8
+name: Bezpieczeństwo
+desc: HTTPS, nagłówki bezpieczeństwa, ciasteczka i tokeny, formularze, sekrety i zależności.
+hue: idle
+sources:
+  - title: "OWASP: Cheat Sheet Series"
+    url: https://cheatsheetseries.owasp.org/
+  - title: "MDN: Web security"
+    url: https://developer.mozilla.org/en-US/docs/Web/Security
+  - title: "OWASP: Secure Headers Project"
+    url: https://owasp.org/www-project-secure-headers/
+groups:
+  - name: HTTPS
+    sources:
+      - title: "web.dev: Why HTTPS matters"
+        url: https://web.dev/articles/why-https-matters
+    rules:
+      - https
+      - http-to-https
+      - mixed-content
+      - hsts
+      - form-https
+  - name: Nagłówki bezpieczeństwa
+    sources:
+      - title: "MDN: HTTP headers"
+        url: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers
+      - title: Security Headers (scanner)
+        url: https://securityheaders.com/
+    rules:
+      - content-security-policy
+      - x-content-type
+      - x-frame-options
+      - cross-origin-isolation
+      - permissions-policy
+      - referrer-policy
+      - new-tab
+  - name: Ciasteczka, sesje i formularze
+    sources:
+      - title: "OWASP: Session Management Cheat Sheet"
+        url: https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
+    rules:
+      - session-cookie-flags
+      - token-storage-security
+      - password-field-security
+      - form-captcha
+  - name: Sekrety, błędy i zależności
+    sources:
+      - title: "OWASP: Top 10"
+        url: https://owasp.org/www-project-top-ten/
+    rules:
+      - leaked-secrets
+      - dependency-audit
+      - stack-trace-exposure
+      - terms-of-service
+  - name: Blokery reklam
+    sources:
+      - title: EasyList
+        url: https://easylist.to/
+    rules:
+      - blocked-links
+      - element-hiding

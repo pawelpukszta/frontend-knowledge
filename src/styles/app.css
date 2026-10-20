@@ -65,8 +65,8 @@ kbd { font-size: 0.74em; border: var(--b-thin); padding: 0 5px; background: var(
   background: transparent; cursor: pointer; text-align: left; color: var(--ink); font-size: 0.95rem; line-height: 1.35;
 }
 .cat-link:hover { background: var(--surface-2); }
-.cat-link[aria-current="true"] { background: var(--ink); color: var(--bg); font-weight: 600; }
-.cat-link[aria-current="true"] .swatch { outline-color: var(--bg); }
+.cat-link[aria-current] { background: var(--ink); color: var(--bg); font-weight: 600; }
+.cat-link[aria-current] .swatch { outline-color: var(--bg); }
 .cat-link .n { margin-left: auto; font-family: var(--font-mono); font-size: 0.78rem; color: inherit; opacity: 0.8; font-variant-numeric: tabular-nums; }
 .level-block { padding: 0 20px; }
 .level-block .rail-label { padding: 0; }
@@ -293,7 +293,7 @@ mark { background: var(--mark); color: inherit; padding: 0 2px; }
 .toc li + li { border-top: var(--b-thin); }
 .toc button { display: block; width: 100%; text-align: left; border: 0; background: none; cursor: pointer; padding: 8px 14px; color: var(--ink); line-height: 1.4; }
 .toc button:hover { background: var(--surface-2); }
-.toc button[aria-current="true"] { background: var(--ink); color: var(--bg); font-weight: 600; }
+.toc button[aria-current] { background: var(--ink); color: var(--bg); font-weight: 600; }
 .toc-time { margin: 14px 0 0; font-family: var(--font-mono); font-size: 0.76rem; color: var(--muted); }
 
 /* ---------- Quiz and flashcards ---------- */
@@ -430,8 +430,8 @@ body[data-view="checklista"] { --mode: var(--c-green); }
 .btn.primary { background: var(--c-yellow); color: var(--on-fill); }
 .btn.primary:hover { background: color-mix(in srgb, var(--c-yellow) 75%, #fff); color: var(--on-fill); }
 
-.cat-link[aria-current="true"][style*="--cat"] { background: var(--cat); color: var(--cat-on); }
-.cat-link[aria-current="true"][style*="--cat"] .swatch { outline-color: var(--cat-on); }
+.cat-link[aria-current][style*="--cat"] { background: var(--cat); color: var(--cat-on); }
+.cat-link[aria-current][style*="--cat"] .swatch { outline-color: var(--cat-on); }
 
 .cat-item { box-shadow: inset 0 8px 0 var(--hue); padding-top: 30px; }
 .cat-item:hover { background: color-mix(in srgb, var(--hue) 22%, var(--surface)); color: var(--ink); }
@@ -450,7 +450,7 @@ mark { color: var(--on-fill); }
 .tldr { border-left-color: var(--hue, var(--c-blue)); background: color-mix(in srgb, var(--hue, var(--c-blue)) 12%, var(--surface)); }
 .tldr-label { color: var(--ink); }
 .flow-step .i { background: var(--hue, var(--ink)); color: var(--hue-on, var(--bg)); border: var(--b-thin); }
-.toc button[aria-current="true"] { background: var(--hue, var(--ink)); color: var(--hue-on, var(--bg)); }
+.toc button[aria-current] { background: var(--hue, var(--ink)); color: var(--hue-on, var(--bg)); }
 .callout.analogy { background: var(--t-blue); }
 .callout.pitfalls { background: var(--t-red); }
 

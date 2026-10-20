@@ -1,0 +1,81 @@
+order: 3
+name: Wydajność
+desc: Core Web Vitals, rozmiar i liczba zasobów, cache, ładowanie na żądanie, sieć i serwer, skrypty zewnętrzne.
+hue: scripting
+sources:
+  - title: "web.dev: Learn Performance"
+    url: https://web.dev/learn/performance
+  - title: "web.dev: Web Vitals"
+    url: https://web.dev/articles/vitals
+  - title: "Chrome: Lighthouse"
+    url: https://developer.chrome.com/docs/lighthouse/overview
+groups:
+  - name: Core Web Vitals i metryki
+    sources:
+      - title: "web.dev: Web Vitals"
+        url: https://web.dev/articles/vitals
+    rules:
+      - largest-contentful-paint
+      - cumulative-layout-shift
+      - first-contentful-paint
+      - interaction-to-next-paint
+      - page-load-time
+      - ttfb
+      - browser-required
+      - webpagetest
+  - name: Waga strony i zasoby
+    sources:
+      - title: "web.dev: Performance budgets 101"
+        url: https://web.dev/articles/performance-budgets-101
+    rules:
+      - page-weight
+      - http-requests
+      - compression
+      - video-optimization
+      - css-file-size
+      - js-file-size
+      - dom-size
+      - duplicate-js
+      - legacy-js
+      - animated-content
+      - js-libraries
+  - name: Cache i sieć
+    sources:
+      - title: "MDN: HTTP caching"
+        url: https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching
+    rules:
+      - browser-caching
+      - cdn
+      - http2
+      - back-forward-cache
+      - service-worker
+      - offline-fallback
+      - streaming-html
+      - js-redirects
+  - name: Ładowanie i priorytety
+    sources:
+      - title: "web.dev: Optimize resource loading"
+        url: https://web.dev/learn/performance/optimize-resource-loading
+    rules:
+      - critical-request-chains
+      - render-blocking
+      - resource-hints
+      - preconnect
+      - fetchpriority-attribute
+      - lazy-loading
+      - lazy-above-fold
+      - import-on-interaction
+      - import-on-visibility
+      - speculation-rules
+      - font-loading
+      - list-virtualization
+      - loading-indicators
+  - name: Skrypty zewnętrzne i zgody
+    sources:
+      - title: "web.dev: Efficiently load third-party JavaScript"
+        url: https://web.dev/articles/efficiently-load-third-party-javascript
+    rules:
+      - third-party-scripts
+      - gtm-present
+      - consent-mode
+      - source-maps

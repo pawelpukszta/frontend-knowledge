@@ -1,0 +1,60 @@
+order: 6
+name: HTML
+desc: Fundamenty dokumentu, semantyka, formularze, multimedia i PWA.
+hue: idle
+sources:
+  - title: "WHATWG: HTML Living Standard"
+    url: https://html.spec.whatwg.org/
+  - title: "MDN: HTML"
+    url: https://developer.mozilla.org/en-US/docs/Web/HTML
+groups:
+  - name: Szkielet dokumentu
+    sources:
+      - title: "MDN: The head metadata in HTML"
+        url: https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Structuring_content/Webpage_metadata
+    rules:
+      - doctype
+      - charset
+      - viewport
+      - lang-attribute
+      - direction-attribute
+      - w3c-compliant
+      - unique-id
+      - clean-up-comments
+      - noscript-tag
+      - defer-async
+      - subresource-integrity
+  - name: Semantyka i nawigacja
+    sources:
+      - title: "MDN: HTML elements reference"
+        url: https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements
+    rules:
+      - html5-semantic-elements
+      - custom-element-accessibility
+      - breadcrumb-navigation
+      - pagination-accessibility
+      - 404-page
+      - favicons
+  - name: Formularze i wyszukiwanie
+    sources:
+      - title: "MDN: Web forms"
+        url: https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Forms
+    rules:
+      - form-validation
+      - input-types
+      - file-upload-accessibility
+      - search-input
+  - name: Multimedia
+    sources:
+      - title: "MDN: The video element"
+        url: https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video
+    rules:
+      - video-accessibility
+      - video-thumbnail
+  - name: PWA
+    sources:
+      - title: "web.dev: Learn PWA"
+        url: https://web.dev/learn/pwa
+    rules:
+      - web-app-manifest
+      - pwa-installability

@@ -18,6 +18,10 @@ sources:
     url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...in
   - title: "javascript.info: Object.keys, values, entries"
     url: https://javascript.info/keys-values-entries
+  - title: "MDN: Array.from()"
+    url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from
+  - title: "GeeksforGeeks: JavaScript Interview Questions"
+    url: https://www.geeksforgeeks.org/javascript/javascript-interview-questions/
 ---
 
 ## Wyjaśnienie
@@ -79,6 +83,21 @@ Po tablicach: klasyczne `for`, `for...of`, `forEach` oraz `map`/`filter`/`reduce
 ### Czy można przerwać forEach? {#js-iteration-q3}
 
 Nie przez `break` ani `return` (return kończy tylko bieżący callback). Trzeba użyć `for...of`, `some`/`every` albo rzucić wyjątek, co jest złą praktyką.
+
+### Czym są obiekty tablicopodobne i jak zamienić je na tablicę? {#js-iteration-q4}
+
+Obiekt tablicopodobny (array-like) ma właściwość `length` i elementy pod indeksami `0`, `1`, `2` itd., ale nie jest tablicą, więc nie ma `map` ani `filter`. Przykłady: `arguments`, `NodeList` z `querySelectorAll`, `HTMLCollection`, string. `Array.from(obj)` zamieni na tablicę każdy taki obiekt, a drugim argumentem od razu go przekształci. Spread `[...obj]` działa tylko dla obiektów iterowalnych (np. `NodeList`, `arguments`), a dla zwykłego `{ length: 2 }` rzuca `TypeError`.
+
+```js
+const fake = { 0: 'a', 1: 'b', length: 2 };
+Array.from(fake); // ['a', 'b']
+// [...fake];     // TypeError: fake is not iterable
+
+const links = document.querySelectorAll('a'); // NodeList
+const hrefs = [...links].map((a) => a.href);
+
+Array.from({ length: 3 }, (_, i) => i * 10); // [0, 10, 20]
+```
 
 ## Quiz
 

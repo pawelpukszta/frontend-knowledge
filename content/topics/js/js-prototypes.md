@@ -11,6 +11,10 @@ sources:
     url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Inheritance_and_the_prototype_chain
   - title: "MDN: Classes"
     url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes
+  - title: "MDN: Object.create()"
+    url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/create
+  - title: "GeeksforGeeks: JavaScript Interview Questions"
+    url: https://www.geeksforgeeks.org/javascript/javascript-interview-questions/
 ---
 
 ## Wyjaśnienie
@@ -50,4 +54,18 @@ Nie. To składnia na prototypy. Pod spodem nadal działa dziedziczenie prototypo
 
 ### Czy JavaScript wspiera dziedziczenie? Jeśli tak, to jak? {#js-prototypes-q3}
 
-Tak, przez dziedziczenie prototypowe: obiekt deleguje wyszukiwanie brakujących właściwości do swojego prototypu (`Object.create(proto)`, `Object.setPrototypeOf`). Składnia `class ... extends` z ES2015 to wygodniejszy zapis tego samego mechanizmu, z `super()` do wywołania konstruktora i metod rodzica. W praktyce frontowej częściej wybiera się kompozycję niż głębokie hierarchie klas.
+Tak, przez dziedziczenie prototypowe: obiekt deleguje wyszukiwanie brakujących właściwości do swojego prototypu (`Object.create(proto)`, `Object.setPrototypeOf`). Składnia `class ... extends` z ES2015 to wygodniejszy zapis tego samego mechanizmu, z `super()` do wywołania konstruktora i metod rodzica. JavaScript nie ma wielodziedziczenia: obiekt ma jeden prototyp, a klasa rozszerza jedną klasę. Zachowania z kilku źródeł łączy się przez kompozycję albo mixiny, czyli kopiowanie metod (`Object.assign(Target.prototype, canFly)`) lub funkcje zwracające klasę (`const Flying = (Base) => class extends Base {}`). W praktyce frontowej częściej wybiera się kompozycję niż głębokie hierarchie klas.
+
+### Jakie są sposoby tworzenia obiektu i czym jest Object.create(null)? {#js-prototypes-q4}
+
+Najczęściej literał `{}`. Daje to samo co `new Object()`, ale jest krótszy i czytelniejszy, więc `new Object()` praktycznie się nie używa. Inne sposoby to klasa lub funkcja konstruktora z `new` oraz `Object.create(proto)`, który tworzy obiekt z wybranym prototypem. `Object.create(null)` daje obiekt bez prototypu: nie ma `toString` ani `hasOwnProperty`, a klucze takie jak `'constructor'` czy `'__proto__'` są w nim zwykłymi polami. To bezpieczny słownik na klucze od użytkownika, choć w nowym kodzie zwykle wygodniejsza jest `Map`.
+
+```js
+const a = {};                  // prototype: Object.prototype
+const b = Object.create(null); // no prototype at all
+'toString' in a;               // true (inherited)
+'toString' in b;               // false
+b.__proto__ = 'x';             // just a normal key here
+Object.hasOwn(b, '__proto__'); // true
+`${b}`;                        // TypeError: nothing to convert the object with
+```

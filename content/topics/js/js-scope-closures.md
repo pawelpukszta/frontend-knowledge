@@ -11,6 +11,12 @@ sources:
     url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Closures
   - title: "javascript.info: Variable scope, closure"
     url: https://javascript.info/closure
+  - title: "MDN Glossary: Scope"
+    url: https://developer.mozilla.org/en-US/docs/Glossary/Scope
+  - title: "MDN: Strict mode"
+    url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Strict_mode
+  - title: "GeeksforGeeks: JavaScript Interview Questions"
+    url: https://www.geeksforgeeks.org/javascript/javascript-interview-questions/
 ---
 
 ## Wyjaśnienie
@@ -65,6 +71,60 @@ To funkcja razem z dostępem do zmiennych z zasięgu, w którym powstała. Przyk
 ### Co to jest stale closure w React? {#js-scope-closures-q3}
 
 Callback (np. w `useEffect` lub `setInterval`) zamknął wartości z wcześniejszego renderu i nie widzi nowych. Naprawiasz to przez poprawne zależności, funkcję aktualizującą `setState(prev => ...)` lub `useRef`.
+
+### Jakie rodzaje zasięgu ma JavaScript i co znaczy, że zasięg jest leksykalny? {#js-scope-closures-q4}
+
+Są cztery: globalny (kod zwykłego skryptu), modułu (każdy plik ES module ma własny), funkcji i bloku (`{ }` dla `let`, `const` i `class`; `var` ignoruje bloki). Zasięgi są zagnieżdżone: kod widzi zmienne swojego zasięgu i wszystkich zewnętrznych, ale nie odwrotnie.
+
+Leksykalny znaczy, że widoczność zmiennych wynika z miejsca zapisania funkcji w kodzie, a nie z miejsca jej wywołania. Przeciwieństwem jest zasięg dynamiczny (np. zmienne `local` w Bashu), w którym funkcja widzi zmienne tego, kto ją wywołał. JavaScript go nie ma, ale podobnie "dynamicznie" działa `this`, co jest częstym źródłem pomyłek.
+
+```js
+const level = 'global';
+function show() {
+  console.log(level);
+}
+function run() {
+  const level = 'local';
+  show(); // 'global': show sees the scope where it was written
+}
+run();
+```
+
+### Czy domknięcia mogą powodować wycieki pamięci? {#js-scope-closures-q5}
+
+Tak, pośrednio. Domknięcie trzyma referencje do zmiennych z zewnętrznego zasięgu. Dopóki sama funkcja jest osiągalna, garbage collector nie zwolni tych danych. Problem pojawia się, gdy funkcja żyje dłużej, niż powinna: listener, którego nikt nie usunął, `setInterval` bez `clearInterval`, wpis w globalnym cache albo subskrypcja bez wypisania się.
+
+```js
+function watchScroll() {
+  const positions = []; // grows on every scroll event
+  const onScroll = () => positions.push(window.scrollY);
+  window.addEventListener('scroll', onScroll);
+  // Without this cleanup, onScroll and positions stay in memory forever
+  return () => window.removeEventListener('scroll', onScroll);
+}
+```
+
+Rozwiązaniem jest sprzątanie: funkcja cleanup w `useEffect`, `clearInterval`, opcja `{ signal }` z `AbortController` w `addEventListener`. Wycieki znajdziesz w DevTools, w panelu Memory: porównaj heap snapshot przed akcją i po niej.
+
+### Czym są zmienne globalne i dlaczego warto ich unikać? {#js-scope-closures-q6}
+
+Zmienna globalna jest widoczna w całym programie. Powstaje przez deklarację na najwyższym poziomie zwykłego skryptu (`var` i deklaracje funkcji stają się wtedy właściwościami `window`, a `let` i `const` nie) albo przez przypisanie do niezadeklarowanej zmiennej poza strict mode. Problemy:
+
+- kolizje nazw między skryptami i bibliotekami,
+- każdy fragment kodu może zmienić wartość, więc trudno ustalić, kto ją zepsuł,
+- testy zależą od stanu, który zostawił poprzedni test,
+- dane żyją przez cały czas działania strony i nie są zwalniane.
+
+W nowoczesnym kodzie problem w dużej mierze znika: zmienne na najwyższym poziomie modułu ES są widoczne tylko w tym pliku. Gdy naprawdę potrzebujesz obiektu globalnego, używaj jawnie `globalThis`.
+
+### Czym jest strict mode i jak go włączyć? {#js-scope-closures-q7}
+
+To bardziej rygorystyczny tryb języka, który zamienia ciche błędy na wyjątki. Włączasz go dyrektywą `'use strict';` na początku skryptu lub funkcji. Moduły ES i ciała klas są w strict mode automatycznie, więc w kodzie z `import` i `export` nie trzeba nic dopisywać. Najważniejsze zmiany:
+
+- przypisanie do niezadeklarowanej zmiennej rzuca `ReferenceError` zamiast tworzyć zmienną globalną,
+- `this` w funkcji wywołanej samodzielnie to `undefined`, a nie obiekt globalny,
+- zapis do pola tylko do odczytu (np. w obiekcie po `Object.freeze`) rzuca `TypeError`,
+- powtórzone nazwy parametrów, instrukcja `with` i stare literały ósemkowe (`015`) są błędem składni.
 
 ## Quiz
 

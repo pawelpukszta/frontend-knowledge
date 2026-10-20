@@ -558,3 +558,11 @@ a.cat-link { text-decoration: none; }
 .qa-summary .ic { width: 16px; height: 16px; }
 .qa-summary .k .ic { color: var(--good); }
 .qa-summary .r .ic { color: var(--review); }
+.flashcard.is-back { cursor: default; }
+.flashcard.is-back:hover { background: var(--surface); }
+.flashcard.is-back .side .btn { min-height: 32px; padding: 0 10px; }
+.flash-area { touch-action: pan-y; }
+@media (max-width: 560px) {
+  .progress-nums span { font-size: 0.8rem; flex-wrap: wrap; }
+  .progress-nums > div { min-width: 0; overflow-wrap: anywhere; }
+}

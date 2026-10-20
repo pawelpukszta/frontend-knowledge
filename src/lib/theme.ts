@@ -1,23 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { setTheme, useUserData } from './userData';
 
 export type Theme = 'light' | 'dark';
-const KEY = 'kbfe:theme';
-const systemDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
+const MIRROR_KEY = 'kbfe:theme';
+const query = () => matchMedia('(prefers-color-scheme: dark)');
 
-function readSaved(): Theme | null {
-  try {
-    const t = localStorage.getItem(KEY);
-    return t === 'light' || t === 'dark' ? t : null;
-  } catch { return null; }
-}
-
-/** Theme: system preference until the user picks one. index.html applies the saved choice before first paint. */
+/**
+ * Theme: system preference until the user picks one. The choice lives in user data and is mirrored to
+ * localStorage only so index.html can apply it before first paint.
+ */
 export function useTheme() {
-  const [saved, setSaved] = useState<Theme | null>(readSaved);
-  const [system, setSystem] = useState<Theme>(() => (systemDark() ? 'dark' : 'light'));
+  const saved = useUserData((d) => d.settings.theme);
+  const [system, setSystem] = useState<Theme>(() => (query().matches ? 'dark' : 'light'));
 
   useEffect(() => {
-    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const mq = query();
     const on = () => setSystem(mq.matches ? 'dark' : 'light');
     mq.addEventListener('change', on);
     return () => mq.removeEventListener('change', on);
@@ -26,13 +23,12 @@ export function useTheme() {
   useEffect(() => {
     if (saved) document.documentElement.dataset.theme = saved;
     else delete document.documentElement.dataset.theme;
+    try {
+      if (saved) localStorage.setItem(MIRROR_KEY, saved);
+      else localStorage.removeItem(MIRROR_KEY);
+    } catch { /* storage unavailable: only the first paint may flash */ }
   }, [saved]);
 
   const theme = saved ?? system;
-  const toggle = useCallback(() => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    try { localStorage.setItem(KEY, next); } catch { /* storage unavailable: choice lasts for this session */ }
-    setSaved(next);
-  }, [theme]);
-  return { theme, toggle };
+  return { theme, toggle: () => setTheme(theme === 'dark' ? 'light' : 'dark') };
 }

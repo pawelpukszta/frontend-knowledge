@@ -167,9 +167,9 @@ mark { background: var(--mark); color: inherit; padding: 0 2px; }
   padding: 18px 12px; border-bottom: var(--b-thin); text-decoration: none; color: var(--ink);
 }
 .trow:hover { background: var(--surface); }
-.trow:hover h3 { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.2em; }
+.trow:hover :is(h2, h3) { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.2em; }
 .trow .st { grid-row: span 2; padding-top: 1px; }
-.trow h3 { font-size: 1.1rem; margin: 0; }
+.trow :is(h2, h3) { font-size: 1.1rem; margin: 0; }
 .trow p { grid-column: 2 / -1; margin: 0; color: var(--muted); font-size: 0.98rem; line-height: 1.55; max-width: var(--measure); }
 .trow .meta { display: flex; gap: 12px; align-items: center; }
 .cat-progress { font-family: var(--font-mono); font-size: 0.82rem; text-transform: uppercase; color: var(--ink); margin: 0 0 12px; }
@@ -558,3 +558,11 @@ a.cat-link { text-decoration: none; }
 .qa-summary .ic { width: 16px; height: 16px; }
 .qa-summary .k .ic { color: var(--good); }
 .qa-summary .r .ic { color: var(--review); }
+.flashcard.is-back { cursor: default; }
+.flashcard.is-back:hover { background: var(--surface); }
+.flashcard.is-back .side .btn { min-height: 32px; padding: 0 10px; }
+.flash-area { touch-action: pan-y; }
+@media (max-width: 560px) {
+  .progress-nums span { font-size: 0.8rem; flex-wrap: wrap; }
+  .progress-nums > div { min-width: 0; overflow-wrap: anywhere; }
+}

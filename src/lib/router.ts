@@ -8,6 +8,9 @@ export type Route =
   | { name: 'search'; q: string }
   | { name: 'qa'; cat: string | null; status: QaFilter }
   | { name: 'review' }
+  | { name: 'quiz'; cat: string | null }
+  | { name: 'flash'; cat: string | null }
+  | { name: 'checklist'; cat: string | null }
   | { name: 'notFound' };
 
 /** Status filter of the interview questions view. */
@@ -27,6 +30,9 @@ export function parseHash(hash: string): Route {
     return { name: 'qa', cat: params.get('k'), status: QA_FILTERS.includes(s) ? s : 'all' };
   }
   if (parts[0] === 'powtorka') return { name: 'review' };
+  if (parts[0] === 'quiz') return { name: 'quiz', cat: params.get('k') };
+  if (parts[0] === 'fiszki') return { name: 'flash', cat: params.get('k') };
+  if (parts[0] === 'checklista') return { name: 'checklist', cat: parts[1] ?? null };
   return { name: 'notFound' };
 }
 
@@ -42,6 +48,9 @@ export const href = {
     return `#/pytania${p.size ? `?${p}` : ''}`;
   },
   review: () => '#/powtorka',
+  quiz: (cat: string | null = null) => (cat ? `#/quiz?k=${cat}` : '#/quiz'),
+  flash: (cat: string | null = null) => (cat ? `#/fiszki?k=${cat}` : '#/fiszki'),
+  checklist: (cat: string | null = null) => (cat ? `#/checklista/${cat}` : '#/checklista'),
 };
 
 const subscribe = (cb: () => void) => {

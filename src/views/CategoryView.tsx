@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { Icon } from '../components/Icon';
 import { TopicRow } from '../components/TopicRow';
 import { TOPIC, type Category } from '../data';
 import { href } from '../lib/router';
@@ -15,6 +16,11 @@ export function CategoryView({ category: c }: { category: Category }) {
       <div className="view-head" style={{ '--mode': `var(--hue-${c.hue})` } as CSSProperties}>
         <h1>{c.name}</h1>
         <p className="lede">{c.desc}</p>
+        <div className="head-actions">
+          <a className="btn" href={href.qa(c.id)}><Icon name="question" />Pytania z kategorii</a>
+          <a className="btn" href={href.quiz(c.id)}><Icon name="exam" />Quiz z kategorii</a>
+          <a className="btn" href={href.flash(c.id)}><Icon name="cards" />Fiszki z kategorii</a>
+        </div>
       </div>
       {topics.length
         ? <div className="tlist">{topics.map((t) => <TopicRow key={t.id} topic={t} />)}</div>

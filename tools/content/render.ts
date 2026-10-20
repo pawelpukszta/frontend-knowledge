@@ -55,10 +55,15 @@ export function codeFigure(hl: Highlighter, lang: string | null | undefined, met
     + `<pre><code>${code}</code></pre></figure>`;
 }
 
-/** Replaces mdast code nodes with highlighted HTML figures. */
+const ALLOWED_HTML = /^<\/?(kbd|br)\s*\/?>$/;
+
+/** Replaces mdast code nodes with highlighted HTML figures and rejects raw HTML in the text. */
 function remarkCode(hl: Highlighter) {
   return (tree: MdRoot) => {
     const walk = (nodes: MdNode[]) => nodes.forEach((n, i) => {
+      if (n.type === 'html' && !ALLOWED_HTML.test(n.value.trim())) {
+        throw new Error(`surowy HTML "${n.value.trim().slice(0, 40)}" (tagi w tekście zapisz jako \`kod\`; dozwolone tylko <kbd>, <br>)`);
+      }
       if (n.type === 'code') nodes[i] = { type: 'html', value: codeFigure(hl, n.lang, n.meta, n.value) };
       else if ('children' in n) walk(n.children as MdNode[]);
     });

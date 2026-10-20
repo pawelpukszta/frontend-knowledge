@@ -2,13 +2,16 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Icon } from './components/Icon';
 import { Rail, type RailItem } from './components/Rail';
 import { SearchBox } from './components/SearchBox';
-import { CATEGORIES, CATEGORY, QA, TOPIC, TOPICS } from './data';
+import { CATEGORIES, CATEGORY, CL_CATEGORIES, CL_CATEGORY, CL_RULES, QA, QUIZ, TOPIC, TOPICS } from './data';
 import { href, lastPageHash, parseHash, useHash, type Route } from './lib/router';
 import { useStore } from './lib/store';
 import { useTheme } from './lib/theme';
 import { loadProblem, setLastView, useUserData } from './lib/userData';
 import { levelOk, useLevel } from './state';
 import { CategoryView } from './views/CategoryView';
+import { ChecklistView } from './views/ChecklistView';
+import { FlashView } from './views/FlashView';
+import { QuizView } from './views/QuizView';
 import { HomeView, type Mode } from './views/HomeView';
 import { NotFoundView } from './views/NotFoundView';
 import { QaView } from './views/QaView';
@@ -16,9 +19,10 @@ import { ReviewView } from './views/ReviewView';
 import { SearchView } from './views/SearchView';
 import { TopicView } from './views/TopicView';
 
-type ModeId = 'library' | 'pytania';
+type ModeId = 'library' | 'pytania' | 'quiz' | 'fiszki' | 'checklista';
 
-const modeOf = (r: Route): ModeId => (r.name === 'qa' ? 'pytania' : 'library');
+const MODE_OF: Partial<Record<Route['name'], ModeId>> = { qa: 'pytania', quiz: 'quiz', flash: 'fiszki', checklist: 'checklista' };
+const modeOf = (r: Route): ModeId => MODE_OF[r.name] ?? 'library';
 
 export function App() {
   const hash = useHash();
@@ -34,7 +38,7 @@ export function App() {
   useEffect(() => { if (route.name !== 'search' && route.name !== 'notFound') setLastView(hash || href.home()); }, [hash, route.name]);
 
   // A new page starts at the top with focus on the content; typing a query or switching a filter is not a new page.
-  const pageKey = route.name === 'search' ? 'search' : route.name === 'qa' ? `qa:${route.cat}` : hash;
+  const pageKey = route.name === 'search' ? 'search' : route.name === 'qa' ? `qa:${route.cat}` : `${hash}:${route.name === 'flash' ? level : ''}`;
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
     if (document.activeElement?.id !== 'q') main.current?.focus({ preventScroll: true });
@@ -44,9 +48,15 @@ export function App() {
   const tabs: { id: ModeId; label: string; href: string; count?: number }[] = [
     { id: 'library', label: 'Biblioteka', href: href.home() },
     { id: 'pytania', label: 'Pytania', href: href.qa(), count: qaCount },
+    { id: 'quiz', label: 'Quiz', href: href.quiz() },
+    { id: 'fiszki', label: 'Fiszki', href: href.flash() },
+    { id: 'checklista', label: 'Checklista', href: href.checklist(), count: CL_RULES.length },
   ];
   const modes: Mode[] = [
     { href: href.qa(), icon: 'question', title: 'Pytania z rozmów', desc: 'Odpowiedz na głos, porównaj z modelową odpowiedzią i oceń się.', count: qaCount, color: 'var(--c-purple)', on: 'var(--on-purple)' },
+    { href: href.quiz(), icon: 'exam', title: 'Quiz', desc: 'Pytania jednokrotnego wyboru. Błędne odpowiedzi trafiają do powtórki.', count: QUIZ.length, color: 'var(--c-red)', on: 'var(--on-fill)' },
+    { href: href.flash(), icon: 'cards', title: 'Fiszki', desc: 'Szybka powtórka: odwróć kartę i oceń, czy umiesz.', count: qaCount, color: 'var(--c-yellow)', on: 'var(--on-fill)' },
+    { href: href.checklist(), icon: 'listChecks', title: 'Checklista', desc: 'Reguły jakości do odhaczenia w prawdziwym projekcie.', count: CL_RULES.length, color: 'var(--c-green)', on: 'var(--on-fill)' },
   ];
 
   return (
@@ -71,7 +81,7 @@ export function App() {
         </div>
       </header>
       <div className="shell">
-        {route.name === 'qa' ? <QaRail cat={route.cat} /> : <LibraryRail route={route} />}
+        <ModeRail route={route} />
         <main id="main" ref={main} tabIndex={-1} key={pageKey}>
           {problem && (
             <div className="load-problem" role="alert">
@@ -84,6 +94,40 @@ export function App() {
       </div>
     </>
   );
+}
+
+function ModeRail({ route }: { route: Route }) {
+  if (route.name === 'qa') return <QaRail cat={route.cat} />;
+  if (route.name === 'quiz' || route.name === 'flash') return <PracticeRail route={route} />;
+  if (route.name === 'checklist') return <ChecklistRail cat={route.cat} />;
+  return <LibraryRail route={route} />;
+}
+
+function PracticeRail({ route }: { route: { name: 'quiz' | 'flash'; cat: string | null } }) {
+  const level = useLevel();
+  const quiz = route.name === 'quiz';
+  const link = quiz ? href.quiz : href.flash;
+  const n = (cat: string | null) => quiz
+    ? QUIZ.filter((q) => (!cat || q.category === cat) && levelOk(level, TOPIC[q.topic].level)).length
+    : QA.filter((q) => (!cat || q.category === cat) && levelOk(level, q.level)).length;
+  const items: RailItem[] = [
+    { key: '', label: 'Wszystkie kategorie', count: String(n(null)), current: !route.cat, href: link() },
+    ...CATEGORIES.map((c) => ({ key: c.id, label: c.name, hue: c.hue, current: route.cat === c.id, href: link(c.id), count: String(n(c.id)) })),
+  ];
+  return <Rail items={items} unit={quiz ? 'pytania quizu' : 'karty'} showLevel />;
+}
+
+function ChecklistRail({ cat }: { cat: string | null }) {
+  const done = useUserData((d) => d.checklist.done);
+  const count = (rules: typeof CL_RULES) => {
+    const d = rules.filter((r) => done.includes(r.key)).length;
+    return { count: `${d}/${rules.length}`, title: `${d} z ${rules.length} reguł zrobione` };
+  };
+  const items: RailItem[] = [
+    { key: '', label: 'Wszystkie reguły', ...count(CL_RULES), current: !cat, href: href.checklist() },
+    ...CL_CATEGORIES.map((c) => ({ key: c.id, label: c.name, hue: c.hue, current: cat === c.id, href: href.checklist(c.id), ...count(CL_RULES.filter((r) => r.category === c.id)) })),
+  ];
+  return <Rail items={items} unit="zrobione" showLevel={false} />;
 }
 
 function LibraryRail({ route }: { route: Route }) {
@@ -122,5 +166,8 @@ function Page({ route, modes }: { route: Route; modes: Mode[] }) {
   if (route.name === 'search') return <SearchView q={route.q} />;
   if (route.name === 'qa') return <QaView cat={route.cat && CATEGORY[route.cat] ? route.cat : null} status={route.status} />;
   if (route.name === 'review') return <ReviewView />;
+  if (route.name === 'quiz') return <QuizView cat={route.cat} />;
+  if (route.name === 'flash') return <FlashView cat={route.cat && CATEGORY[route.cat] ? route.cat : null} />;
+  if (route.name === 'checklist' && (!route.cat || CL_CATEGORY[route.cat])) return <ChecklistView cat={route.cat} />;
   return <NotFoundView />;
 }

@@ -55,7 +55,7 @@ Zyski: dostępność "za darmo", SEO (wyszukiwarki rozumieją strukturę), obsł
 
 Używaniem znaczników zgodnie z ich znaczeniem (`button`, `nav`, `main`, `article`, `label`). Elementy te mają wbudowane role, obsługę klawiatury i stany, co daje dostępność dla czytników ekranu, lepsze SEO i mniej kodu JS.
 
-### Kiedy <a>, a kiedy <button>? {#a11y-semantic-html-q2}
+### Kiedy `<a>`, a kiedy `<button>`? {#a11y-semantic-html-q2}
 
 `<a href>` gdy przenosisz użytkownika w inne miejsce (zmiana URL, może być otwarty w nowej karcie). `<button>` gdy wykonujesz akcję na bieżącej stronie (otwarcie modala, wysłanie formularza, dodanie do koszyka).
 

@@ -23,6 +23,16 @@ const docSchema = z.object({
   lastTopic: z.string().nullable().default(null),
   topicStatus: z.record(z.string(), mark).default({}),
   qaStatus: z.record(z.string(), mark).default({}),
+  checklist: z.object({
+    done: z.array(z.string()).default([]),
+    prio: z.array(z.enum(['critical', 'high', 'medium', 'low'])).default([]),
+  }).prefault({}),
+  quizResults: z.array(z.object({
+    at: z.string(),
+    score: z.number().int(),
+    total: z.number().int(),
+    categories: z.array(z.string()),
+  })).default([]),
 });
 export type UserDoc = z.infer<typeof docSchema>;
 
@@ -59,6 +69,21 @@ export const toggleTopicMark = (id: string, value: Mark) => update((d) => ({ ...
 export const toggleQaMark = (id: string, value: Mark) => update((d) => ({ ...d, qaStatus: toggle(d.qaStatus, id, value) }));
 export const setQaMark = (id: string, value: Mark) => update((d) => ({ ...d, qaStatus: { ...d.qaStatus, [id]: value } }));
 export const setTopicMark = (id: string, value: Mark) => update((d) => ({ ...d, topicStatus: { ...d.topicStatus, [id]: value } }));
+
+export type QuizResult = UserDoc['quizResults'][number];
+export type Priority = UserDoc['checklist']['prio'][number];
+const QUIZ_HISTORY = 20;
+export const addQuizResult = (r: QuizResult) => update((d) => ({ ...d, quizResults: [r, ...d.quizResults].slice(0, QUIZ_HISTORY) }));
+
+export function setRuleDone(key: string, done: boolean) {
+  update((d) => ({
+    ...d,
+    checklist: { ...d.checklist, done: done ? [...new Set([...d.checklist.done, key])] : d.checklist.done.filter((k) => k !== key) },
+  }));
+}
+/** Clears the done state of the given rules only (one category or the whole checklist). */
+export const resetRules = (keys: string[]) => update((d) => ({ ...d, checklist: { ...d.checklist, done: d.checklist.done.filter((k) => !keys.includes(k)) } }));
+export const setChecklistPrio = (prio: Priority[]) => update((d) => ({ ...d, checklist: { ...d.checklist, prio } }));
 
 // ---------- Persistence ----------
 

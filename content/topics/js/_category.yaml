@@ -1,0 +1,27 @@
+order: 1
+name: Core JavaScript
+short: JS
+hue: scripting
+desc: "Fundamenty języka i ES6+: referencje, domknięcia, this, Promise, async/await, nowoczesna składnia."
+topics:
+  - js-primitives-vs-references
+  - js-copying
+  - js-equality
+  - js-scope-closures
+  - js-iife
+  - js-hoisting-tdz
+  - js-this
+  - js-arrow-vs-regular
+  - js-prototypes
+  - js-extending-builtins
+  - js-sync-async
+  - js-promises
+  - js-promise-methods
+  - js-async-await
+  - js-es6-syntax
+  - js-collections
+  - js-array-methods
+  - js-iteration
+  - js-iterators-generators
+  - js-hof-currying
+  - js-debounce-throttle

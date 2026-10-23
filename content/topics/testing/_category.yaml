@@ -1,0 +1,9 @@
+order: 15
+name: Testy front-endu
+short: Testy
+hue: idle
+desc: "Testy jak użytkownik: React Testing Library, zapytania po roli, userEvent, mockowanie sieci przez MSW, testy e2e i niestabilne testy."
+topics:
+  - test-rtl
+  - test-mocking-msw
+  - test-e2e-flaky

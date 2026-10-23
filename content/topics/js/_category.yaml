@@ -26,3 +26,4 @@ topics:
   - js-iterators-generators
   - js-hof-currying
   - js-debounce-throttle
+  - js-intl

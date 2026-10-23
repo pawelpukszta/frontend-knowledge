@@ -15,3 +15,5 @@ topics:
   - http-realtime
   - http-cors
   - http-caching
+  - http-auth-oauth
+  - http-retries-idempotency

@@ -1,0 +1,10 @@
+order: 14
+name: SEO i widoczność w AI
+short: SEO
+hue: loading
+desc: "Techniczne SEO dla front-endu: metadane, canonical, robots, renderowanie a indeksowanie, dane strukturalne i widoczność w asystentach AI."
+topics:
+  - seo-technical-basics
+  - seo-rendering-spa
+  - seo-structured-data
+  - seo-ai-discoverability

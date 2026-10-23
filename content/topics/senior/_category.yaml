@@ -11,3 +11,11 @@ topics:
   - sr-code-review
   - sr-adr
   - sr-ai-dev
+  - sr-clean-code
+  - sr-design-patterns
+  - sr-refactoring-migrations
+  - sr-cicd-delivery
+  - sr-release-strategies
+  - sr-production-debugging
+  - sr-ai-agents
+  - sr-collaboration

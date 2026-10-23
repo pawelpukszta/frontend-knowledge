@@ -15,3 +15,9 @@ topics:
   - react-rendering-strategies
   - react-hydration
   - react-server-components
+  - react-composition-patterns
+  - react-error-boundaries-suspense
+  - react-forms-refs
+  - next-app-router
+  - next-caching
+  - next-server-actions

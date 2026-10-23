@@ -6,6 +6,7 @@ import { CATEGORIES, CATEGORY, CL_CATEGORIES, CL_CATEGORY, CL_RULES, QA, QUIZ, T
 import { href, lastPageHash, parseHash, useHash, type Route } from './lib/router';
 import { useStore } from './lib/store';
 import { useTheme } from './lib/theme';
+import { updateReady } from './lib/pwa';
 import { loadProblem, setLastView, useUserData } from './lib/userData';
 import { levelOk, useLevel } from './state';
 import { CategoryView } from './views/CategoryView';
@@ -31,6 +32,7 @@ export function App() {
   const { theme, toggle } = useTheme();
   const level = useLevel();
   const problem = useStore(loadProblem, (p) => p);
+  const reload = useStore(updateReady, (r) => r);
   const main = useRef<HTMLElement>(null);
 
   const view = route.name === 'topic' && TOPIC[route.id] ? 'topic' : mode;
@@ -87,6 +89,12 @@ export function App() {
             <div className="load-problem" role="alert">
               <span>{problem}</span>
               <button className="btn" type="button" onClick={() => loadProblem.set(() => null)}>Rozumiem</button>
+            </div>
+          )}
+          {reload && (
+            <div className="load-problem" role="status">
+              <span>Jest nowa wersja aplikacji.</span>
+              <button className="btn" type="button" onClick={reload}>Przeładuj</button>
             </div>
           )}
           <Page route={route} modes={modes} />

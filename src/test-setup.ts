@@ -1,9 +1,11 @@
 import '@testing-library/jest-dom/vitest';
 import 'fake-indexeddb/auto';
-import { afterEach } from 'vitest';
+import { afterEach, inject } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { setContent } from './data';
 
 afterEach(cleanup);
+setContent(inject('content'));
 
 // jsdom lacks these browser APIs.
 window.matchMedia ??= ((query: string) => ({

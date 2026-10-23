@@ -1,6 +1,7 @@
 ---
 title: "Event loop: call stack, microtasks, macrotasks"
 level: mid
+added: 2026-10-20
 tags:
   - event loop
   - microtask

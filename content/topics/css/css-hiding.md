@@ -1,6 +1,7 @@
 ---
 title: "Ukrywanie elementów: display, visibility, opacity, hidden, sr-only"
 level: mid
+added: 2026-10-20
 tags:
   - display none
   - visibility hidden

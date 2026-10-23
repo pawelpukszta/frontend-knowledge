@@ -1,6 +1,7 @@
 ---
 title: "Render i commit: kiedy komponent się renderuje"
 level: mid
+added: 2026-10-20
 tags:
   - render
   - commit

@@ -1,6 +1,7 @@
 ---
 title: Content Security Policy (CSP)
 level: senior
+added: 2026-10-20
 tags:
   - CSP
   - nagłówki

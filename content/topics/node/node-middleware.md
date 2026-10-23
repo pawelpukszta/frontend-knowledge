@@ -1,6 +1,7 @@
 ---
 title: "Middleware: funkcja pośrednicząca w pipeline requesta"
 level: mid
+added: 2026-10-20
 tags:
   - middleware
   - Express

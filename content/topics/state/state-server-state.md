@@ -1,6 +1,7 @@
 ---
 title: Server state vs client state (TanStack Query)
 level: mid
+added: 2026-10-20
 tags:
   - TanStack Query
   - React Query

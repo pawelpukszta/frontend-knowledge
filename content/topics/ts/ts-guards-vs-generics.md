@@ -1,6 +1,7 @@
 ---
 title: "Type guards vs generyki: czym się różnią"
 level: mid
+added: 2026-10-20
 tags:
   - type guard
   - generics

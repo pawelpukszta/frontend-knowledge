@@ -1,6 +1,7 @@
 ---
 title: useEffect i "You Might Not Need an Effect"
 level: mid
+added: 2026-10-20
 tags:
   - useEffect
   - side effects

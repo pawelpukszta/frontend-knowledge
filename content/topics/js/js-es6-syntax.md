@@ -1,6 +1,7 @@
 ---
 title: "Nowoczesna składnia: destrukturyzacja, spread/rest, ?. i ??"
 level: mid
+added: 2026-10-20
 tags:
   - ES6
   - destructuring

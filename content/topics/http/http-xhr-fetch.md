@@ -1,6 +1,7 @@
 ---
 title: XMLHttpRequest, fetch i AJAX
 level: mid
+added: 2026-10-20
 tags:
   - XMLHttpRequest
   - XHR

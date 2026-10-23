@@ -1,6 +1,7 @@
 ---
 title: "Responsywność: media queries, container queries, jednostki"
 level: mid
+added: 2026-10-20
 tags:
   - responsive
   - media queries

@@ -1,6 +1,7 @@
 ---
 title: "Kopiowanie obiektów: shallow vs deep"
 level: mid
+added: 2026-10-20
 tags:
   - spread
   - structuredClone

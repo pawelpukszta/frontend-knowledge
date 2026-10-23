@@ -1,6 +1,7 @@
 ---
 title: "Metody HTTP: GET, POST, PUT, PATCH, DELETE"
 level: mid
+added: 2026-10-20
 tags:
   - GET
   - POST

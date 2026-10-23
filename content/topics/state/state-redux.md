@@ -1,6 +1,7 @@
 ---
 title: Redux i Redux Toolkit
 level: mid
+added: 2026-10-20
 tags:
   - Redux
   - RTK

@@ -1,6 +1,7 @@
 ---
 title: npm, yarn, pnpm, lockfile i semver
 level: mid
+added: 2026-10-20
 tags:
   - npm
   - pnpm

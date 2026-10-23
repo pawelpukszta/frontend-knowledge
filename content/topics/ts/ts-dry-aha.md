@@ -1,6 +1,7 @@
 ---
 title: "DRY vs WET vs AHA: kiedy abstrakcja ma sens"
 level: senior
+added: 2026-10-20
 tags:
   - DRY
   - WET

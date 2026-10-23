@@ -1,6 +1,7 @@
 ---
 title: Landmarki i hierarchia nagłówków
 level: mid
+added: 2026-10-20
 tags:
   - landmarks
   - headings

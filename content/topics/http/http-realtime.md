@@ -1,6 +1,7 @@
 ---
 title: Server-Sent Events, WebSocket i polling
 level: mid
+added: 2026-10-20
 tags:
   - SSE
   - EventSource

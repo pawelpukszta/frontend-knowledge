@@ -1,6 +1,7 @@
 ---
 title: "Przepływ danych w React: props w dół, zdarzenia w górę"
 level: mid
+added: 2026-10-20
 tags:
   - props
   - lifting state up

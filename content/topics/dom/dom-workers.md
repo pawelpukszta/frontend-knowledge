@@ -1,6 +1,7 @@
 ---
 title: Web Workers i Service Workers
 level: senior
+added: 2026-10-20
 tags:
   - Web Worker
   - Service Worker

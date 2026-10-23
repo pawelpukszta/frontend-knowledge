@@ -1,6 +1,7 @@
 ---
 title: Generyki (generics)
 level: mid
+added: 2026-10-20
 tags:
   - generics
   - T

@@ -1,6 +1,7 @@
 ---
 title: "Zdarzenia: capturing, bubbling, delegacja"
 level: mid
+added: 2026-10-20
 tags:
   - events
   - bubbling

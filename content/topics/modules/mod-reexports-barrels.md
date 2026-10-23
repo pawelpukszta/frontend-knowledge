@@ -1,6 +1,7 @@
 ---
 title: Re-eksporty i barrel files
 level: mid
+added: 2026-10-20
 tags:
   - re-export
   - barrel

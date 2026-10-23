@@ -1,6 +1,7 @@
 ---
 title: Monitoring i observability na froncie
 level: senior
+added: 2026-10-20
 tags:
   - observability
   - monitoring

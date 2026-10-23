@@ -1,6 +1,7 @@
 ---
 title: IIFE i wzorzec modułu
 level: mid
+added: 2026-10-20
 tags:
   - IIFE
   - module pattern

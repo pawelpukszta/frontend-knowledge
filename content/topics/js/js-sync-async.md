@@ -1,6 +1,7 @@
 ---
 title: Kod synchroniczny vs asynchroniczny i callback hell
 level: mid
+added: 2026-10-20
 tags:
   - synchroniczny
   - asynchroniczny

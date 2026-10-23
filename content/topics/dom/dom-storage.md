@@ -1,6 +1,7 @@
 ---
 title: "Storage w przeglądarce: cookies, localStorage, sessionStorage, IndexedDB"
 level: mid
+added: 2026-10-20
 tags:
   - localStorage
   - sessionStorage

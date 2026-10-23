@@ -1,6 +1,7 @@
 ---
 title: React Server Components
 level: senior
+added: 2026-10-20
 tags:
   - RSC
   - Server Components

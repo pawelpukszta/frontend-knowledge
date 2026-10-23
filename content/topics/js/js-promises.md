@@ -1,6 +1,7 @@
 ---
 title: "Promise: podstawy i stany"
 level: mid
+added: 2026-10-20
 tags:
   - promise
   - async

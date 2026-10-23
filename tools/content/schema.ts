@@ -29,6 +29,7 @@ export const categoryFile = z.object({
 export const topicFrontmatter = z.object({
   title: text,
   level: z.enum(LEVELS),
+  added: z.iso.date({ error: 'data dodania tematu w formacie RRRR-MM-DD' }),
   tags: z.array(text).default([]),
   summary: text,
   flow: z.array(text).optional(),
@@ -72,6 +73,8 @@ export interface Topic {
   category: string;
   title: string;
   level: Level;
+  /** Date the topic joined the knowledge base, `YYYY-MM-DD`. */
+  added: string;
   tags: string[];
   summary: string;
   flow?: string[];

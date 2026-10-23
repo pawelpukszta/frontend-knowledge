@@ -1,6 +1,7 @@
 ---
 title: Jak testować dostępność
 level: mid
+added: 2026-10-20
 tags:
   - axe
   - Lighthouse

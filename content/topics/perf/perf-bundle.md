@@ -1,6 +1,7 @@
 ---
 title: Rozmiar bundla i koszt JavaScriptu
 level: senior
+added: 2026-10-20
 tags:
   - bundle size
   - code splitting

@@ -1,6 +1,7 @@
 ---
 title: Decyzje architektoniczne i ADR
 level: senior
+added: 2026-10-20
 tags:
   - ADR
   - trade-offs

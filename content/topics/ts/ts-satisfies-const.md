@@ -1,6 +1,7 @@
 ---
 title: satisfies, as const i asercje (as)
 level: senior
+added: 2026-10-20
 tags:
   - satisfies
   - as const

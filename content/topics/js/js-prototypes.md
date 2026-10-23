@@ -1,6 +1,7 @@
 ---
 title: Prototypy i klasy
 level: mid
+added: 2026-10-20
 tags:
   - prototype
   - class

@@ -1,6 +1,7 @@
 ---
 title: CSR, SSR, SSG, ISR
 level: mid
+added: 2026-10-20
 tags:
   - CSR
   - SSR

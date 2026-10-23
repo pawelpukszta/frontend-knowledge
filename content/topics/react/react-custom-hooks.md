@@ -1,6 +1,7 @@
 ---
 title: Custom hooks
 level: mid
+added: 2026-10-20
 tags:
   - custom hooks
   - reużywalność logiki

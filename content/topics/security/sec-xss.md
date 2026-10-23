@@ -1,6 +1,7 @@
 ---
 title: XSS (Cross-Site Scripting)
 level: mid
+added: 2026-10-20
 tags:
   - XSS
   - dangerouslySetInnerHTML

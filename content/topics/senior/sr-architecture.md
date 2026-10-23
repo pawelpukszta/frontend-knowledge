@@ -1,6 +1,7 @@
 ---
 title: Architektura aplikacji front-end
 level: senior
+added: 2026-10-20
 tags:
   - architektura
   - feature-based

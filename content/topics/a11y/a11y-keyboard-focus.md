@@ -1,6 +1,7 @@
 ---
 title: Klawiatura i focus management
 level: senior
+added: 2026-10-20
 tags:
   - focus
   - tabindex

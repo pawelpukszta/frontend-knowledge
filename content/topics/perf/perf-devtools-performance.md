@@ -1,6 +1,7 @@
 ---
 title: "DevTools: zakładka Performance"
 level: mid
+added: 2026-10-20
 tags:
   - DevTools
   - Performance panel

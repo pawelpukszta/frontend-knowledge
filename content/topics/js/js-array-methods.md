@@ -1,6 +1,7 @@
 ---
 title: "Metody tablic: map, filter, reduce i niemutujące wersje"
 level: mid
+added: 2026-10-20
 tags:
   - array
   - map

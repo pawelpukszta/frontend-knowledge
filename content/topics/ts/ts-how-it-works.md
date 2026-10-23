@@ -1,6 +1,7 @@
 ---
 title: "Jak działa TypeScript: kompilacja i type erasure"
 level: mid
+added: 2026-10-20
 tags:
   - kompilacja
   - tsc

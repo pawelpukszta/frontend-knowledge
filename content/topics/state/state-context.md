@@ -1,6 +1,7 @@
 ---
 title: Context API i kiedy to za mało
 level: mid
+added: 2026-10-20
 tags:
   - Context
   - useContext

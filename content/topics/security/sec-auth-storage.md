@@ -1,6 +1,7 @@
 ---
 title: "Sesja i tokeny: gdzie je trzymać (JWT, cookies)"
 level: senior
+added: 2026-10-20
 tags:
   - JWT
   - cookies

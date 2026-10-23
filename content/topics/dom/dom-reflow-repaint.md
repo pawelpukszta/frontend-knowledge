@@ -1,6 +1,7 @@
 ---
 title: Reflow, repaint, composite i layout thrashing
 level: senior
+added: 2026-10-20
 tags:
   - reflow
   - repaint

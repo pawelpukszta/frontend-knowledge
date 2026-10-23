@@ -1,6 +1,7 @@
 ---
 title: Debounce i throttle
 level: mid
+added: 2026-10-20
 tags:
   - debounce
   - throttle

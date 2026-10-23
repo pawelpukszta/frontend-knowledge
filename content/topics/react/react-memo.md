@@ -1,6 +1,7 @@
 ---
 title: React.memo
 level: mid
+added: 2026-10-20
 tags:
   - memo
   - re-render

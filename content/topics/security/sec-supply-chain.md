@@ -1,6 +1,7 @@
 ---
 title: Bezpieczeństwo zależności (supply chain)
 level: senior
+added: 2026-10-20
 tags:
   - npm audit
   - dependencies

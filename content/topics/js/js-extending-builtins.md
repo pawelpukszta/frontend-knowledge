@@ -1,6 +1,7 @@
 ---
 title: Rozszerzanie wbudowanych obiektów i polyfille
 level: senior
+added: 2026-10-20
 tags:
   - prototype pollution
   - monkey patching

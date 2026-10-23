@@ -1,6 +1,7 @@
 ---
 title: Dynamic import() i code splitting
 level: mid
+added: 2026-10-20
 tags:
   - dynamic import
   - lazy

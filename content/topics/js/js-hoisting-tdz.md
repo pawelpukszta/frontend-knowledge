@@ -1,6 +1,7 @@
 ---
 title: Hoisting i Temporal Dead Zone
 level: mid
+added: 2026-10-20
 tags:
   - hoisting
   - var

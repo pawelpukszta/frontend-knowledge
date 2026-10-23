@@ -1,6 +1,7 @@
 ---
 title: == vs === vs Object.is
 level: mid
+added: 2026-10-20
 tags:
   - porównania
   - koercja

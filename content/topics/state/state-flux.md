@@ -1,6 +1,7 @@
 ---
 title: "Wzorzec Flux: action → dispatcher → store → view"
 level: mid
+added: 2026-10-20
 tags:
   - Flux
   - unidirectional

@@ -1,6 +1,7 @@
 ---
 title: Map, Set, WeakMap, WeakSet
 level: mid
+added: 2026-10-20
 tags:
   - Map
   - Set

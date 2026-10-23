@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon';
 import { QaItem } from '../components/QaItem';
 import { CATEGORY, catStyle, TOPIC, type Topic } from '../data';
 import { href } from '../lib/router';
-import { host, plural, readMinutes } from '../lib/text';
+import { formatDay, host, plural, readMinutes } from '../lib/text';
 import { useTitle } from '../lib/useTitle';
 import { markSeen, toggleTopicMark, useUserData } from '../lib/userData';
 import { MarkButtons, StatusTag } from '../components/Status';
@@ -82,6 +82,7 @@ export function TopicView({ topic: t }: { topic: Topic }) {
         <div className="topic-meta">
           <span className={`level level-${t.level}`}>{t.level}</span>
           <span>{mins} min czytania</span>
+          <span>dodano <time dateTime={t.added}>{formatDay(t.added)}</time></span>
           {mark && <StatusTag status={mark} />}
           <span className="tags">{t.tags.map((g) => <span key={g} className="topic-tag">{g}</span>)}</span>
         </div>

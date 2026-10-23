@@ -39,13 +39,7 @@ tinyjs build   # the app for the current OS in dist/ (replaces the web build the
 
 On the desktop, progress is saved to `store.json` in the app's data folder (for example `%APPDATA%\io.github.pawelpukszta.frontend-knowledge\` on Windows); in the browser it is saved to IndexedDB. CI builds the desktop app on Windows and macOS for every pull request (the `desktop` job, not required to merge).
 
-To release, set the same version in `package.json` and `tinyjs.json`, merge, then push a tag:
-
-```bash
-git tag v0.1.0 && git push origin v0.1.0
-```
-
-`.github/workflows/release.yml` checks that the tag matches both versions, builds `baza-wiedzy-fe-windows-x64.zip` and a universal `baza-wiedzy-fe-macos.dmg`, and publishes them as a GitHub Release. The file names never change, so the download buttons on the Pages root (`.../releases/latest/download/<file>`) always get the newest version. The builds are not signed: Windows shows SmartScreen and macOS asks for "Open Anyway" in Privacy & Security.
+**Desktop releases** are built from version tags: see [RELEASING.md](RELEASING.md) for the step-by-step checklist (version bump, tag, checks, fixing a failed release). The web app does not need a release; it deploys on every merge to `main`.
 
 ### PWA and deployment
 

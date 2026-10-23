@@ -5,7 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "types": ["node", "vite/client", "@testing-library/jest-dom/vitest"],
+    "types": ["node", "vite/client", "vite-plugin-pwa/client", "@testing-library/jest-dom/vitest"],
     "strict": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,

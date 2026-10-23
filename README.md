@@ -2,7 +2,9 @@
 
 Front-end interview prep app (mid / senior), in Polish: a topic library, interview questions with model answers, a quiz, flashcards and a front-end checklist. Every topic links to its sources.
 
-Built with React 19, TypeScript and Vite. Content lives in this repo as Markdown files, is validated at build time and ships inside the app, so it works offline.
+Built with React 19, TypeScript and Vite. Content lives in this repo as Markdown files and is validated at build time. The app runs in the browser as an installable PWA that works offline, and on the desktop as a [tinyjs](https://tinyjs.app/) app.
+
+**Open the app:** https://pawelpukszta.github.io/frontend-knowledge/app/ (on Android: Chrome menu, "Install app"; on iOS: Safari, Share, "Add to Home Screen").
 
 > The original single-file proof of concept is kept as the [`poc-v0`](../../tree/poc-v0) tag.
 
@@ -37,6 +39,12 @@ tinyjs build   # the app for the current OS in dist/ (replaces the web build the
 
 On the desktop, progress is saved to `store.json` in the app's data folder (for example `%APPDATA%\io.github.pawelpukszta.frontend-knowledge\` on Windows); in the browser it is saved to IndexedDB. CI builds the desktop app on Windows and macOS for every pull request (the `desktop` job, not required to merge).
 
+### PWA and deployment
+
+Every merge to `main` deploys to GitHub Pages (`.github/workflows/pages.yml`): the app goes to `/app/`, and `site/index.html` at the root redirects there until the landing page exists. The service worker (`vite-plugin-pwa`) precaches the app, all content and the Latin font files; after a deploy the app shows "Jest nowa wersja aplikacji" with a reload button. It is not registered in the desktop app (`file://`).
+
+The build keeps updates small: each topic category and each checklist category is a separate content file (`dist/data/<category>.<hash>.js`), and `index.html` lists them. A content change rebuilds one of those files plus `index.html`; the app code and the other categories stay cached on the reader's device.
+
 Not in CI yet:
 
 ```bash
@@ -51,8 +59,10 @@ content/
   topics/<category>/<topic-id>.md    one topic with its interview questions and quiz questions
   checklist/<category>/_category.yaml  checklist category, groups and rule order
   checklist/<category>/<rule-id>.md    one checklist rule
-tools/content/   content schema (Zod), parser, Markdown renderer (Shiki) and the Vite plugin
+tools/content/   content schema (Zod), parser, Markdown renderer (Shiki), the Vite plugin and the per-category split
 src/             the app: views, components, styles
+public/          favicon and PWA icons
+site/            the page at the root of GitHub Pages
 scripts/         one-off migration of the proof-of-concept content to Markdown
 tinyjs.json      desktop app config (name, id, version, window); backend/ is its txiki.js backend, assets/icon.png its icon
 ```

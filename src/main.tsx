@@ -10,8 +10,9 @@ import './styles/tokens.css';
 import './styles/app.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
+import { fetchContent, setContent } from './data';
 import { installCopyButtons } from './lib/copy';
+import { installPwa } from './lib/pwa';
 import { indexedDbAdapter, memoryAdapter, tinyStoreAdapter, type TinyStore } from './lib/storage';
 import { initUserData, userData } from './lib/userData';
 
@@ -20,7 +21,15 @@ declare global {
   interface Window { tiny?: { store: TinyStore } }
 }
 
+const root = document.getElementById('root')!;
+try {
+  setContent(await fetchContent());
+} catch (e) {
+  root.textContent = 'Nie udało się wczytać treści. Sprawdź połączenie z internetem i odśwież stronę.';
+  throw e;
+}
 installCopyButtons();
+void installPwa();
 const tiny = window.tiny;
 await initUserData(tiny ? tinyStoreAdapter(tiny.store) : 'indexedDB' in window ? indexedDbAdapter() : memoryAdapter());
 
@@ -28,4 +37,6 @@ await initUserData(tiny ? tinyStoreAdapter(tiny.store) : 'indexedDB' in window ?
 const last = userData.get().settings.lastView;
 if (last && (location.hash === '' || location.hash === '#/')) history.replaceState(null, '', last);
 
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+// Imported after setContent: some views build lookup tables from the content when their module loads.
+const { App } = await import('./App');
+createRoot(root).render(<StrictMode><App /></StrictMode>);

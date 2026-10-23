@@ -36,7 +36,7 @@ const request = <T>(r: IDBRequest<T>) => new Promise<T>((resolve, reject) => {
   r.onerror = () => reject(r.error);
 });
 
-/** IndexedDB: one object store of key-value records. Survives reloads; the browser may evict it (no persist() yet). */
+/** IndexedDB: one object store of key-value records. Survives reloads; the browser may evict it unless persist() was granted (src/lib/pwa.ts). */
 export function indexedDbAdapter(dbName = 'kbfe', storeName = 'kv'): StorageAdapter {
   let db: Promise<IDBDatabase> | undefined;
   const open = () => (db ??= new Promise((resolve, reject) => {

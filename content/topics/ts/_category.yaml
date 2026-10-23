@@ -15,3 +15,6 @@ topics:
   - ts-satisfies-const
   - ts-react
   - ts-dry-aha
+  - ts-structural-branded
+  - ts-tsconfig-strict
+  - ts-runtime-validation

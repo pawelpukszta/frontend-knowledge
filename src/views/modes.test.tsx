@@ -9,6 +9,8 @@ import { QuizView } from './QuizView';
 
 beforeEach(() => userData.set(() => emptyDoc()));
 const click = (el: HTMLElement) => act(() => el.click());
+/** Build-time HTML as the DOM serializes it back (e.g. `&#x3C;` becomes `&lt;`). */
+const domHtml = (html: string) => { const t = document.createElement('template'); t.innerHTML = html; return t.innerHTML; };
 
 describe('quiz', () => {
   it('runs a seeded quiz, scores it, announces the result and sends mistakes to review', () => {
@@ -20,7 +22,7 @@ describe('quiz', () => {
 
     const picks: number[] = [];
     for (const item of expected) {
-      expect(document.querySelector('.quiz-q')!.innerHTML).toBe(item.q);
+      expect(document.querySelector('.quiz-q')!.innerHTML).toBe(domHtml(item.q));
       act(() => { fireEvent.keyDown(document, { key: '1' }); }); // first displayed option
       picks.push(item.order[0]);
       expect(document.querySelector('.feedback')!.textContent).toMatch(/Dobrze!|Nie tym razem/);
@@ -39,7 +41,7 @@ describe('flashcards', () => {
   it('shares the status with interview questions', () => {
     const card = shuffle(QA.filter((q) => q.category === 'js'), rng(5))[0];
     render(<FlashView cat="js" random={rng(5)} />);
-    expect(document.querySelector('.flashcard .front')!.innerHTML).toBe(card.q);
+    expect(document.querySelector('.flashcard .front')!.innerHTML).toBe(domHtml(card.q));
     act(() => { fireEvent.keyDown(document.body, { key: ' ' }); });
     expect(screen.getByText('Odpowiedź')).toBeInTheDocument();
     click(screen.getByRole('button', { name: /Umiem/ }));

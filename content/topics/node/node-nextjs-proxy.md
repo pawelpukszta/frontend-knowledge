@@ -1,6 +1,7 @@
 ---
 title: Middleware w Next.js (proxy.ts)
 level: senior
+added: 2026-10-20
 tags:
   - Next.js
   - middleware

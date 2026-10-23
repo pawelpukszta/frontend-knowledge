@@ -1,6 +1,7 @@
 ---
 title: Micro frontends
 level: senior
+added: 2026-10-20
 tags:
   - micro frontends
   - Module Federation

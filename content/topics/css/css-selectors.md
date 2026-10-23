@@ -1,6 +1,7 @@
 ---
 title: "Selektory CSS: atrybutów, pseudoklasy, :has()"
 level: mid
+added: 2026-10-20
 tags:
   - selektory
   - attribute selector

@@ -6,8 +6,8 @@ let md: Renderer;
 beforeAll(async () => { md = await createRenderer(); });
 
 const category = (topics: string[]) => `order: 1\nname: Core JavaScript\nshort: JS\nhue: scripting\ndesc: Opis.\ntopics: [${topics.join(', ')}]\n`;
-const topic = ({ sources = '\n  - title: MDN\n    url: https://developer.mozilla.org/', body = 'Treść.', extra = '' } = {}) =>
-  `---\ntitle: Domknięcia\nlevel: mid\nsummary: Krótko.\nsources:${sources}\n---\n\n## Wyjaśnienie\n\n${body}\n${extra}`;
+const topic = ({ sources = '\n  - title: MDN\n    url: https://developer.mozilla.org/', body = 'Treść.', extra = '', added = '2026-10-20' } = {}) =>
+  `---\ntitle: Domknięcia\nlevel: mid\nadded: ${added}\nsummary: Krótko.\nsources:${sources}\n---\n\n## Wyjaśnienie\n\n${body}\n${extra}`;
 
 function files(entries: Record<string, string>): ContentFiles {
   return new Map(Object.entries(entries));
@@ -36,6 +36,7 @@ describe('content validation', () => {
     const t = data.topics[0];
     expect(t.id).toBe('closures');
     expect(t.category).toBe('js');
+    expect(t.added).toBe('2026-10-20');
     expect(t.body).toContain('<span class="t-k">const</span>');
     expect(t.body).toContain('<b>Licznik</b>');
     expect(t.qa).toEqual([{ id: 'closures-q1', topic: 'closures', q: 'Czym jest <em>domknięcie</em>?', a: '<p>Funkcja z dostępem do zasięgu.</p>' }]);
@@ -45,6 +46,13 @@ describe('content validation', () => {
   it('rejects a topic without sources', async () => {
     const p = await problems({ 'topics/js/_category.yaml': category(['a']), 'topics/js/a.md': topic({ sources: ' []' }) });
     expect(p.join('\n')).toMatch(/topics\/js\/a\.md: sources: temat musi mieć co najmniej jedno źródło/);
+  });
+
+  it('rejects a topic without a valid added date', async () => {
+    const p = await problems({ 'topics/js/_category.yaml': category(['a']), 'topics/js/a.md': topic({ added: '2026-13-01' }) });
+    expect(p.join('\n')).toMatch(/topics\/js\/a\.md: added: data dodania tematu w formacie RRRR-MM-DD/);
+    const missing = await problems({ 'topics/js/_category.yaml': category(['a']), 'topics/js/a.md': topic().replace(/^added: .*\n/m, '') });
+    expect(missing.join('\n')).toMatch(/topics\/js\/a\.md: added: data dodania tematu/);
   });
 
   it('rejects duplicate topic ids across categories', async () => {

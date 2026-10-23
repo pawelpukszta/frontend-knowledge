@@ -1,6 +1,7 @@
 ---
 title: FCP, TTFB, TBT, Speed Index, TTI
 level: mid
+added: 2026-10-20
 tags:
   - FCP
   - TTFB

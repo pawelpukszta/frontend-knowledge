@@ -1,6 +1,7 @@
 ---
 title: "Accessible name: label, alt, aria-label"
 level: mid
+added: 2026-10-20
 tags:
   - label
   - alt

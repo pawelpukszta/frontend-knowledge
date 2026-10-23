@@ -67,6 +67,7 @@ topics:                  # every topic file of the folder, in display order
 ---
 title: this, arrow functions, call/apply/bind
 level: mid               # mid | senior
+added: 2026-10-20        # date the topic joined the knowledge base, shown on the topic page
 tags: [this, bind]
 summary: One or two sentences shown as the TL;DR (inline Markdown).
 flow: [Step one, Step two]   # optional pipeline of steps

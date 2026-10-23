@@ -1,6 +1,7 @@
 ---
 title: Funkcja strzałkowa vs zwykła funkcja
 level: mid
+added: 2026-10-20
 tags:
   - arrow function
   - function

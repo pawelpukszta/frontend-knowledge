@@ -1,6 +1,7 @@
 ---
 title: "Zasoby blokujące: script, async, defer, type=module"
 level: mid
+added: 2026-10-20
 tags:
   - async
   - defer

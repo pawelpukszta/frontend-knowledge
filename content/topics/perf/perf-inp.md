@@ -1,6 +1,7 @@
 ---
 title: "INP: Interaction to Next Paint"
 level: mid
+added: 2026-10-20
 tags:
   - INP
   - long tasks

@@ -1,6 +1,7 @@
 ---
 title: Czym jest DOM (Document Object Model)
 level: mid
+added: 2026-10-20
 tags:
   - DOM
   - Document Object Model

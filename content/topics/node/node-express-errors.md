@@ -1,6 +1,7 @@
 ---
 title: Obsługa błędów w Express (error middleware)
 level: mid
+added: 2026-10-20
 tags:
   - error handling
   - Express 5

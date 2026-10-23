@@ -1,6 +1,7 @@
 ---
 title: REST vs GraphQL
 level: mid
+added: 2026-10-20
 tags:
   - REST
   - GraphQL

@@ -1,6 +1,7 @@
 ---
 title: AI w pracy front-end developera
 level: senior
+added: 2026-10-20
 tags:
   - AI
   - Copilot

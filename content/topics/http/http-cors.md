@@ -1,6 +1,7 @@
 ---
 title: CORS
 level: mid
+added: 2026-10-20
 tags:
   - CORS
   - same-origin

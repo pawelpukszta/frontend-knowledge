@@ -1,6 +1,7 @@
 ---
 title: Hydration
 level: mid
+added: 2026-10-20
 tags:
   - hydration
   - SSR

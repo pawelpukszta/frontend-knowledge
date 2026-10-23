@@ -1,6 +1,7 @@
 ---
 title: Code review i mentoring
 level: senior
+added: 2026-10-20
 tags:
   - code review
   - mentoring

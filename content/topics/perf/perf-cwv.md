@@ -1,6 +1,7 @@
 ---
 title: "Core Web Vitals: przegląd"
 level: mid
+added: 2026-10-20
 tags:
   - Core Web Vitals
   - LCP

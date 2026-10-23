@@ -1,6 +1,7 @@
 ---
 title: React Compiler
 level: senior
+added: 2026-10-20
 tags:
   - React Compiler
   - memoization

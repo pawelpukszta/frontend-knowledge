@@ -1,6 +1,7 @@
 ---
 title: CSRF (Cross-Site Request Forgery)
 level: mid
+added: 2026-10-20
 tags:
   - CSRF
   - SameSite

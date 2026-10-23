@@ -1,6 +1,7 @@
 ---
 title: Jak wybrać sposób zarządzania stanem
 level: senior
+added: 2026-10-20
 tags:
   - architektura
   - decyzja

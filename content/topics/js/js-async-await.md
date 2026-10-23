@@ -1,6 +1,7 @@
 ---
 title: async/await, błędy i anulowanie
 level: mid
+added: 2026-10-20
 tags:
   - async
   - await

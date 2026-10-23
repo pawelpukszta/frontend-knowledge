@@ -1,6 +1,7 @@
 ---
 title: "Optymalizacja bez memo: przesuń stan w dół, podnieś treść w górę"
 level: senior
+added: 2026-10-20
 tags:
   - composition
   - children

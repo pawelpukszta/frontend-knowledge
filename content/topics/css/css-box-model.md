@@ -1,6 +1,7 @@
 ---
 title: Box model i box-sizing
 level: mid
+added: 2026-10-20
 tags:
   - box model
   - box-sizing

@@ -1,6 +1,7 @@
 ---
 title: "Cache HTTP: Cache-Control, ETag"
 level: senior
+added: 2026-10-20
 tags:
   - cache
   - Cache-Control

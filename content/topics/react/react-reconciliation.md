@@ -1,6 +1,7 @@
 ---
 title: Virtual DOM, reconciliation i klucze
 level: mid
+added: 2026-10-20
 tags:
   - Virtual DOM
   - reconciliation

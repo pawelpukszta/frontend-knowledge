@@ -1,6 +1,7 @@
 ---
 title: ES Modules vs CommonJS
 level: mid
+added: 2026-10-20
 tags:
   - ESM
   - CommonJS

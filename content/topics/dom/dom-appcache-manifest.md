@@ -1,6 +1,7 @@
 ---
 title: "Plik manifestu w HTML5: AppCache (przestarzały) i Web App Manifest"
 level: mid
+added: 2026-10-20
 tags:
   - manifest
   - AppCache

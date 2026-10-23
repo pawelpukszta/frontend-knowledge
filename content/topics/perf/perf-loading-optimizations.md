@@ -1,6 +1,7 @@
 ---
 title: "Optymalizacja ładowania: lazy loading, preload, prefetch, obrazy"
 level: mid
+added: 2026-10-20
 tags:
   - lazy loading
   - preload

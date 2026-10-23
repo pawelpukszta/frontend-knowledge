@@ -175,7 +175,7 @@ function parseTopic(file: string, id: string, category: string, text: string, md
 
   const html = (s: string | undefined) => (s ? md.block(s) : undefined);
   return {
-    id, category, title: fm.title, level: fm.level, tags: fm.tags, summary: md.inline(fm.summary), flow: fm.flow,
+    id, category, title: fm.title, level: fm.level, added: fm.added, tags: fm.tags, summary: md.inline(fm.summary), flow: fm.flow,
     body: html(sec.body), analogy: html(sec.analogy), code: html(sec.code), pitfalls: html(sec.pitfalls),
     qa, quiz, sources: fm.sources,
   };

@@ -1,6 +1,7 @@
 ---
 title: Dane lab vs field (RUM)
 level: senior
+added: 2026-10-20
 tags:
   - lab data
   - field data

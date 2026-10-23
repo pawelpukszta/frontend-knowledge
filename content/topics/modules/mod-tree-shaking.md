@@ -1,6 +1,7 @@
 ---
 title: Tree shaking i efekty uboczne
 level: senior
+added: 2026-10-20
 tags:
   - tree shaking
   - bundler

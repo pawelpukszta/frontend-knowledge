@@ -1,6 +1,7 @@
 ---
 title: "HTTP: request, response, nagłówki"
 level: mid
+added: 2026-10-20
 tags:
   - HTTP
   - request

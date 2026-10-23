@@ -1,6 +1,7 @@
 ---
 title: "Strategia testów: piramida i testing trophy"
 level: senior
+added: 2026-10-20
 tags:
   - testy
   - unit

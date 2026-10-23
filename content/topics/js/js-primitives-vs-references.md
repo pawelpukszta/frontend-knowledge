@@ -1,6 +1,7 @@
 ---
 title: Typy proste vs referencyjne
 level: mid
+added: 2026-10-20
 tags:
   - typy
   - referencje

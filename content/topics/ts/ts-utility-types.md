@@ -1,6 +1,7 @@
 ---
 title: Utility types, mapped i conditional types
 level: mid
+added: 2026-10-20
 tags:
   - Partial
   - Pick

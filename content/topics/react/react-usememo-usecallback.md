@@ -1,6 +1,7 @@
 ---
 title: "useMemo i useCallback: kiedy tak, kiedy nie"
 level: mid
+added: 2026-10-20
 tags:
   - useMemo
   - useCallback

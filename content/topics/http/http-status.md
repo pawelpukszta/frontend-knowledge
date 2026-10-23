@@ -1,6 +1,7 @@
 ---
 title: Kody statusu HTTP
 level: mid
+added: 2026-10-20
 tags:
   - status
   - "200"

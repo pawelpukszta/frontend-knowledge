@@ -1,6 +1,7 @@
 ---
 title: Funkcje wyższego rzędu, currying i kompozycja
 level: mid
+added: 2026-10-20
 tags:
   - higher-order function
   - currying

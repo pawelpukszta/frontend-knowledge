@@ -1,6 +1,7 @@
 ---
 title: "Critical Rendering Path: od HTML do pikseli"
 level: mid
+added: 2026-10-20
 tags:
   - CRP
   - DOM

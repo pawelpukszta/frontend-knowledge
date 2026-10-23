@@ -1,6 +1,7 @@
 ---
 title: "Stringi: metody, wycinanie i Unicode"
 level: mid
+added: 2026-10-20
 tags:
   - string
   - slice

@@ -1,6 +1,7 @@
 ---
 title: "DevTools: zakładka Network"
 level: mid
+added: 2026-10-20
 tags:
   - DevTools
   - Network panel

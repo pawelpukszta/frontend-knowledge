@@ -1,6 +1,7 @@
 ---
 title: WCAG, POUR i European Accessibility Act
 level: mid
+added: 2026-10-20
 tags:
   - WCAG
   - POUR

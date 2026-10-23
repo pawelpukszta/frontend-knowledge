@@ -1,6 +1,7 @@
 ---
 title: Named exports vs default export
 level: mid
+added: 2026-10-20
 tags:
   - import
   - export

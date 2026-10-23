@@ -1,6 +1,7 @@
 ---
 title: Scope i domknięcia (closures)
 level: mid
+added: 2026-10-20
 tags:
   - closure
   - scope

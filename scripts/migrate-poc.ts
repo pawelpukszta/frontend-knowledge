@@ -154,8 +154,11 @@ function fence(lang: string, title: string, src: string): string {
 const frontmatter = (data: object) => `---\n${stringify(data, { lineWidth: 0 }).trimEnd()}\n---\n`;
 const section = (title: string, body: string | undefined) => (body ? `\n## ${title}\n\n${body}\n` : '');
 
+/** Day the PoC topics joined the knowledge base (phase 2 migration). */
+const MIGRATED = '2026-10-20';
+
 export function topicToMd(t: PocTopic): string {
-  const fm: Record<string, unknown> = { title: t.title, level: t.level, tags: t.tags, summary: t.summary };
+  const fm: Record<string, unknown> = { title: t.title, level: t.level, added: MIGRATED, tags: t.tags, summary: t.summary };
   if (t.flow) fm.flow = t.flow;
   fm.sources = t.sources;
   return frontmatter(fm)

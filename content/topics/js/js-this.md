@@ -1,6 +1,7 @@
 ---
 title: this, arrow functions, call/apply/bind
 level: mid
+added: 2026-10-20
 tags:
   - this
   - arrow function

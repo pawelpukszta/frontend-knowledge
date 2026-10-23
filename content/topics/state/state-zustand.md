@@ -1,6 +1,7 @@
 ---
 title: Zustand
 level: mid
+added: 2026-10-20
 tags:
   - Zustand
   - store

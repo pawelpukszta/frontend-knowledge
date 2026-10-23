@@ -1,6 +1,7 @@
 ---
 title: Discriminated unions i exhaustiveness check
 level: mid
+added: 2026-10-20
 tags:
   - union
   - discriminated union

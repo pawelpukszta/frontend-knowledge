@@ -11,6 +11,10 @@ export const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀
 
 export const stripHtml = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ');
 
+const DAY = new Intl.DateTimeFormat('pl', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+/** `2026-10-20` -> `20 paź 2026`. UTC, so the day never shifts with the reader's time zone. */
+export const formatDay = (isoDate: string) => DAY.format(new Date(isoDate));
+
 export const host = (url: string) => {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
 };

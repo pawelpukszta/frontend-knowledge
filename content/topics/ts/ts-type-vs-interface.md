@@ -1,6 +1,7 @@
 ---
 title: type vs interface
 level: mid
+added: 2026-10-20
 tags:
   - type
   - interface

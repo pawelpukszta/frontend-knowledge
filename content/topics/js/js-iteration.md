@@ -1,6 +1,7 @@
 ---
 title: "Iterowanie: for, for...of, for...in, forEach, Object.entries"
 level: mid
+added: 2026-10-20
 tags:
   - for...of
   - for...in

@@ -1,6 +1,7 @@
 ---
 title: Promise.all, allSettled, race, any
 level: mid
+added: 2026-10-20
 tags:
   - promise
   - all

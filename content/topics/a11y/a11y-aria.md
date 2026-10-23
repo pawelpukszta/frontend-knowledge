@@ -1,6 +1,7 @@
 ---
 title: ARIA i pierwsza zasada ARIA
 level: mid
+added: 2026-10-20
 tags:
   - ARIA
   - role

@@ -1,6 +1,7 @@
 ---
 title: "CLS: Cumulative Layout Shift"
 level: mid
+added: 2026-10-20
 tags:
   - CLS
   - layout shift

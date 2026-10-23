@@ -26,6 +26,17 @@ pnpm content:check   # validate content/ without building the app
 pnpm test
 ```
 
+### Desktop app (tinyjs)
+
+The desktop app wraps the same build in a native window with [tinyjs](https://tinyjs.app/) (Windows 10/11 with WebView2, macOS 15+, Linux). Install the tinyjs CLI ([instructions](https://tinyjs.app/docs/install)), then:
+
+```bash
+tinyjs dev     # native window over the Vite dev server, with hot reload
+tinyjs build   # the app for the current OS in dist/ (replaces the web build there)
+```
+
+On the desktop, progress is saved to `store.json` in the app's data folder (for example `%APPDATA%\io.github.pawelpukszta.frontend-knowledge\` on Windows); in the browser it is saved to IndexedDB. CI builds the desktop app on Windows and macOS for every pull request (the `desktop` job, not required to merge).
+
 Not in CI yet:
 
 ```bash
@@ -43,6 +54,7 @@ content/
 tools/content/   content schema (Zod), parser, Markdown renderer (Shiki) and the Vite plugin
 src/             the app: views, components, styles
 scripts/         one-off migration of the proof-of-concept content to Markdown
+tinyjs.json      desktop app config (name, id, version, window); backend/ is its txiki.js backend, assets/icon.png its icon
 ```
 
 The file name is the id: `content/topics/js/js-this.md` is the topic `js-this`, shown at `#/t/js-this`. Ids must be unique, lowercase and use hyphens.

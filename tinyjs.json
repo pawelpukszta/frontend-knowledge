@@ -1,0 +1,17 @@
+{
+  "$schema": "https://tinyjs.app/schema/tinyjs.schema.json",
+  "name": "baza-wiedzy-fe",
+  "title": "Baza wiedzy FE",
+  "id": "io.github.pawelpukszta.frontend-knowledge",
+  "version": "0.1.0",
+  "minTinyjsVersion": "0.63.0",
+  "size": "1200x800",
+  "rememberWindows": true,
+  "backend": "backend/main.js",
+  "frontend": {
+    "build": "pnpm build",
+    "dist": "dist",
+    "dev": "pnpm dev --host 127.0.0.1 --port 5173 --strictPort",
+    "devUrl": "http://127.0.0.1:5173"
+  }
+}

@@ -14,6 +14,23 @@ export function memoryAdapter(): StorageAdapter {
   };
 }
 
+/** The part of the tinyjs page API (`window.tiny.store`) this app uses. */
+export interface TinyStore {
+  get(key: string): Promise<unknown>;
+  /** Resolves false when the file could not be written. */
+  set(key: string, value: unknown): Promise<boolean>;
+}
+
+/** tinyjs desktop: `store.json` in the app's data folder, written atomically (temp file + rename). */
+export function tinyStoreAdapter(store: TinyStore): StorageAdapter {
+  return {
+    load: async (key) => (await store.get(key)) ?? undefined,
+    save: async (key, value) => {
+      if (!(await store.set(key, value))) throw new Error(`tiny.store: could not save "${key}"`);
+    },
+  };
+}
+
 const request = <T>(r: IDBRequest<T>) => new Promise<T>((resolve, reject) => {
   r.onsuccess = () => resolve(r.result);
   r.onerror = () => reject(r.error);

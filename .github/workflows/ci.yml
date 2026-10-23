@@ -25,3 +25,39 @@ jobs:
       - run: pnpm run content:check
       - run: pnpm test
       - run: pnpm run build
+
+  # Smoke build of the tinyjs desktop app. Not a required check: tinyjs is young and a
+  # broken release of it must not block content PRs.
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      TINYJS_VERSION: v0.63.0
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install tinyjs (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          irm https://tinyjs.app/install.ps1 | iex
+          "$env:LOCALAPPDATA\tinyjs" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: Install tinyjs (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          curl -fsSL https://tinyjs.app/install | sh
+          echo "$HOME/.tinyjs" >> "$GITHUB_PATH"
+      - run: tinyjs build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}
+          path: dist/
+          retention-days: 7

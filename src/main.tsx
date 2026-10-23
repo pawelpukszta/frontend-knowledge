@@ -12,11 +12,17 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { installCopyButtons } from './lib/copy';
-import { indexedDbAdapter, memoryAdapter } from './lib/storage';
+import { indexedDbAdapter, memoryAdapter, tinyStoreAdapter, type TinyStore } from './lib/storage';
 import { initUserData, userData } from './lib/userData';
 
+declare global {
+  /** Injected by the tinyjs desktop shell; absent in the browser and the PWA. */
+  interface Window { tiny?: { store: TinyStore } }
+}
+
 installCopyButtons();
-await initUserData('indexedDB' in window ? indexedDbAdapter() : memoryAdapter());
+const tiny = window.tiny;
+await initUserData(tiny ? tinyStoreAdapter(tiny.store) : 'indexedDB' in window ? indexedDbAdapter() : memoryAdapter());
 
 // Opening the app without a deep link returns to the last view.
 const last = userData.get().settings.lastView;

@@ -1,6 +1,7 @@
 ---
 title: "Formularze i refy: kontrolowane pola, useRef i akcje w React 19"
 level: mid
+added: 2026-10-23
 tags:
   - formularze
   - useRef

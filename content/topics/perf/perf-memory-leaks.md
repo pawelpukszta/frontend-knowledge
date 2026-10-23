@@ -1,6 +1,7 @@
 ---
 title: "Wycieki pamięci we front-endzie i ich diagnoza"
 level: senior
+added: 2026-10-23
 tags:
   - memory leak
   - heap snapshot

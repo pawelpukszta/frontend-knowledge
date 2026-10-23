@@ -1,6 +1,7 @@
 ---
 title: "Uwierzytelnianie, autoryzacja i OAuth 2.0"
 level: mid
+added: 2026-10-23
 tags:
   - OAuth 2.0
   - PKCE

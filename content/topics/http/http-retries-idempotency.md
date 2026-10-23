@@ -1,6 +1,7 @@
 ---
 title: "Błędy, timeouty, ponowienia i idempotencja"
 level: senior
+added: 2026-10-23
 tags:
   - retry
   - backoff

@@ -1,6 +1,7 @@
 ---
 title: "React Testing Library: testuj jak użytkownik"
 level: mid
+added: 2026-10-23
 tags:
   - Testing Library
   - user-event

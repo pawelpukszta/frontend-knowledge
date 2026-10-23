@@ -1,6 +1,7 @@
 ---
 title: "tsconfig: strict, dodatkowe flagi i migracja dużego projektu"
 level: senior
+added: 2026-10-23
 tags:
   - tsconfig
   - strict

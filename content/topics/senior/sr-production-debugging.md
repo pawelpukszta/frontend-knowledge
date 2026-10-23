@@ -1,6 +1,7 @@
 ---
 title: Debugowanie produkcji
 level: senior
+added: 2026-10-23
 tags:
   - debugging
   - incydenty

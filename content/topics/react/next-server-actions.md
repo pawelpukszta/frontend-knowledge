@@ -1,6 +1,7 @@
 ---
 title: "Server Actions, Route Handlers i mutacje w Next.js"
 level: mid
+added: 2026-10-23
 tags:
   - Next.js
   - Server Actions

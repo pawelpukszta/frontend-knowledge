@@ -1,6 +1,7 @@
 ---
 title: CI/CD i dostarczanie zmian
 level: senior
+added: 2026-10-23
 tags:
   - CI/CD
   - GitHub Actions

@@ -1,6 +1,7 @@
 ---
 title: Agenty AI, MCP i bezpieczeństwo narzędzi
 level: senior
+added: 2026-10-23
 tags:
   - agenty
   - tool use

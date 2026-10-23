@@ -1,6 +1,7 @@
 ---
 title: "Custom properties: zmienne CSS, @property i motywy"
 level: mid
+added: 2026-10-23
 tags:
   - custom properties
   - "@property"

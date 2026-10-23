@@ -1,6 +1,7 @@
 ---
 title: "Walidacja w runtime: granice zaufania, Zod i Standard Schema"
 level: mid
+added: 2026-10-23
 tags:
   - Zod
   - walidacja

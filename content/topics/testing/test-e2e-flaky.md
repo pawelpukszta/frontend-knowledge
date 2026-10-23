@@ -1,6 +1,7 @@
 ---
 title: "Testy E2E w Playwright i niestabilne testy"
 level: senior
+added: 2026-10-23
 tags:
   - Playwright
   - e2e

@@ -1,6 +1,7 @@
 ---
 title: "Czysty kod w React i TypeScript"
 level: mid
+added: 2026-10-23
 tags:
   - clean code
   - Single Responsibility

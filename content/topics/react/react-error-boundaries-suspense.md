@@ -1,6 +1,7 @@
 ---
 title: Error boundaries i Suspense
 level: mid
+added: 2026-10-23
 tags:
   - error boundary
   - Suspense

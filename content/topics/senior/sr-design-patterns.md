@@ -1,6 +1,7 @@
 ---
 title: "Wzorce projektowe w JS i React"
 level: senior
+added: 2026-10-23
 tags:
   - wzorce projektowe
   - Observer

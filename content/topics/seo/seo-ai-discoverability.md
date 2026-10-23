@@ -1,6 +1,7 @@
 ---
 title: "Widoczność w asystentach AI: crawlery, robots.txt i llms.txt"
 level: senior
+added: 2026-10-23
 tags:
   - SEO
   - AI

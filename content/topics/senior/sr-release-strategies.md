@@ -1,6 +1,7 @@
 ---
 title: Strategie wydań, feature flagi i rollback
 level: senior
+added: 2026-10-23
 tags:
   - feature flags
   - canary

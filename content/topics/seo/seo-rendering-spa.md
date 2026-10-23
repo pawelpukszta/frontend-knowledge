@@ -1,6 +1,7 @@
 ---
 title: "SEO a JavaScript: jak Google renderuje SPA"
 level: mid
+added: 2026-10-23
 tags:
   - SEO
   - SPA

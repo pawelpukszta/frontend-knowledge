@@ -1,6 +1,7 @@
 ---
 title: "Animacje i ruch: transitions, @keyframes, View Transitions"
 level: mid
+added: 2026-10-23
 tags:
   - transition
   - keyframes

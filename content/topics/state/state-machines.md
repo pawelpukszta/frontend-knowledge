@@ -1,6 +1,7 @@
 ---
 title: "Maszyny stanów w UI: status zamiast flag"
 level: mid
+added: 2026-10-23
 tags:
   - maszyna stanów
   - useReducer

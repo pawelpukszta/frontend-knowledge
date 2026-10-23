@@ -1,6 +1,7 @@
 ---
 title: "Współpraca w zespole: spory, feedback, wpływ"
 level: mid
+added: 2026-10-23
 tags:
   - współpraca
   - komunikacja

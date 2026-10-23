@@ -1,6 +1,7 @@
 ---
 title: "Cache w Next.js 16: use cache, cacheLife, cacheTag i invalidacja"
 level: senior
+added: 2026-10-23
 tags:
   - Next.js
   - cache

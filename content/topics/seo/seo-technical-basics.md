@@ -1,6 +1,7 @@
 ---
 title: "Techniczne SEO: title, meta, canonical, robots i sitemap"
 level: mid
+added: 2026-10-23
 tags:
   - SEO
   - canonical

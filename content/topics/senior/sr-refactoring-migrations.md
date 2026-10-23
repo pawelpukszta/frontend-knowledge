@@ -1,6 +1,7 @@
 ---
 title: "Refaktoryzacja i duże migracje"
 level: senior
+added: 2026-10-23
 tags:
   - refactoring
   - strangler fig

@@ -1,6 +1,7 @@
 ---
 title: "BFF (Backend for Frontend): kiedy i jak go budować"
 level: senior
+added: 2026-10-23
 tags:
   - BFF
   - architektura

@@ -1,6 +1,7 @@
 ---
 title: "Mockowanie na granicy systemu: MSW, fabryki danych, fake timers"
 level: mid
+added: 2026-10-23
 tags:
   - MSW
   - mockowanie

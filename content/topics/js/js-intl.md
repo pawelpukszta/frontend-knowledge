@@ -1,6 +1,7 @@
 ---
 title: "Intl: liczby, daty, liczba mnoga i listy"
 level: mid
+added: 2026-10-23
 tags:
   - Intl
   - i18n

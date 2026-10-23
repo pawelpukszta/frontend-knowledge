@@ -1,6 +1,7 @@
 ---
 title: "Typowanie strukturalne, excess property checks i branded types"
 level: mid
+added: 2026-10-23
 tags:
   - structural typing
   - branded types

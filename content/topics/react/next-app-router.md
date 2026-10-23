@@ -1,6 +1,7 @@
 ---
 title: "Next.js App Router: pliki, trasy i nawigacja"
 level: mid
+added: 2026-10-23
 tags:
   - Next.js
   - App Router

@@ -1,6 +1,7 @@
 ---
 title: "Wzorce kompozycji: children, sloty i compound components"
 level: senior
+added: 2026-10-23
 tags:
   - composition
   - children

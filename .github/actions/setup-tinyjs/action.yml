@@ -1,0 +1,34 @@
+name: Set up tinyjs
+description: Install pnpm, Node, the project packages and a pinned tinyjs CLI (Windows or macOS runner).
+
+inputs:
+  version:
+    description: tinyjs release tag
+    default: v0.63.0
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+    - uses: actions/setup-node@v5
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+    - name: Install tinyjs (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        TINYJS_VERSION: ${{ inputs.version }}
+      run: |
+        irm https://tinyjs.app/install.ps1 | iex
+        "$env:LOCALAPPDATA\tinyjs" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+    - name: Install tinyjs (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      env:
+        TINYJS_VERSION: ${{ inputs.version }}
+      run: |
+        curl -fsSL https://tinyjs.app/install | sh
+        echo "$HOME/.tinyjs" >> "$GITHUB_PATH"

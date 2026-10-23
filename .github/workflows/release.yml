@@ -1,0 +1,71 @@
+name: Release
+
+# Pushing a tag vX.Y.Z builds the desktop app and publishes a GitHub Release. The files keep the same
+# names in every release, so .../releases/latest/download/<file> (linked from site/index.html) always
+# points to the newest version. A pull request that changes this workflow builds the files without
+# publishing them.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - .github/actions/setup-tinyjs/**
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            file: baza-wiedzy-fe-windows-x64.zip
+          - os: macos-latest
+            file: baza-wiedzy-fe-macos.dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check that the tag matches package.json and tinyjs.json
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for f in package.json tinyjs.json; do
+            v=$(node -p "require('./$f').version")
+            [ "$v" = "$tag" ] || { echo "::error::$f has version $v, the tag is $GITHUB_REF_NAME"; exit 1; }
+          done
+      - uses: ./.github/actions/setup-tinyjs
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          tinyjs build
+          # The exe needs the files beside it, so the zip holds the whole folder.
+          New-Item -ItemType Directory pkg | Out-Null
+          Copy-Item dist "pkg/Baza wiedzy FE" -Recurse
+          Compress-Archive -Path "pkg/Baza wiedzy FE" -DestinationPath "${{ matrix.file }}"
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          tinyjs build --universal --dmg
+          mv dist/*.dmg "${{ matrix.file }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.file }}
+          path: ${{ matrix.file }}
+          retention-days: 7
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes baza-wiedzy-fe-windows-x64.zip baza-wiedzy-fe-macos.dmg

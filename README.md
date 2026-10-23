@@ -4,7 +4,7 @@ Front-end interview prep app (mid / senior), in Polish: a topic library, intervi
 
 Built with React 19, TypeScript and Vite. Content lives in this repo as Markdown files and is validated at build time. The app runs in the browser as an installable PWA that works offline, and on the desktop as a [tinyjs](https://tinyjs.app/) app.
 
-**Open the app:** https://pawelpukszta.github.io/frontend-knowledge/app/ (on Android: Chrome menu, "Install app"; on iOS: Safari, Share, "Add to Home Screen").
+**Open the app:** https://pawelpukszta.github.io/frontend-knowledge/app/ (on Android: Chrome menu, "Install app"; on iOS: Safari, Share, "Add to Home Screen"). Desktop downloads and install steps: https://pawelpukszta.github.io/frontend-knowledge/
 
 > The original single-file proof of concept is kept as the [`poc-v0`](../../tree/poc-v0) tag.
 
@@ -39,9 +39,17 @@ tinyjs build   # the app for the current OS in dist/ (replaces the web build the
 
 On the desktop, progress is saved to `store.json` in the app's data folder (for example `%APPDATA%\io.github.pawelpukszta.frontend-knowledge\` on Windows); in the browser it is saved to IndexedDB. CI builds the desktop app on Windows and macOS for every pull request (the `desktop` job, not required to merge).
 
+To release, set the same version in `package.json` and `tinyjs.json`, merge, then push a tag:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` checks that the tag matches both versions, builds `baza-wiedzy-fe-windows-x64.zip` and a universal `baza-wiedzy-fe-macos.dmg`, and publishes them as a GitHub Release. The file names never change, so the download buttons on the Pages root (`.../releases/latest/download/<file>`) always get the newest version. The builds are not signed: Windows shows SmartScreen and macOS asks for "Open Anyway" in Privacy & Security.
+
 ### PWA and deployment
 
-Every merge to `main` deploys to GitHub Pages (`.github/workflows/pages.yml`): the app goes to `/app/`, and `site/index.html` at the root redirects there until the landing page exists. The service worker (`vite-plugin-pwa`) precaches the app, all content and the Latin font files; after a deploy the app shows "Jest nowa wersja aplikacji" with a reload button. It is not registered in the desktop app (`file://`).
+Every merge to `main` deploys to GitHub Pages (`.github/workflows/pages.yml`): the app goes to `/app/`, and `site/index.html` at the root links to it and to the desktop downloads, with install steps for every platform (a placeholder for the landing page). The service worker (`vite-plugin-pwa`) precaches the app, all content and the Latin font files; after a deploy the app shows "Jest nowa wersja aplikacji" with a reload button. It is not registered in the desktop app (`file://`).
 
 The build keeps updates small: each topic category and each checklist category is a separate content file (`dist/data/<category>.<hash>.js`), and `index.html` lists them. A content change rebuilds one of those files plus `index.html`; the app code and the other categories stay cached on the reader's device.
 
